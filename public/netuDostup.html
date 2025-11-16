@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Админка - Добавление товара</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+        }
+
+        body {
+            background: #f5f5f5;
+            color: #333;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 2px 20px rgba(0,0,0,0.1);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 3px solid #73a9fa;
+        }
+
+        .header h1 {
+            color: #73a9fa;
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: #666;
+            font-size: 16px;
+        }
+
+        .form-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #73a9fa;
+        }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .section-title i {
+            color: #73a9fa;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #555;
+            font-size: 14px;
+        }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 15px;
+            transition: all 0.3s ease;
+            background: white;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #FF5000;
+            box-shadow: 0 0 0 3px rgba(255, 80, 0, 0.1);
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 100px;
+            font-family: inherit;
+        }
+
+        .price-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .checkbox-group {
+            display: flex;
+            gap: 25px;
+            flex-wrap: wrap;
+            margin-top: 15px;
+        }
+
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+        }
+
+        .checkbox-item input {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .checkbox-item label {
+            margin-bottom: 0;
+            cursor: pointer;
+            font-weight: 500;
+        }
+
+        /* Кнопки */
+        .button-group {
+            display: flex;
+            gap: 20px;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 2px solid #e0e0e0;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 15px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #73a9fa, #FF8000);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #73a9fa, #e07000);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(255, 80, 0, 0.3);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+            transform: translateY(-2px);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        /* Сообщения */
+        .message {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+            align-items: center;
+            gap: 10px;
+            font-weight: 500;
+        }
+
+        .message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        /* Медицинские поля */
+        .medical-info {
+            background: #b5d6eb;
+            border-left: 4px solid #0751ff;
+        }
+
+        .required::after {
+            content: " *";
+            color: #73a9fa;
+        }
+
+        .character-count {
+            font-size: 12px;
+            color: #666;
+            text-align: right;
+            margin-top: 5px;
+        }
+
+        .error-field {
+            border-color: #73a9fa !important;
+            box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.1) !important;
+        }
+
+        .error-message {
+            color: #73a9fa;
+            font-size: 12px;
+            margin-top: 5px;
+            display: none;
+        }
+
+        .loading {
+            opacity: 0.7;
+            pointer-events: none;
+        }
+
+        /* Адаптивность */
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+                margin: 10px;
+            }
+            
+            .price-row {
+                grid-template-columns: 1fr;
+            }
+            
+            .checkbox-group {
+                gap: 15px;
+            }
+            
+            .button-group {
+                flex-direction: column;
+            }
+            
+            .header h1 {
+                font-size: 24px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            body {
+                padding: 10px;
+            }
+            
+            .container {
+                padding: 15px;
+            }
+            
+            .form-section {
+                padding: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1><i class="fas fa-plus-circle"></i> Добавление товара</h1>
+            <p>Заполните все необходимые поля для публикации товара в аптеке</p>
+        </div>
+
+        <!-- Сообщения -->
+        <div class="message success" id="success-message">
+            <i class="fas fa-check-circle"></i> 
+            <span id="success-text">Товар успешно добавлен!</span>
+        </div>
+        <div class="message error" id="error-message">
+            <i class="fas fa-exclamation-triangle"></i> 
+            <span id="error-text">Ошибка при добавлении товара</span>
+        </div>
+
+        <form id="product-form">
+            <!-- Основная информация -->
+            <div class="form-section">
+                <div class="section-title">
+                    <i class="fas fa-info-circle"></i>
+                    <span>Основная информация</span>
+                </div>
+                
+                <div class="form-group">
+                    <label class="required">Название товара</label>
+                    <input type="text" id="name" name="name" required 
+                           placeholder="Например: Нурофен таблетки 200мг №20"
+                           maxlength="255">
+                    <div class="error-message" id="name-error">Название товара обязательно</div>
+                </div>
+
+                <div class="form-group">
+                    <label class="required">Категория</label>
+                    <select id="category_id" name="category_id" required>
+                        <option value="">Выберите категорию</option>
+                        <!-- Категории будут загружены через JavaScript -->
+                    </select>
+                    <div class="error-message" id="category-error">Категория обязательна</div>
+                </div>
+
+                <div class="form-group">
+                    <label>Краткое описание</label>
+                    <textarea id="description" name="description" 
+                              placeholder="Краткое описание товара для карточки"
+                              maxlength="500"></textarea>
+                    <div class="character-count" id="description-count">0/500</div>
+                </div>
+
+                <div class="price-row">
+                    <div class="form-group">
+                        <label class="required">Цена (₽)</label>
+                        <input type="number" id="price" name="price" 
+                               step="0.01" min="0.01" required 
+                               placeholder="0.00">
+                        <div class="error-message" id="price-error">Цена должна быть больше 0</div>
+                    </div>
+                    <div class="form-group">
+                        <label>Старая цена (₽)</label>
+                        <input type="number" id="old_price" name="old_price" 
+                               step="0.01" min="0" 
+                               placeholder="0.00">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Производитель -->
+            <div class="form-section">
+                <div class="section-title">
+                    <i class="fas fa-industry"></i>
+                    <span>Производитель</span>
+                </div>
+                
+                <div class="form-group">
+                    <label>Производитель</label>
+                    <input type="text" id="manufacturer" name="manufacturer" 
+                           placeholder="Например: Рекитт Бенкизер"
+                           maxlength="100">
+                </div>
+
+                <div class="form-group">
+                    <label>Страна производства</label>
+                    <input type="text" id="country" name="country" 
+                           placeholder="Например: Великобритания"
+                           maxlength="50">
+                </div>
+            </div>
+
+            <!-- Медицинская информация -->
+            <div class="form-section medical-info">
+                <div class="section-title">
+                    <i class="fas fa-heartbeat"></i>
+                    <span>Медицинская информация</span>
+                </div>
+                
+                <div class="form-group">
+                    <label>Показания к применению</label>
+                    <textarea id="indications" name="indications" 
+                              placeholder="При каких симптомах/заболеваниях применяется"
+                              maxlength="1000"></textarea>
+                    <div class="character-count" id="indications-count">0/1000</div>
+                </div>
+
+                <div class="form-group">
+                    <label>Способ применения</label>
+                    <textarea id="usage" name="usage" 
+                              placeholder="Как правильно применять препарат"
+                              maxlength="1000"></textarea>
+                    <div class="character-count" id="usage-count">0/1000</div>
+                </div>
+
+                <div class="form-group">
+                    <label>Противопоказания</label>
+                    <textarea id="contraindications" name="contraindications" 
+                              placeholder="Когда нельзя применять"
+                              maxlength="1000"></textarea>
+                    <div class="character-count" id="contraindications-count">0/1000</div>
+                </div>
+
+                <div class="form-group">
+                    <label>Состав</label>
+                    <textarea id="composition" name="composition" 
+                              placeholder="Активные вещества и состав"
+                              maxlength="500"></textarea>
+                    <div class="character-count" id="composition-count">0/500</div>
+                </div>
+
+                <div class="form-group">
+                    <label>Дозировка</label>
+                    <input type="text" id="dosage" name="dosage" 
+                           placeholder="Например: 200 мг"
+                           maxlength="100">
+                </div>
+
+                <div class="form-group">
+                    <label>Срок годности</label>
+                    <input type="text" id="expiry_date" name="expiry_date" 
+                           placeholder="Например: 2 года"
+                           maxlength="50">
+                </div>
+
+                <div class="form-group">
+                    <label>Условия хранения</label>
+                    <input type="text" id="storage_conditions" name="storage_conditions" 
+                           placeholder="Например: При температуре до 25°C"
+                           maxlength="200">
+                </div>
+            </div>
+
+            <!-- Наличие и свойства -->
+            <div class="form-section">
+                <div class="section-title">
+                    <i class="fas fa-box"></i>
+                    <span>Наличие и свойства</span>
+                </div>
+                
+                <div class="form-group">
+                    <label class="required">Количество на складе</label>
+                    <input type="number" id="stock_quantity" name="stock_quantity" 
+                           min="0" value="0" required>
+                    <div class="error-message" id="stock-error">Количество обязательно</div>
+                </div>
+
+                <div class="checkbox-group">
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="in_stock" name="in_stock" checked>
+                        <label for="in_stock">В наличии</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="is_popular" name="is_popular">
+                        <label for="is_popular">Популярный товар</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="is_new" name="is_new" checked>
+                        <label for="is_new">Новый товар</label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Кнопки отправки -->
+            <div class="button-group">
+                <button type="button" class="btn btn-secondary" onclick="clearForm()" id="clear-btn">
+                    <i class="fas fa-trash"></i>
+                    Очистить форму
+                </button>
+                <button type="submit" class="btn btn-primary" id="submit-btn">
+                    <i class="fas fa-save"></i>
+                    Добавить товар
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        // Загрузка категорий при загрузке страницы
+        document.addEventListener('DOMContentLoaded', function() {
+            loadCategories();
+            setupCharacterCounters();
+            setupValidation();
+        });
+
+        // Загрузка списка категорий
+        async function loadCategories() {
+            try {
+                const response = await fetch('/api/categories');
+                if (!response.ok) {
+                    throw new Error('Ошибка загрузки категорий');
+                }
+                const categories = await response.json();
+                
+                const select = document.getElementById('category_id');
+                select.innerHTML = '<option value="">Выберите категорию</option>';
+                
+                categories.forEach(category => {
+                    const option = document.createElement('option');
+                    option.value = category.id;
+                    option.textContent = category.name;
+                    select.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Ошибка загрузки категорий:', error);
+                showMessage('error', 'Не удалось загрузить категории. Проверьте подключение к серверу.');
+            }
+        }
+
+        // Настройка счетчиков символов
+        function setupCharacterCounters() {
+            const textareas = [
+                { id: 'description', max: 500 },
+                { id: 'indications', max: 1000 },
+                { id: 'usage', max: 1000 },
+                { id: 'contraindications', max: 1000 },
+                { id: 'composition', max: 500 }
+            ];
+
+            textareas.forEach(({ id, max }) => {
+                const textarea = document.getElementById(id);
+                const counter = document.getElementById(`${id}-count`);
+                
+                if (textarea && counter) {
+                    textarea.addEventListener('input', function() {
+                        const count = this.value.length;
+                        counter.textContent = `${count}/${max}`;
+                        
+                        if (count > max) {
+                            counter.style.color = '#dc3545';
+                            this.classList.add('error-field');
+                        } else {
+                            counter.style.color = '#666';
+                            this.classList.remove('error-field');
+                        }
+                    });
+                    
+                    // Инициализация счетчика
+                    const initialCount = textarea.value.length;
+                    counter.textContent = `${initialCount}/${max}`;
+                }
+            });
+        }
+
+        // Настройка валидации
+        function setupValidation() {
+            const requiredFields = ['name', 'price', 'category_id', 'stock_quantity'];
+            
+            requiredFields.forEach(fieldId => {
+                const field = document.getElementById(fieldId);
+                const errorElement = document.getElementById(`${fieldId}-error`);
+                
+                if (field && errorElement) {
+                    field.addEventListener('blur', function() {
+                        validateField(this, errorElement);
+                    });
+                    
+                    field.addEventListener('input', function() {
+                        if (!this.classList.contains('error-field')) return;
+                        validateField(this, errorElement);
+                    });
+                }
+            });
+            
+            // Специальная валидация для цены
+            const priceField = document.getElementById('price');
+            const priceError = document.getElementById('price-error');
+            
+            if (priceField && priceError) {
+                priceField.addEventListener('input', function() {
+                    const value = parseFloat(this.value);
+                    if (value <= 0) {
+                        this.classList.add('error-field');
+                        priceError.textContent = 'Цена должна быть больше 0';
+                        priceError.style.display = 'block';
+                    } else {
+                        this.classList.remove('error-field');
+                        priceError.style.display = 'none';
+                    }
+                });
+            }
+        }
+
+        // Валидация отдельного поля
+        function validateField(field, errorElement) {
+            const value = field.value.trim();
+            
+            if (field.type === 'number') {
+                const numValue = parseFloat(value);
+                if (isNaN(numValue) || numValue < 0) {
+                    field.classList.add('error-field');
+                    errorElement.style.display = 'block';
+                    return false;
+                }
+            }
+            
+            if (!value) {
+                field.classList.add('error-field');
+                errorElement.style.display = 'block';
+                return false;
+            } else {
+                field.classList.remove('error-field');
+                errorElement.style.display = 'none';
+                return true;
+            }
+        }
+
+        // Валидация всей формы
+        function validateForm() {
+            const requiredFields = [
+                { id: 'name', error: 'name-error' },
+                { id: 'price', error: 'price-error' },
+                { id: 'category_id', error: 'category-error' },
+                { id: 'stock_quantity', error: 'stock-error' }
+            ];
+            
+            let isValid = true;
+            
+            requiredFields.forEach(({ id, error }) => {
+                const field = document.getElementById(id);
+                const errorElement = document.getElementById(error);
+                
+                if (!validateField(field, errorElement)) {
+                    isValid = false;
+                }
+            });
+            
+            // Дополнительная проверка цены
+            const price = parseFloat(document.getElementById('price').value);
+            if (price <= 0) {
+                document.getElementById('price').classList.add('error-field');
+                document.getElementById('price-error').style.display = 'block';
+                isValid = false;
+            }
+            
+            return isValid;
+        }
+
+        // Обработка отправки формы
+        document.getElementById('product-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            if (!validateForm()) {
+                showMessage('error', 'Пожалуйста, заполните все обязательные поля правильно');
+                return;
+            }
+            
+            const submitBtn = document.getElementById('submit-btn');
+            const clearBtn = document.getElementById('clear-btn');
+            const originalText = submitBtn.innerHTML;
+            
+            // Показываем индикатор загрузки
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Добавление...';
+            submitBtn.disabled = true;
+            clearBtn.disabled = true;
+            document.getElementById('product-form').classList.add('loading');
+            
+            try {
+                // Собираем данные формы - исправленная версия
+                const formData = {
+                    name: document.getElementById('name').value.trim(),
+                    category_id: parseInt(document.getElementById('category_id').value),
+                    description: document.getElementById('description').value.trim() || '',
+                    price: parseFloat(document.getElementById('price').value),
+                    old_price: document.getElementById('old_price').value ? parseFloat(document.getElementById('old_price').value) : null,
+                    manufacturer: document.getElementById('manufacturer').value.trim() || '',
+                    country: document.getElementById('country').value.trim() || '',
+                    stock_quantity: parseInt(document.getElementById('stock_quantity').value) || 0,
+                    in_stock: document.getElementById('in_stock').checked,
+                    is_popular: document.getElementById('is_popular').checked,
+                    is_new: document.getElementById('is_new').checked,
+                    composition: document.getElementById('composition').value.trim() || '',
+                    indications: document.getElementById('indications').value.trim() || '',
+                    usage: document.getElementById('usage').value.trim() || '',
+                    contraindications: document.getElementById('contraindications').value.trim() || '',
+                    dosage: document.getElementById('dosage').value.trim() || '',
+                    expiry_date: document.getElementById('expiry_date').value.trim() || '',
+                    storage_conditions: document.getElementById('storage_conditions').value.trim() || ''
+                };
+                
+                console.log('Отправка данных на сервер:', formData);
+
+                // Отправляем запрос
+                const response = await fetch('/api/admin/products', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(formData)
+                });
+
+                const result = await response.json();
+                console.log('Ответ сервера:', result);
+
+                if (result.success) {
+                    showMessage('success', result.message || 'Товар успешно добавлен!');
+                    clearForm();
+                    // Прокрутка к верху страницы
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                } else {
+                    showMessage('error', result.error || 'Ошибка при добавлении товара');
+                }
+
+            } catch (error) {
+                console.error('Ошибка:', error);
+                showMessage('error', 'Ошибка сети или сервера. Проверьте подключение.');
+            } finally {
+                // Восстанавливаем кнопки
+                submitBtn.innerHTML = originalText;
+                submitBtn.disabled = false;
+                clearBtn.disabled = false;
+                document.getElementById('product-form').classList.remove('loading');
+            }
+        });
+
+        // Показать сообщение
+        function showMessage(type, text) {
+            const successMsg = document.getElementById('success-message');
+            const errorMsg = document.getElementById('error-message');
+            const successText = document.getElementById('success-text');
+            const errorText = document.getElementById('error-text');
+
+            // Скрываем все сообщения
+            successMsg.style.display = 'none';
+            errorMsg.style.display = 'none';
+
+            if (type === 'success') {
+                successText.textContent = text;
+                successMsg.style.display = 'flex';
+            } else {
+                errorText.textContent = text;
+                errorMsg.style.display = 'flex';
+            }
+
+            // Автоматически скрыть через 5 секунд
+            setTimeout(() => {
+                successMsg.style.display = 'none';
+                errorMsg.style.display = 'none';
+            }, 5000);
+        }
+
+        // Очистка формы
+        function clearForm() {
+            if (!confirm('Вы уверены, что хотите очистить форму? Все введенные данные будут потеряны.')) {
+                return;
+            }
+            
+            document.getElementById('product-form').reset();
+            
+            // Сбрасываем счетчики символов
+            document.querySelectorAll('.character-count').forEach(counter => {
+                const max = counter.textContent.split('/')[1];
+                counter.textContent = `0/${max}`;
+                counter.style.color = '#666';
+            });
+            
+            // Сбрасываем ошибки
+            document.querySelectorAll('.error-field').forEach(field => {
+                field.classList.remove('error-field');
+            });
+            document.querySelectorAll('.error-message').forEach(error => {
+                error.style.display = 'none';
+            });
+            
+            showMessage('success', 'Форма очищена');
+        }
+
+        // Обработка клавиш
+        document.addEventListener('keydown', function(e) {
+            // Ctrl + Enter для отправки формы
+            if (e.ctrlKey && e.key === 'Enter') {
+                document.getElementById('product-form').dispatchEvent(new Event('submit'));
+            }
+            
+            // Escape для очистки формы
+            if (e.key === 'Escape') {
+                clearForm();
+            }
+        });
+    </script>
+</body>
+</html>

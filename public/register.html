@@ -1,0 +1,979 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Вход и регистрация - ФармаПлюс</title>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #2196F3;
+            --primary-dark: #1976D2;
+            --primary-light: #BBDEFB;
+            --secondary: #4CAF50;
+            --light: #f8f9fa;
+            --dark: #212121;
+            --gray: #757575;
+            --light-gray: #f5f5f5;
+            --border: #E0E0E0;
+            --error: #F44336;
+            --success: #4CAF50;
+            --shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%);
+            color: var(--dark);
+            line-height: 1.6;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 1rem;
+        }
+        
+        .container {
+            max-width: 420px;
+            width: 100%;
+            background: white;
+            border-radius: 20px;
+            box-shadow: var(--shadow);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+            padding: 2rem 1.5rem;
+            text-align: center;
+            position: relative;
+        }
+        
+        .header::after {
+            content: '';
+            position: absolute;
+            bottom: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60px;
+            height: 4px;
+            background: rgba(255,255,255,0.3);
+            border-radius: 2px;
+        }
+        
+        .header h1 {
+            font-size: 1.6rem;
+            margin-bottom: 0.5rem;
+            font-weight: 700;
+        }
+        
+        .header p {
+            opacity: 0.9;
+            font-size: 0.95rem;
+        }
+        
+        .form-container {
+            padding: 2rem 1.5rem;
+        }
+        
+        .welcome-text {
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+        
+        .welcome-text h2 {
+            color: var(--dark);
+            margin-bottom: 0.5rem;
+            font-size: 1.4rem;
+            font-weight: 600;
+        }
+        
+        .welcome-text p {
+            color: var(--gray);
+            font-size: 0.9rem;
+        }
+        
+        .btn {
+            padding: 14px 20px;
+            border: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            text-decoration: none;
+            width: 100%;
+        }
+        
+        .btn:active {
+            transform: scale(0.98);
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+            box-shadow: 0 4px 12px rgba(33, 150, 243, 0.3);
+        }
+        
+        .btn-primary:hover {
+            box-shadow: 0 6px 16px rgba(33, 150, 243, 0.4);
+        }
+        
+        .btn-google {
+            background: white;
+            color: #333;
+            border: 2px solid var(--border);
+            margin-bottom: 1rem;
+        }
+        
+        .btn-google:active {
+            background: var(--light-gray);
+        }
+        
+        .divider {
+            display: flex;
+            align-items: center;
+            margin: 1.5rem 0;
+            color: var(--gray);
+            font-size: 0.85rem;
+        }
+        
+        .divider::before,
+        .divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--border);
+        }
+        
+        .divider span {
+            padding: 0 12px;
+        }
+        
+        .benefits {
+            background: var(--light-gray);
+            border-radius: 12px;
+            padding: 1.25rem;
+            margin-top: 1.5rem;
+        }
+        
+        .benefits h3 {
+            color: var(--dark);
+            margin-bottom: 0.8rem;
+            font-size: 1rem;
+            text-align: center;
+            font-weight: 600;
+        }
+        
+        .benefits-list {
+            list-style: none;
+        }
+        
+        .benefits-list li {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 0.6rem;
+            font-size: 0.85rem;
+            color: var(--gray);
+        }
+        
+        .benefits-list li:last-child {
+            margin-bottom: 0;
+        }
+        
+        .benefit-icon {
+            color: var(--primary);
+            font-size: 0.9rem;
+            min-width: 16px;
+        }
+        
+        .back-link {
+            text-align: center;
+            margin-top: 1.5rem;
+        }
+        
+        .back-link a {
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.9rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .step {
+            display: none;
+            animation: fadeIn 0.4s ease;
+        }
+        
+        .step.active {
+            display: block;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(15px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .form-group {
+            margin-bottom: 1.25rem;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: var(--dark);
+            font-size: 0.9rem;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 14px 16px;
+            border: 2px solid var(--light-gray);
+            border-radius: 10px;
+            font-size: 1rem;
+            transition: all 0.3s;
+            background: white;
+        }
+        
+        .form-group input:focus {
+            border-color: var(--primary);
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
+        }
+        
+        .name-fields {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+        
+        .error-message {
+            color: var(--error);
+            font-size: 0.85rem;
+            margin-top: 0.5rem;
+            text-align: center;
+            padding: 8px 12px;
+            background: rgba(244, 67, 54, 0.1);
+            border-radius: 8px;
+            border-left: 3px solid var(--error);
+        }
+        
+        .success-message {
+            color: var(--success);
+            font-size: 0.85rem;
+            margin-top: 0.5rem;
+            text-align: center;
+            padding: 8px 12px;
+            background: rgba(76, 175, 80, 0.1);
+            border-radius: 8px;
+            border-left: 3px solid var(--success);
+        }
+        
+        .user-info {
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+        
+        .user-avatar {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            margin: 0 auto 1rem;
+            border: 3px solid var(--primary);
+            object-fit: cover;
+        }
+        
+        .user-name {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 0.3rem;
+            color: var(--dark);
+        }
+        
+        .user-email {
+            color: var(--gray);
+            font-size: 0.9rem;
+        }
+
+        .form-footer {
+            text-align: center;
+            margin-top: 1.5rem;
+            color: var(--gray);
+            font-size: 0.9rem;
+        }
+
+        .form-footer a {
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .google-btn-container {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 1rem;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #ffffff;
+            border-radius: 50%;
+            border-top-color: transparent;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                max-width: 100%;
+                margin: 0.5rem;
+            }
+            
+            .header {
+                padding: 1.5rem 1rem;
+            }
+            
+            .form-container {
+                padding: 1.5rem 1rem;
+            }
+            
+            .header h1 {
+                font-size: 1.4rem;
+            }
+
+            .name-fields {
+                grid-template-columns: 1fr;
+            }
+            
+            .btn {
+                padding: 12px 16px;
+                font-size: 0.95rem;
+            }
+        }
+
+        @media (max-width: 360px) {
+            .header {
+                padding: 1.25rem 1rem;
+            }
+            
+            .form-container {
+                padding: 1.25rem 1rem;
+            }
+            
+            .welcome-text h2 {
+                font-size: 1.2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>ФармаПлюс</h1>
+            <p>Ваша онлайн-аптека</p>
+        </div>
+        
+        <div class="form-container">
+            <!-- Шаг 1: Форма входа -->
+            <div class="step active" id="step-login">
+                <div class="welcome-text">
+                    <h2>Вход в аккаунт</h2>
+                    <p>Войдите, чтобы продолжить покупки</p>
+                </div>
+                
+                <!-- Кнопка Google -->
+                <div class="google-btn-container">
+                    <div id="g_id_onload"
+                         data-client_id="1004300515131-5tsdmr87045jn4157jcsj35sqlg9913h.apps.googleusercontent.com"
+                         data-context="signin"
+                         data-ux_mode="popup"
+                         data-callback="handleGoogleSignIn"
+                         data-auto_prompt="false">
+                    </div>
+
+                    <div class="g_id_signin"
+                         data-type="standard"
+                         data-shape="rectangular"
+                         data-theme="filled_blue"
+                         data-text="signin_with"
+                         data-size="large"
+                         data-logo_alignment="left"
+                         data-width="300">
+                    </div>
+                </div>
+                
+                <div class="divider">
+                    <span>или через email</span>
+                </div>
+                
+                <form id="login-form">
+                    <div class="form-group">
+                        <label for="login-username">Логин или Email</label>
+                        <input type="text" id="login-username" placeholder="Введите ваш логин или email" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="login-password">Пароль</label>
+                        <input type="password" id="login-password" placeholder="Введите ваш пароль" required>
+                    </div>
+                    
+                    <div class="error-message" id="login-error"></div>
+                    
+                    <button type="submit" class="btn btn-primary" id="login-btn">
+                        <i class="fas fa-sign-in-alt"></i>
+                        Войти
+                    </button>
+                </form>
+                
+                <div class="form-footer">
+                    Нет аккаунта? <a href="#" id="show-register">Зарегистрироваться</a>
+                </div>
+                
+                <div class="benefits">
+                    <h3>Преимущества входа</h3>
+                    <ul class="benefits-list">
+                        <li>
+                            <i class="fas fa-shield-alt benefit-icon"></i>
+                            Безопасная авторизация
+                        </li>
+                        <li>
+                            <i class="fas fa-history benefit-icon"></i>
+                            История заказов
+                        </li>
+                        <li>
+                            <i class="fas fa-bolt benefit-icon"></i>
+                            Быстрое оформление
+                        </li>
+                        <li>
+                            <i class="fas fa-gift benefit-icon"></i>
+                            Специальные предложения
+                        </li>
+                    </ul>
+                </div>
+                
+                <div class="back-link">
+                    <a href="main.html">
+                        <i class="fas fa-arrow-left"></i>
+                        Вернуться на главную
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Шаг 2: Форма регистрации -->
+            <div class="step" id="step-register">
+                <div class="welcome-text">
+                    <h2>Регистрация</h2>
+                    <p>Создайте новый аккаунт</p>
+                </div>
+                
+                <form id="register-form">
+                    <div class="form-group name-fields">
+                        <div>
+                            <label for="first-name">Имя *</label>
+                            <input type="text" id="first-name" placeholder="Введите имя" required>
+                        </div>
+                        <div>
+                            <label for="last-name">Фамилия *</label>
+                            <input type="text" id="last-name" placeholder="Введите фамилию" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="register-username">Логин *</label>
+                        <input type="text" id="register-username" placeholder="Придумайте логин" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="register-email">Email *</label>
+                        <input type="email" id="register-email" placeholder="Введите ваш email" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="register-phone">Телефон (Таджикистан) *</label>
+                        <input type="tel" id="register-phone" placeholder="+992 XX XXX XX XX" pattern="\+992[0-9]{9}" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="register-password">Пароль *</label>
+                        <input type="password" id="register-password" placeholder="Придумайте пароль" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="confirm-password">Подтверждение пароля *</label>
+                        <input type="password" id="confirm-password" placeholder="Повторите пароль" required>
+                    </div>
+                    
+                    <div class="error-message" id="register-error"></div>
+                    <div class="success-message" id="register-success"></div>
+                    
+                    <button type="submit" class="btn btn-primary" id="register-btn">
+                        <i class="fas fa-user-plus"></i>
+                        Зарегистрироваться
+                    </button>
+                </form>
+                
+                <div class="form-footer">
+                    Уже есть аккаунт? <a href="#" id="show-login">Войти</a>
+                </div>
+                
+                <div class="back-link">
+                    <a href="#" id="back-to-login-from-register">
+                        <i class="fas fa-arrow-left"></i>
+                        Назад к входу
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Шаг 3: Дополнительная информация для Google пользователей -->
+            <div class="step" id="step-google-info">
+                <div class="welcome-text">
+                    <h2>Дополнительная информация</h2>
+                    <p>Завершите регистрацию вашего аккаунта</p>
+                </div>
+                
+                <form id="google-info-form">
+                    <div class="form-group">
+                        <label for="google-email">Email</label>
+                        <input type="email" id="google-email" readonly style="background-color: var(--light-gray);">
+                    </div>
+                    
+                    <div class="form-group name-fields">
+                        <div>
+                            <label for="google-first-name">Имя *</label>
+                            <input type="text" id="google-first-name" placeholder="Введите имя" required>
+                        </div>
+                        <div>
+                            <label for="google-last-name">Фамилия *</label>
+                            <input type="text" id="google-last-name" placeholder="Введите фамилию" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="google-username">Логин *</label>
+                        <input type="text" id="google-username" placeholder="Придумайте логин" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="google-phone">Телефон (Таджикистан) *</label>
+                        <input type="tel" id="google-phone" placeholder="+992 XX XXX XX XX" pattern="\+992[0-9]{9}" required>
+                    </div>
+                    
+                    <div class="error-message" id="google-info-error"></div>
+                    
+                    <button type="submit" class="btn btn-primary" id="save-google-info-btn">
+                        <i class="fas fa-save"></i>
+                        Сохранить и продолжить
+                    </button>
+                </form>
+            </div>
+            
+            <!-- Шаг 4: Успешная авторизация -->
+            <div class="step" id="step-success">
+                <div class="user-info">
+                    <img id="user-avatar" class="user-avatar" src="" alt="Аватар" onerror="this.style.display='none'">
+                    <div class="user-name" id="user-name"></div>
+                    <div class="user-email" id="user-email"></div>
+                </div>
+                
+                <div style="text-align: center; padding: 1rem 0;">
+                    <i class="fas fa-check-circle" style="font-size: 3rem; color: var(--success); margin-bottom: 1rem;"></i>
+                    <h2 style="margin-bottom: 0.5rem; color: var(--dark);">Успешный вход!</h2>
+                    <p style="color: var(--gray); margin-bottom: 1.5rem;">Вы успешно вошли в систему</p>
+                    <button class="btn btn-primary" id="go-to-main">
+                        <i class="fas fa-home"></i>
+                        Перейти на главную
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Элементы DOM
+            const stepLogin = document.getElementById('step-login');
+            const stepRegister = document.getElementById('step-register');
+            const stepGoogleInfo = document.getElementById('step-google-info');
+            const stepSuccess = document.getElementById('step-success');
+            
+            // Формы
+            const loginForm = document.getElementById('login-form');
+            const registerForm = document.getElementById('register-form');
+            const googleInfoForm = document.getElementById('google-info-form');
+            
+            // Кнопки навигации
+            const showRegisterBtn = document.getElementById('show-register');
+            const showLoginBtn = document.getElementById('show-login');
+            const backToLoginFromRegister = document.getElementById('back-to-login-from-register');
+            const goToMainBtn = document.getElementById('go-to-main');
+            
+            // Сообщения об ошибках
+            const loginError = document.getElementById('login-error');
+            const registerError = document.getElementById('register-error');
+            const registerSuccess = document.getElementById('register-success');
+            const googleInfoError = document.getElementById('google-info-error');
+            
+            // Данные пользователя Google
+            let googleUserData = null;
+
+            // Навигация между шагами
+            showRegisterBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                showStep('step-register');
+            });
+
+            showLoginBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                showStep('step-login');
+            });
+
+            backToLoginFromRegister.addEventListener('click', function(e) {
+                e.preventDefault();
+                showStep('step-login');
+            });
+
+            // Функция показа шага
+            function showStep(stepId) {
+                document.querySelectorAll('.step').forEach(step => {
+                    step.classList.remove('active');
+                });
+                document.getElementById(stepId).classList.add('active');
+            }
+
+            // Обработка формы входа
+            loginForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                const username = document.getElementById('login-username').value.trim();
+                const password = document.getElementById('login-password').value;
+                const loginBtn = document.getElementById('login-btn');
+                
+                loginError.textContent = '';
+                loginBtn.innerHTML = '<div class="loading"></div> Вход...';
+                loginBtn.disabled = true;
+                
+                try {
+                    const response = await fetch('/api/auth/login', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            username: username,
+                            password: password
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (response.ok && data.success) {
+                        localStorage.setItem('user', JSON.stringify(data.user));
+                        showSuccessScreen(data.user);
+                    } else {
+                        loginError.textContent = data.error || 'Ошибка входа. Проверьте логин или пароль.';
+                    }
+                } catch (error) {
+                    loginError.textContent = 'Ошибка соединения с сервером. Попробуйте позже.';
+                    console.error('Login error:', error);
+                } finally {
+                    loginBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Войти';
+                    loginBtn.disabled = false;
+                }
+            });
+
+            // Обработка формы регистрации
+            registerForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                const firstName = document.getElementById('first-name').value.trim();
+                const lastName = document.getElementById('last-name').value.trim();
+                const username = document.getElementById('register-username').value.trim();
+                const email = document.getElementById('register-email').value.trim();
+                const phone = document.getElementById('register-phone').value.trim();
+                const password = document.getElementById('register-password').value;
+                const confirmPassword = document.getElementById('confirm-password').value;
+                const registerBtn = document.getElementById('register-btn');
+                
+                registerError.textContent = '';
+                registerSuccess.textContent = '';
+                registerBtn.innerHTML = '<div class="loading"></div> Регистрация...';
+                registerBtn.disabled = true;
+                
+                // Валидация
+                if (!firstName || !lastName || !username || !email || !phone || !password) {
+                    registerError.textContent = 'Заполните все обязательные поля.';
+                    registerBtn.innerHTML = '<i class="fas fa-user-plus"></i> Зарегистрироваться';
+                    registerBtn.disabled = false;
+                    return;
+                }
+
+                if (password !== confirmPassword) {
+                    registerError.textContent = 'Пароли не совпадают.';
+                    registerBtn.innerHTML = '<i class="fas fa-user-plus"></i> Зарегистрироваться';
+                    registerBtn.disabled = false;
+                    return;
+                }
+                
+                if (password.length < 6) {
+                    registerError.textContent = 'Пароль должен содержать минимум 6 символов.';
+                    registerBtn.innerHTML = '<i class="fas fa-user-plus"></i> Зарегистрироваться';
+                    registerBtn.disabled = false;
+                    return;
+                }
+
+                if (!/\+992[0-9]{9}/.test(phone)) {
+                    registerError.textContent = 'Введите корректный номер телефона в формате +992XXXXXXXXX.';
+                    registerBtn.innerHTML = '<i class="fas fa-user-plus"></i> Зарегистрироваться';
+                    registerBtn.disabled = false;
+                    return;
+                }
+                
+                try {
+                    const response = await fetch('/api/auth/register', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            first_name: firstName,
+                            last_name: lastName,
+                            username: username,
+                            email: email,
+                            phone: phone,
+                            password: password
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (response.ok && data.success) {
+                        registerSuccess.textContent = 'Регистрация успешна! Выполняется вход...';
+                        
+                        // Автоматический вход после регистрации
+                        setTimeout(async () => {
+                            try {
+                                const loginResponse = await fetch('/api/auth/login', {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json'
+                                    },
+                                    body: JSON.stringify({
+                                        username: username,
+                                        password: password
+                                    })
+                                });
+                                
+                                const loginData = await loginResponse.json();
+                                
+                                if (loginResponse.ok && loginData.success) {
+                                    localStorage.setItem('user', JSON.stringify(loginData.user));
+                                    showSuccessScreen(loginData.user);
+                                } else {
+                                    registerError.textContent = loginData.error || 'Ошибка автоматического входа.';
+                                    registerBtn.innerHTML = '<i class="fas fa-user-plus"></i> Зарегистрироваться';
+                                    registerBtn.disabled = false;
+                                }
+                            } catch (error) {
+                                registerError.textContent = 'Ошибка соединения с сервером при входе.';
+                                console.error('Auto-login error:', error);
+                                registerBtn.innerHTML = '<i class="fas fa-user-plus"></i> Зарегистрироваться';
+                                registerBtn.disabled = false;
+                            }
+                        }, 1000);
+                    } else {
+                        registerError.textContent = data.error || 'Ошибка регистрации. Проверьте данные.';
+                        registerBtn.innerHTML = '<i class="fas fa-user-plus"></i> Зарегистрироваться';
+                        registerBtn.disabled = false;
+                    }
+                } catch (error) {
+                    registerError.textContent = 'Ошибка соединения с сервером. Попробуйте позже.';
+                    console.error('Register error:', error);
+                    registerBtn.innerHTML = '<i class="fas fa-user-plus"></i> Зарегистрироваться';
+                    registerBtn.disabled = false;
+                }
+            });
+
+            // Обработка дополнительной информации для Google
+            googleInfoForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                const firstName = document.getElementById('google-first-name').value.trim();
+                const lastName = document.getElementById('google-last-name').value.trim();
+                const username = document.getElementById('google-username').value.trim();
+                const phone = document.getElementById('google-phone').value.trim();
+                const saveBtn = document.getElementById('save-google-info-btn');
+                
+                googleInfoError.textContent = '';
+                saveBtn.innerHTML = '<div class="loading"></div> Сохранение...';
+                saveBtn.disabled = true;
+                
+                // Валидация
+                if (!firstName || !lastName || !username || !phone) {
+                    googleInfoError.textContent = 'Заполните все обязательные поля.';
+                    saveBtn.innerHTML = '<i class="fas fa-save"></i> Сохранить и продолжить';
+                    saveBtn.disabled = false;
+                    return;
+                }
+
+                if (!/\+992[0-9]{9}/.test(phone)) {
+                    googleInfoError.textContent = 'Введите корректный номер телефона в формате +992XXXXXXXXX.';
+                    saveBtn.innerHTML = '<i class="fas fa-save"></i> Сохранить и продолжить';
+                    saveBtn.disabled = false;
+                    return;
+                }
+                
+                try {
+                    const response = await fetch('/api/auth/google/complete', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            ...googleUserData,
+                            first_name: firstName,
+                            last_name: lastName,
+                            username: username,
+                            phone: phone
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (response.ok && data.success) {
+                        localStorage.setItem('user', JSON.stringify(data.user));
+                        showSuccessScreen(data.user);
+                    } else {
+                        googleInfoError.textContent = data.error || 'Ошибка сохранения данных.';
+                        saveBtn.innerHTML = '<i class="fas fa-save"></i> Сохранить и продолжить';
+                        saveBtn.disabled = false;
+                    }
+                } catch (error) {
+                    googleInfoError.textContent = 'Ошибка соединения с сервером. Попробуйте позже.';
+                    console.error('Google info error:', error);
+                    saveBtn.innerHTML = '<i class="fas fa-save"></i> Сохранить и продолжить';
+                    saveBtn.disabled = false;
+                }
+            });
+
+            // Переход на главную
+            goToMainBtn.addEventListener('click', function() {
+                window.location.href = 'main.html';
+            });
+
+            // Показать экран успеха
+            function showSuccessScreen(user) {
+                const userAvatar = document.getElementById('user-avatar');
+                const userName = document.getElementById('user-name');
+                const userEmail = document.getElementById('user-email');
+                
+                if (user.avatar) {
+                    userAvatar.src = user.avatar;
+                    userAvatar.style.display = 'block';
+                } else {
+                    userAvatar.style.display = 'none';
+                }
+                
+                const displayName = user.first_name && user.last_name 
+                    ? `${user.first_name} ${user.last_name}`
+                    : (user.username || 'Пользователь');
+                    
+                userName.textContent = displayName;
+                userEmail.textContent = user.email || '';
+                
+                showStep('step-success');
+            }
+
+            // Проверяем, авторизован ли пользователь
+            const userData = localStorage.getItem('user');
+            if (userData) {
+                try {
+                    const user = JSON.parse(userData);
+                    showSuccessScreen(user);
+                } catch (e) {
+                    console.error('Error parsing user data:', e);
+                    localStorage.removeItem('user');
+                }
+            }
+
+            // Обработчик Google Sign-In
+            window.handleGoogleSignIn = async function(response) {
+                console.log('Google Sign-In response:', response);
+                
+                try {
+                    const authResponse = await fetch('/api/auth/google', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ token: response.credential })
+                    });
+                    
+                    const data = await authResponse.json();
+                    
+                    if (authResponse.ok && data.success) {
+                        if (data.requires_additional_info) {
+                            showGoogleInfoStep(data.user);
+                        } else {
+                            localStorage.setItem('user', JSON.stringify(data.user));
+                            showSuccessScreen(data.user);
+                        }
+                    } else {
+                        showError(data.error || 'Ошибка авторизации через Google.');
+                    }
+                } catch (error) {
+                    console.error('Google auth error:', error);
+                    showError('Ошибка сети при авторизации через Google.');
+                }
+            };
+
+            // Показать шаг с дополнительной информацией для Google
+            function showGoogleInfoStep(user) {
+                showStep('step-google-info');
+                
+                // Заполняем поля данными от Google
+                document.getElementById('google-email').value = user.email || '';
+                document.getElementById('google-first-name').value = user.given_name || '';
+                document.getElementById('google-last-name').value = user.family_name || '';
+                
+                // Предлагаем логин на основе email
+                const suggestedUsername = user.email ? user.email.split('@')[0] : '';
+                document.getElementById('google-username').value = suggestedUsername;
+                
+                window.googleUserData = user;
+            }
+
+            // Функция показа ошибки
+            function showError(message) {
+                const errorDiv = document.querySelector('.step.active .error-message');
+                if (errorDiv) {
+                    errorDiv.textContent = message;
+                } else {
+                    alert(message);
+                }
+            }
+        });
+    </script>
+</body>
+</html>

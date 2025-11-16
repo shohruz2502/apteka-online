@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Корзина - ФармаПлюс</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #2196F3;
+            --primary-dark: #1976D2;
+            --primary-light: #BBDEFB;
+            --secondary: #4CAF50;
+            --light: #f8f9fa;
+            --dark: #212121;
+            --gray: #757575;
+            --light-gray: #f5f5f5;
+            --border: #E0E0E0;
+            --error: #F44336;
+            --success: #4CAF50;
+            --shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%);
+            color: var(--dark);
+            line-height: 1.6;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            padding: 1rem;
+        }
+
+        .container {
+            max-width: 600px;
+            width: 100%;
+            background: white;
+            border-radius: 20px;
+            box-shadow: var(--shadow);
+            overflow: hidden;
+            margin-top: 20px;
+        }
+
+        .header {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+            padding: 2rem 1.5rem;
+            text-align: center;
+            position: relative;
+        }
+
+        .header::after {
+            content: '';
+            position: absolute;
+            bottom: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60px;
+            height: 4px;
+            background: rgba(255,255,255,0.3);
+            border-radius: 2px;
+        }
+
+        .header h1 {
+            font-size: 1.6rem;
+            margin-bottom: 0.5rem;
+            font-weight: 700;
+        }
+
+        .cart-items {
+            padding: 1.5rem;
+        }
+
+        .cart-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 1rem;
+        }
+
+        .cart-item:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+        }
+
+        .item-details {
+            flex-grow: 1;
+        }
+
+        .item-details h3 {
+            font-size: 1.1rem;
+            color: var(--dark);
+            margin-bottom: 0.3rem;
+        }
+
+        .item-details p {
+            color: var(--gray);
+            font-size: 0.9rem;
+        }
+
+        .item-quantity {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .quantity-btn {
+            background: var(--light-gray);
+            border: none;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .quantity-btn:hover {
+            background: var(--primary-light);
+        }
+
+        .quantity-btn:active {
+            transform: scale(0.95);
+        }
+
+        .quantity-input {
+            width: 50px;
+            padding: 0.2rem;
+            text-align: center;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+
+        .item-price {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--dark);
+        }
+
+        .remove-btn {
+            background: var(--error);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            padding: 0.5rem 1rem;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: opacity 0.3s;
+        }
+
+        .remove-btn:hover {
+            opacity: 0.9;
+        }
+
+        .total {
+            padding: 1.5rem;
+            background: var(--light-gray);
+            text-align: right;
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--dark);
+        }
+
+        .btn {
+            padding: 14px 20px;
+            border: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            text-decoration: none;
+            width: 100%;
+            margin-top: 1rem;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+            box-shadow: 0 4px 12px rgba(33, 150, 243, 0.3);
+        }
+
+        .btn-primary:hover {
+            box-shadow: 0 6px 16px rgba(33, 150, 243, 0.4);
+        }
+
+        .btn:active {
+            transform: scale(0.98);
+        }
+
+        .empty-cart {
+            text-align: center;
+            padding: 2rem;
+            color: var(--gray);
+        }
+
+        .error-message {
+            color: var(--error);
+            text-align: center;
+            padding: 1rem;
+            display: none;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 1rem;
+            color: var(--gray);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Корзина</h1>
+        </div>
+        <div class="cart-items" id="cart-items"></div>
+        <div class="total" id="total">Итого: 0 ₽</div>
+        <button class="btn btn-primary" id="checkout-btn">Оформить заказ</button>
+        <div class="error-message" id="error-message"></div>
+        <div class="loading" id="loading">Загрузка...</div>
+        <div class="empty-cart" id="empty-cart" style="display: none;">Корзина пуста</div>
+    </div>
+
+    <script>
+        const cartItemsDiv = document.getElementById('cart-items');
+        const totalDiv = document.getElementById('total');
+        const checkoutBtn = document.getElementById('checkout-btn');
+        const errorMessage = document.getElementById('error-message');
+        const loading = document.getElementById('loading');
+        const emptyCart = document.getElementById('empty-cart');
+
+        let cartData = [];
+
+        function showLoading() {
+            loading.style.display = 'block';
+            cartItemsDiv.style.display = 'none';
+            totalDiv.style.display = 'none';
+            checkoutBtn.style.display = 'none';
+            emptyCart.style.display = 'none';
+            errorMessage.style.display = 'none';
+        }
+
+        function hideLoading() {
+            loading.style.display = 'none';
+        }
+
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.style.display = 'block';
+            cartItemsDiv.style.display = 'none';
+            totalDiv.style.display = 'none';
+            checkoutBtn.style.display = 'none';
+            emptyCart.style.display = 'none';
+        }
+
+        function renderCart() {
+            cartItemsDiv.innerHTML = '';
+            if (cartData.length === 0) {
+                emptyCart.style.display = 'block';
+                totalDiv.style.display = 'none';
+                checkoutBtn.style.display = 'none';
+                return;
+            }
+
+            cartData.forEach(item => {
+                const cartItem = document.createElement('div');
+                cartItem.className = 'cart-item';
+                cartItem.innerHTML = `
+                    <div class="item-details">
+                        <h3>${item.name}</h3>
+                        <p>Цена: ${item.price} ₽ x ${item.quantity}</p>
+                    </div>
+                    <div class="item-quantity">
+                        <button class="quantity-btn" onclick="updateQuantity(${item.id}, ${item.quantity - 1})">-</button>
+                        <input type="number" class="quantity-input" value="${item.quantity}" min="1" onchange="updateQuantity(${item.id}, this.value)">
+                        <button class="quantity-btn" onclick="updateQuantity(${item.id}, ${item.quantity + 1})">+</button>
+                    </div>
+                    <div class="item-price">${(item.price * item.quantity).toFixed(2)} ₽</div>
+                    <button class="remove-btn" onclick="removeItem(${item.id})">Удалить</button>
+                `;
+                cartItemsDiv.appendChild(cartItem);
+            });
+
+            cartItemsDiv.style.display = 'block';
+            totalDiv.style.display = 'block';
+            checkoutBtn.style.display = 'block';
+            emptyCart.style.display = 'none';
+        }
+
+        async function loadCart() {
+            showLoading();
+            try {
+                const user = JSON.parse(localStorage.getItem('user'));
+                if (!user || !user.id) throw new Error('User not authenticated');
+                const token = localStorage.getItem('token');
+                const response = await fetch(`/api/cart?user_id=${user.id}`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                if (!response.ok) throw new Error('Failed to load cart');
+                cartData = await response.json();
+                if (cartData.success) {
+                    cartData = cartData.data;
+                    renderCart();
+                    loadTotal();
+                } else {
+                    throw new Error(cartData.error || 'Unknown error');
+                }
+            } catch (error) {
+                showError(error.message);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function loadTotal() {
+            try {
+                const user = JSON.parse(localStorage.getItem('user'));
+                if (!user || !user.id) throw new Error('User not authenticated');
+                const token = localStorage.getItem('token');
+                const response = await fetch(`/api/cart/total?user_id=${user.id}`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                if (!response.ok) throw new Error('Failed to load total');
+                const data = await response.json();
+                if (data.success) {
+                    totalDiv.textContent = `Итого: ${data.total.toFixed(2)} ₽`;
+                } else {
+                    throw new Error(data.error || 'Unknown error');
+                }
+            } catch (error) {
+                showError(error.message);
+            }
+        }
+
+        async function updateQuantity(itemId, quantity) {
+            if (quantity < 1) quantity = 1;
+            showLoading();
+            try {
+                const user = JSON.parse(localStorage.getItem('user'));
+                const token = localStorage.getItem('token');
+                const response = await fetch(`/api/cart/${itemId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ quantity })
+                });
+                if (!response.ok) throw new Error('Failed to update quantity');
+                const data = await response.json();
+                if (data.success) {
+                    cartData = cartData.map(item => item.id === itemId ? { ...item, quantity } : item);
+                    renderCart();
+                    loadTotal();
+                } else {
+                    throw new Error(data.error || 'Unknown error');
+                }
+            } catch (error) {
+                showError(error.message);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function removeItem(itemId) {
+            showLoading();
+            try {
+                const user = JSON.parse(localStorage.getItem('user'));
+                const token = localStorage.getItem('token');
+                const response = await fetch(`/api/cart/${itemId}`, {
+                    method: 'DELETE',
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                if (!response.ok) throw new Error('Failed to remove item');
+                const data = await response.json();
+                if (data.success) {
+                    cartData = cartData.filter(item => item.id !== itemId);
+                    renderCart();
+                    loadTotal();
+                } else {
+                    throw new Error(data.error || 'Unknown error');
+                }
+            } catch (error) {
+                showError(error.message);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        checkoutBtn.addEventListener('click', () => {
+            alert('Функция оформления заказа пока не реализована.'); // Замените на реальную логику
+        });
+
+        // Инициализация
+        document.addEventListener('DOMContentLoaded', loadCart);
+    </script>
+</body>
+</html>

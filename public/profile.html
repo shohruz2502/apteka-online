@@ -1,0 +1,1020 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>ФармаПлюс - Профиль</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+    <!-- PWA настройки (минимальные, даже не полностью рабочие) -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#73a9fa">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background: #f5f5f5;
+            color: #333;
+            line-height: 1.4;
+        }
+
+        /* Шапка */
+        .header {
+            background: #73a9fa;
+            color: white;
+            padding: 12px 15px;
+            position: fixed;
+            top: 0;
+            width: 100%;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            height: 60px;
+        }
+
+        .header h1 {
+            font-size: 18px;
+            font-weight: bold;
+            margin-right: 10px;
+            white-space: nowrap;
+        }
+
+        .back-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 18px;
+            margin-right: 15px;
+            cursor: pointer;
+            padding: 5px;
+        }
+
+        /* Основной контент */
+        .container {
+            margin-top: 60px;
+            margin-bottom: 70px;
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+
+        /* Профиль пользователя */
+        .profile-header {
+            background: white;
+            padding: 20px 15px;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        .avatar-container {
+            position: relative;
+            width: 100px;
+            height: 100px;
+            margin: 0 auto 15px;
+        }
+
+        .profile-avatar {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background: #73a9fa;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 40px;
+            overflow: hidden;
+            cursor: pointer;
+            border: 3px solid #73a9fa;
+        }
+
+        .profile-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .avatar-upload {
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            background: #73a9fa;
+            color: white;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            cursor: pointer;
+            border: 2px solid white;
+        }
+
+        .profile-name {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .profile-email {
+            color: #666;
+            font-size: 14px;
+        }
+
+        /* Форма профиля */
+        .profile-form {
+            background: white;
+            padding: 0 15px;
+        }
+
+        .form-section {
+            padding: 15px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .form-section:last-child {
+            border-bottom: none;
+        }
+
+        .section-title {
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+            position: relative;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 14px;
+            color: #666;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        .form-input:focus {
+            border-color: #73a9fa;
+        }
+
+        .form-input:disabled {
+            background-color: #f8f8f8;
+            color: #999;
+        }
+
+        .password-toggle {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: #666;
+            cursor: pointer;
+            padding: 5px;
+        }
+
+        .input-wrapper {
+            position: relative;
+        }
+
+        /* Настройки */
+        .settings-group {
+            margin-bottom: 15px;
+        }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 24px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 20px;
+            width: 20px;
+            left: 2px;
+            bottom: 2px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: #73a9fa;
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+
+        /* Кнопки */
+        .btn {
+            padding: 15px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            text-align: center;
+            display: block;
+            width: 100%;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: #73a9fa;
+            color: white;
+        }
+
+        .btn-primary:active {
+            background: #5d95e0;
+        }
+
+        .btn-primary:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background: #f8f8f8;
+            color: #333;
+            margin-top: 10px;
+        }
+
+        .btn-secondary:active {
+            background: #e8e8e8;
+        }
+
+        .btn-danger {
+            background: #ff4444;
+            color: white;
+            margin-top: 20px;
+        }
+
+        .btn-danger:active {
+            background: #dd3333;
+        }
+
+        /* Модальное окно смены пароля */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 400px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .modal-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 20px;
+            color: #666;
+            cursor: pointer;
+            padding: 5px;
+        }
+
+        /* Уведомления */
+        .notification {
+            position: fixed;
+            top: 80px;
+            right: 15px;
+            background: #4caf50;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            z-index: 4000;
+            animation: slideInRight 0.3s ease;
+            max-width: 300px;
+        }
+
+        .notification.error {
+            background: #ff4444;
+        }
+
+        @keyframes slideInRight {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        /* Индикатор загрузки */
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+            display: none;
+        }
+
+        .loading-spinner {
+            width: 24px;
+            height: 24px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #73a9fa;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Нижнее меню */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            background: white;
+            display: flex;
+            justify-content: space-around;
+            padding: 10px 0;
+            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+            padding-bottom: calc(10px + env(safe-area-inset-bottom));
+        }
+
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-size: 11px;
+            color: #666;
+            text-decoration: none;
+            cursor: pointer;
+            padding: 5px;
+            min-width: 60px;
+        }
+
+        .nav-item.active {
+            color: #73a9fa;
+        }
+
+        .nav-item i {
+            font-size: 20px;
+            margin-bottom: 3px;
+        }
+
+        .cart-badge {
+            position: absolute;
+            top: -2px;
+            right: 8px;
+            background: #73a9fa;
+            color: white;
+            border-radius: 50%;
+            width: 18px;
+            height: 18px;
+            font-size: 11px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+
+        /* Адаптация для больших экранов */
+        @media (min-width: 768px) {
+            .container {
+                max-width: 600px;
+                margin-left: auto;
+                margin-right: auto;
+            }
+
+            .header {
+                padding: 12px 20px;
+            }
+
+            .profile-form {
+                padding: 0 20px;
+            }
+        }
+
+        /* Поддержка iPhone X и новее */
+        @supports (padding: max(0px)) {
+            .container {
+                padding-bottom: max(20px, env(safe-area-inset-bottom));
+            }
+
+            .bottom-nav {
+                padding-bottom: max(10px, env(safe-area-inset-bottom));
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Шапка -->
+    <div class="header">
+        <button class="back-btn" onclick="goBack()">
+            <i class="fas fa-arrow-left"></i>
+        </button>
+        <h1>Профиль</h1>
+    </div>
+
+    <!-- Основной контент -->
+    <div class="container">
+        <!-- Заголовок профиля -->
+        <div class="profile-header">
+            <div class="avatar-container">
+                <div class="profile-avatar" id="profile-avatar" onclick="document.getElementById('avatar-input').click()">
+                    <i class="fas fa-user" id="avatar-icon"></i>
+                </div>
+                <div class="avatar-upload" onclick="document.getElementById('avatar-input').click()">
+                    <i class="fas fa-camera"></i>
+                </div>
+                <input type="file" id="avatar-input" accept="image/*" style="display: none" onchange="uploadAvatar(this.files[0])">
+            </div>
+            <div class="profile-name" id="profile-display-name">Загрузка...</div>
+            <div class="profile-email" id="profile-display-email">Загрузка...</div>
+        </div>
+
+        <!-- Форма профиля -->
+        <div class="profile-form">
+            <!-- Личные данные -->
+            <div class="form-section">
+                <div class="section-title">Личные данные</div>
+                
+                <div class="form-group">
+                    <label class="form-label">Фамилия</label>
+                    <input type="text" class="form-input" id="last-name" placeholder="Введите фамилию">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Имя</label>
+                    <input type="text" class="form-input" id="first-name" placeholder="Введите имя">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Отчество</label>
+                    <input type="text" class="form-input" id="middle-name" placeholder="Введите отчество">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Номер телефона (необязательно)</label>
+                    <input type="tel" class="form-input" id="phone" placeholder="+992 XX XXX-XX-XX">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Email</label>
+                    <input type="email" class="form-input" id="email" placeholder="Введите email" disabled>
+                </div>
+            </div>
+
+            <!-- Настройки (минимальные, нерабочие) -->
+            <div class="form-section">
+                <div class="section-title">Настройки</div>
+                
+                <div class="settings-group">
+                    <label class="form-label">Включить уведомления</label>
+                    <label class="switch">
+                        <input type="checkbox" id="notifications-toggle">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <div class="settings-group">
+                    <label class="form-label">Тема приложения</label>
+                    <select class="form-input" id="theme-select">
+                        <option value="light">Светлая</option>
+                        <option value="dark">Темная</option>
+                        <option value="auto">Авто</option>
+                    </select>
+                </div>
+
+                <div class="settings-group">
+                    <label class="form-label">Язык</label>
+                    <select class="form-input" id="language-select">
+                        <option value="ru">Русский</option>
+                        <option value="tj">Таджикский</option>
+                        <option value="en">English</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Кнопки действий -->
+            <div class="form-section">
+                <button class="btn btn-primary" id="save-btn" onclick="saveProfile()">
+                    Сохранить изменения
+                </button>
+                
+                <button class="btn btn-secondary" onclick="openPasswordModal()">
+                    <i class="fas fa-key"></i>
+                    Сменить пароль
+                </button>
+                
+                <button class="btn btn-danger" onclick="logout()">
+                    <i class="fas fa-sign-out-alt"></i>
+                    Выйти из аккаунта
+                </button>
+            </div>
+        </div>
+
+        <!-- Индикатор загрузки -->
+        <div class="loading" id="loading">
+            <div class="loading-spinner"></div>
+            <div>Загрузка...</div>
+        </div>
+    </div>
+
+    <!-- Модальное окно смены пароля -->
+    <div class="modal" id="password-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title">Смена пароля</div>
+                <button class="modal-close" onclick="closePasswordModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Текущий пароль</label>
+                <div class="input-wrapper">
+                    <input type="password" class="form-input" id="current-password-modal" placeholder="Введите текущий пароль">
+                    <button type="button" class="password-toggle" onclick="togglePassword('current-password-modal')">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Новый пароль</label>
+                <div class="input-wrapper">
+                    <input type="password" class="form-input" id="new-password-modal" placeholder="Введите новый пароль">
+                    <button type="button" class="password-toggle" onclick="togglePassword('new-password-modal')">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Подтвердите новый пароль</label>
+                <div class="input-wrapper">
+                    <input type="password" class="form-input" id="confirm-password-modal" placeholder="Повторите новый пароль">
+                    <button type="button" class="password-toggle" onclick="togglePassword('confirm-password-modal')">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                </div>
+            </div>
+
+            <button class="btn btn-primary" onclick="changePassword()">
+                Сменить пароль
+            </button>
+        </div>
+    </div>
+
+    <!-- Нижнее меню (если нужно) -->
+    <div class="bottom-nav">
+        <a href="main.html" class="nav-item">
+            <i class="fas fa-home"></i>
+            Главная
+        </a>
+        <a href="categories.html" class="nav-item">
+            <i class="fas fa-th-large"></i>
+            Категории
+        </a>
+        <a href="cart.html" class="nav-item">
+            <i class="fas fa-shopping-cart"></i>
+            Корзина
+            <span class="cart-badge" id="cart-badge">0</span>
+        </a>
+        <a href="profile.html" class="nav-item active">
+            <i class="fas fa-user"></i>
+            Профиль
+        </a>
+    </div>
+
+    <script>
+        let currentUser = null;
+        let originalUserData = null;
+
+        // Инициализация при загрузке страницы
+        document.addEventListener('DOMContentLoaded', () => {
+            setupEventListeners();
+            loadProfile();
+            registerServiceWorker(); // Для PWA
+        });
+
+        // Регистрация Service Worker для PWA (минимальная, даже не полностью рабочая)
+        function registerServiceWorker() {
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(() => console.log('Service Worker registered'))
+                    .catch(err => console.error('Service Worker registration failed:', err));
+            }
+        }
+
+        // Загрузка профиля
+        async function loadProfile() {
+            showLoading();
+            try {
+                // Проверяем localStorage сначала
+                const storedUser = localStorage.getItem('user');
+                if (storedUser) {
+                    currentUser = JSON.parse(storedUser);
+                    originalUserData = { ...currentUser };
+                    displayUserData(currentUser);
+                } else {
+                    // Если нет в localStorage, запрашиваем с сервера
+                    const response = await fetch('/api/auth/me', {
+                        method: 'GET',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error('Ошибка загрузки профиля');
+                    }
+                    
+                    const data = await response.json();
+                    if (data.success) {
+                        currentUser = data.user;
+                        originalUserData = { ...currentUser };
+                        localStorage.setItem('user', JSON.stringify(currentUser));
+                        displayUserData(currentUser);
+                    } else {
+                        throw new Error(data.error || 'Ошибка загрузки');
+                    }
+                }
+            } catch (error) {
+                console.error('Ошибка загрузки профиля:', error);
+                showNotification('Ошибка загрузки профиля: ' + error.message, 'error');
+                // Перенаправление на вход, если не авторизован
+                setTimeout(() => {
+                    window.location.href = 'register.html';
+                }, 2000);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // Отображение данных пользователя
+        function displayUserData(user) {
+            const displayName = `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.username || 'Пользователь';
+            document.getElementById('profile-display-name').textContent = displayName;
+            document.getElementById('profile-display-email').textContent = user.email || '';
+
+            if (user.avatar) {
+                document.getElementById('profile-avatar').innerHTML = `<img src="${user.avatar}" alt="Аватар">`;
+            } else {
+                document.getElementById('profile-avatar').innerHTML = '<i class="fas fa-user" id="avatar-icon"></i>';
+            }
+
+            document.getElementById('last-name').value = user.last_name || '';
+            document.getElementById('first-name').value = user.first_name || '';
+            document.getElementById('middle-name').value = user.middle_name || '';
+            document.getElementById('phone').value = user.phone || '';
+            document.getElementById('email').value = user.email || '';
+
+            checkForChanges();
+        }
+
+        // Сохранение профиля
+        async function saveProfile() {
+            const saveBtn = document.getElementById('save-btn');
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'Сохранение...';
+
+            try {
+                const formData = {
+                    user_id: currentUser.id,
+                    first_name: document.getElementById('first-name').value.trim(),
+                    last_name: document.getElementById('last-name').value.trim(),
+                    middle_name: document.getElementById('middle-name').value.trim(),
+                    phone: document.getElementById('phone').value.trim()
+                };
+
+                if (!formData.first_name) {
+                    throw new Error('Имя обязательно для заполнения');
+                }
+
+                const response = await fetch('/api/user/update-profile', {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(formData)
+                });
+
+                const result = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(result.error || 'Ошибка сохранения');
+                }
+
+                if (result.success) {
+                    showNotification('Профиль успешно обновлен');
+                    currentUser = { ...currentUser, ...formData };
+                    originalUserData = { ...currentUser };
+                    localStorage.setItem('user', JSON.stringify(currentUser));
+                    displayUserData(currentUser);
+                } else {
+                    throw new Error(result.error || 'Ошибка сохранения');
+                }
+            } catch (error) {
+                console.error('Ошибка сохранения профиля:', error);
+                showNotification(error.message, 'error');
+            } finally {
+                saveBtn.disabled = false;
+                saveBtn.textContent = 'Сохранить изменения';
+            }
+        }
+
+        // Загрузка аватарки
+        async function uploadAvatar(file) {
+            if (!file) return;
+
+            if (!file.type.startsWith('image/')) {
+                showNotification('Пожалуйста, выберите изображение', 'error');
+                return;
+            }
+
+            if (file.size > 5 * 1024 * 1024) {
+                showNotification('Размер изображения не должен превышать 5MB', 'error');
+                return;
+            }
+
+            showLoading();
+
+            try {
+                const formData = new FormData();
+                formData.append('avatar', file);
+                formData.append('user_id', currentUser.id);
+
+                const response = await fetch('/api/user/upload-avatar', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(result.error || 'Ошибка загрузки аватарки');
+                }
+
+                if (result.success) {
+                    showNotification('Аватар успешно обновлен');
+                    currentUser.avatar = result.avatar_url;
+                    localStorage.setItem('user', JSON.stringify(currentUser));
+                    document.getElementById('profile-avatar').innerHTML = `<img src="${result.avatar_url}" alt="Аватар">`;
+                } else {
+                    throw new Error(result.error || 'Ошибка загрузки аватарки');
+                }
+            } catch (error) {
+                console.error('Ошибка загрузки аватарки:', error);
+                showNotification(error.message, 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // Смена пароля
+        async function changePassword() {
+            try {
+                const currentPassword = document.getElementById('current-password-modal').value;
+                const newPassword = document.getElementById('new-password-modal').value;
+                const confirmPassword = document.getElementById('confirm-password-modal').value;
+
+                if (!currentPassword) {
+                    throw new Error('Введите текущий пароль');
+                }
+
+                if (!newPassword) {
+                    throw new Error('Введите новый пароль');
+                }
+
+                if (newPassword !== confirmPassword) {
+                    throw new Error('Новые пароли не совпадают');
+                }
+
+                if (newPassword.length < 6) {
+                    throw new Error('Пароль должен содержать минимум 6 символов');
+                }
+
+                const response = await fetch('/api/user/change-password', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        user_id: currentUser.id,
+                        current_password: currentPassword,
+                        new_password: newPassword
+                    })
+                });
+
+                const result = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(result.error || 'Ошибка смены пароля');
+                }
+
+                if (result.success) {
+                    showNotification('Пароль успешно изменен');
+                    closePasswordModal();
+                    document.getElementById('current-password-modal').value = '';
+                    document.getElementById('new-password-modal').value = '';
+                    document.getElementById('confirm-password-modal').value = '';
+                } else {
+                    throw new Error(result.error || 'Ошибка смены пароля');
+                }
+            } catch (error) {
+                console.error('Ошибка смены пароля:', error);
+                showNotification(error.message, 'error');
+            }
+        }
+
+        // Открытие модального окна смены пароля
+        function openPasswordModal() {
+            document.getElementById('password-modal').style.display = 'flex';
+        }
+
+        // Закрытие модального окна смены пароля
+        function closePasswordModal() {
+            document.getElementById('password-modal').style.display = 'none';
+            document.getElementById('current-password-modal').value = '';
+            document.getElementById('new-password-modal').value = '';
+            document.getElementById('confirm-password-modal').value = '';
+        }
+
+        // Выход из аккаунта
+        function logout() {
+            if (confirm('Вы уверены, что хотите выйти из аккаунта?')) {
+                localStorage.removeItem('user');
+                window.location.href = 'register.html';
+            }
+        }
+
+        // Назад
+        function goBack() {
+            window.history.back();
+        }
+
+        // Переключение видимости пароля
+        function togglePassword(inputId) {
+            const input = document.getElementById(inputId);
+            const icon = input.parentNode.querySelector('.password-toggle i');
+
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.className = 'fas fa-eye-slash';
+            } else {
+                input.type = 'password';
+                icon.className = 'fas fa-eye';
+            }
+        }
+
+        // Уведомления
+        function showNotification(message, type = 'success') {
+            const existingNotifications = document.querySelectorAll('.notification');
+            existingNotifications.forEach(notification => notification.remove());
+
+            const notification = document.createElement('div');
+            notification.className = `notification ${type === 'error' ? 'error' : ''}`;
+            notification.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <i class="fas ${type === 'error' ? 'fa-exclamation-circle' : 'fa-check-circle'}" style="font-size: 18px;"></i>
+                    <div>${message}</div>
+                </div>
+            `;
+            document.body.appendChild(notification);
+
+            setTimeout(() => {
+                notification.style.animation = 'slideInRight 0.3s ease reverse';
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.remove();
+                    }
+                }, 300);
+            }, 3000);
+        }
+
+        // Индикатор загрузки
+        function showLoading() {
+            document.getElementById('loading').style.display = 'block';
+        }
+
+        function hideLoading() {
+            document.getElementById('loading').style.display = 'none';
+        }
+
+        // Настройка обработчиков событий
+        function setupEventListeners() {
+            // Маска для телефона Таджикистана
+            document.getElementById('phone').addEventListener('input', function(e) {
+                let value = e.target.value.replace(/\D/g, '');
+                let formattedValue = '+992 ';
+                if (value.length > 3) formattedValue += value.substring(3, 5);
+                if (value.length > 5) formattedValue += ' ' + value.substring(5, 8);
+                if (value.length > 8) formattedValue += '-' + value.substring(8, 10);
+                if (value.length > 10) formattedValue += '-' + value.substring(10, 12);
+                e.target.value = formattedValue;
+            });
+
+            // Проверка изменений
+            const inputs = document.querySelectorAll('.form-input');
+            inputs.forEach(input => {
+                input.addEventListener('input', checkForChanges);
+            });
+
+            // Настройки (нерабочие, просто для вида)
+            document.getElementById('notifications-toggle').addEventListener('change', () => {
+                showNotification('Настройка уведомлений изменена (demo)');
+            });
+            document.getElementById('theme-select').addEventListener('change', () => {
+                showNotification('Тема изменена (demo)');
+            });
+            document.getElementById('language-select').addEventListener('change', () => {
+                showNotification('Язык изменен (demo)');
+            });
+        }
+
+        // Проверка изменений для кнопки сохранения
+        function checkForChanges() {
+            const saveBtn = document.getElementById('save-btn');
+            const hasChanges = 
+                document.getElementById('last-name').value !== (originalUserData?.last_name || '') ||
+                document.getElementById('first-name').value !== (originalUserData?.first_name || '') ||
+                document.getElementById('middle-name').value !== (originalUserData?.middle_name || '') ||
+                document.getElementById('phone').value !== (originalUserData?.phone || '');
+
+            saveBtn.disabled = !hasChanges;
+            saveBtn.style.opacity = hasChanges ? '1' : '0.7';
+        }
+    </script>
+</body>
+</html>

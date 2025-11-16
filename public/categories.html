@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>ФармаПлюс - Каталог</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background: #f5f5f5;
+            color: #333;
+            line-height: 1.4;
+        }
+
+        /* Шапка */
+        .header {
+            background: #73a9fa;
+            color: white;
+            padding: 12px 15px;
+            position: fixed;
+            top: 0;
+            width: 100%;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            height: 60px;
+        }
+
+        .header h1 {
+            font-size: 18px;
+            font-weight: bold;
+            margin-right: 10px;
+            white-space: nowrap;
+        }
+
+        .back-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 18px;
+            margin-right: 15px;
+            cursor: pointer;
+            padding: 5px;
+        }
+
+        .search-box {
+            background: white;
+            border-radius: 20px;
+            padding: 8px 15px;
+            flex: 1;
+            display: flex;
+            align-items: center;
+            min-width: 0;
+        }
+
+        .search-box input {
+            border: none;
+            outline: none;
+            width: 100%;
+            margin-left: 5px;
+            font-size: 14px;
+            background: transparent;
+        }
+
+        /* Основной контент */
+        .container {
+            margin-top: 60px;
+            margin-bottom: 70px;
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+
+        /* Категории сетка */
+        .categories-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            padding: 15px;
+            background: white;
+        }
+
+        @media (min-width: 768px) {
+            .categories-grid {
+                grid-template-columns: repeat(3, 1fr);
+                gap: 20px;
+                padding: 20px;
+            }
+        }
+
+        @media (min-width: 1024px) {
+            .categories-grid {
+                grid-template-columns: repeat(4, 1fr);
+                max-width: 1200px;
+                margin: 0 auto;
+            }
+        }
+
+        .category-card {
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            border: 1px solid #f0f0f0;
+        }
+
+        .category-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+        }
+
+        .category-card:active {
+            transform: scale(0.98);
+        }
+
+        .category-image {
+            width: 100%;
+            height: 120px;
+            background: linear-gradient(135deg, #73a9fa, #5d95e0);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        @media (min-width: 768px) {
+            .category-image {
+                height: 140px;
+            }
+        }
+
+        .category-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.3s ease;
+        }
+
+        .category-card:hover .category-image img {
+            transform: scale(1.1);
+        }
+
+        .category-icon {
+            font-size: 40px;
+            color: white;
+            opacity: 0.8;
+        }
+
+        .category-info {
+            padding: 12px;
+            text-align: center;
+        }
+
+        .category-name {
+            font-size: 14px;
+            font-weight: bold;
+            margin-bottom: 4px;
+            color: #333;
+        }
+
+        .category-count {
+            font-size: 12px;
+            color: #666;
+        }
+
+        /* Секция товаров */
+        .products-section {
+            display: none;
+            background: white;
+            margin-top: 10px;
+        }
+
+        .section-header {
+            padding: 15px;
+            border-bottom: 1px solid #f0f0f0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .back-to-categories {
+            background: none;
+            border: none;
+            color: #73a9fa;
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .products-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            padding: 15px;
+        }
+
+        @media (min-width: 768px) {
+            .products-grid {
+                grid-template-columns: repeat(3, 1fr);
+                gap: 15px;
+                padding: 20px;
+            }
+        }
+
+        @media (min-width: 1024px) {
+            .products-grid {
+                grid-template-columns: repeat(4, 1fr);
+                max-width: 1200px;
+                margin: 0 auto;
+            }
+        }
+
+        .product-card {
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            border: 1px solid #f0f0f0;
+        }
+
+        .product-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .product-image {
+            width: 100%;
+            height: 140px;
+            background: #f8f8f8;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .product-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.3s ease;
+        }
+
+        .product-card:hover .product-image img {
+            transform: scale(1.05);
+        }
+
+        .product-badge {
+            position: absolute;
+            top: 8px;
+            left: 8px;
+            background: #73a9fa;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: bold;
+        }
+
+        .product-info {
+            padding: 10px;
+        }
+
+        .product-name {
+            font-size: 13px;
+            margin-bottom: 5px;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            height: 36px;
+            line-height: 1.3;
+        }
+
+        .product-price {
+            color: #73a9fa;
+            font-weight: bold;
+            font-size: 14px;
+            margin: 5px 0;
+        }
+
+        .product-old-price {
+            color: #999;
+            font-size: 11px;
+            text-decoration: line-through;
+            margin-right: 5px;
+        }
+
+        .product-manufacturer {
+            color: #666;
+            font-size: 11px;
+            margin-top: 3px;
+        }
+
+        /* Индикатор загрузки */
+        .loading {
+            text-align: center;
+            padding: 40px 20px;
+            color: #666;
+            display: none;
+        }
+
+        .loading-spinner {
+            width: 24px;
+            height: 24px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #73a9fa;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Сообщение об отсутствии товаров */
+        .no-products {
+            text-align: center;
+            padding: 40px 20px;
+            background: white;
+            margin: 10px 0;
+            display: none;
+        }
+
+        .no-products-icon {
+            font-size: 48px;
+            color: #ddd;
+            margin-bottom: 15px;
+        }
+
+        /* Нижнее меню */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            background: white;
+            display: flex;
+            justify-content: space-around;
+            padding: 10px 0;
+            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+            padding-bottom: calc(10px + env(safe-area-inset-bottom));
+        }
+
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-size: 11px;
+            color: #666;
+            text-decoration: none;
+            cursor: pointer;
+            padding: 5px;
+            min-width: 60px;
+        }
+
+        .nav-item.active {
+            color: #73a9fa;
+        }
+
+        .nav-item i {
+            font-size: 20px;
+            margin-bottom: 3px;
+        }
+
+        .cart-badge {
+            position: absolute;
+            top: -2px;
+            right: 8px;
+            background: #73a9fa;
+            color: white;
+            border-radius: 50%;
+            width: 18px;
+            height: 18px;
+            font-size: 11px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+
+        /* Адаптация для больших экранов */
+        @media (min-width: 1024px) {
+            .container {
+                max-width: 1200px;
+                margin-left: auto;
+                margin-right: auto;
+            }
+        }
+
+        /* Поддержка iPhone X и новее */
+        @supports (padding: max(0px)) {
+            .container {
+                padding-bottom: max(20px, env(safe-area-inset-bottom));
+            }
+
+            .bottom-nav {
+                padding-bottom: max(10px, env(safe-area-inset-bottom));
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Шапка -->
+    <div class="header">
+        <button class="back-btn" onclick="goBack()">
+            <i class="fas fa-arrow-left"></i>
+        </button>
+        <h1>Каталог</h1>
+        <div class="search-box">
+            <i class="fas fa-search"></i>
+            <input type="text" placeholder="Поиск товаров" id="search-input">
+        </div>
+    </div>
+
+    <!-- Основной контент -->
+    <div class="container">
+        <!-- Сетка категорий -->
+        <div class="categories-grid" id="categories-grid">
+            <!-- Категории будут загружены через JavaScript -->
+        </div>
+
+        <!-- Секция товаров -->
+        <div class="products-section" id="products-section">
+            <div class="section-header">
+                <div class="section-title" id="category-title">Товары</div>
+                <button class="back-to-categories" onclick="showCategories()">
+                    <i class="fas fa-arrow-left"></i>
+                    Назад к категориям
+                </button>
+            </div>
+            
+            <div class="products-grid" id="products-grid">
+                <!-- Товары будут загружены через JavaScript -->
+            </div>
+        </div>
+
+        <!-- Индикатор загрузки -->
+        <div class="loading" id="loading">
+            <div class="loading-spinner"></div>
+            <div>Загрузка...</div>
+        </div>
+
+        <!-- Сообщение об отсутствии товаров -->
+        <div class="no-products" id="no-products">
+            <div class="no-products-icon">
+                <i class="fas fa-box-open"></i>
+            </div>
+            <h3>Товары не найдены</h3>
+            <p>Попробуйте выбрать другую категорию</p>
+        </div>
+    </div>
+
+    <!-- Нижнее меню -->
+    <div class="bottom-nav">
+        <a href="main.html" class="nav-item">
+            <i class="fas fa-home"></i>
+            <span>Главная</span>
+        </a>
+        <a href="categories.html" class="nav-item active">
+            <i class="fas fa-th-large"></i>
+            <span>Категории</span>
+        </a>
+        <div class="nav-item" id="cart-nav" style="position: relative">
+            <i class="fas fa-shopping-cart"></i>
+            <span>Корзина</span>
+            <div class="cart-badge" id="cart-badge" style="display: none">0</div>
+        </div>
+        <a href="profile.html" class="nav-item">
+            <i class="fas fa-user"></i>
+            <span>Профиль</span>
+        </a>
+    </div>
+
+    <script>
+        // Переменные для управления данными
+        let categories = [];
+        let currentCategoryId = null;
+        let currentProducts = [];
+
+        // Инициализация при загрузке
+        document.addEventListener('DOMContentLoaded', function() {
+            loadCategories();
+            setupEventListeners();
+        });
+
+        // Загрузка категорий
+        async function loadCategories() {
+            showLoading();
+            
+            try {
+                const response = await fetch('/api/categories');
+                
+                if (!response.ok) {
+                    throw new Error('Ошибка загрузки категорий');
+                }
+
+                categories = await response.json();
+                displayCategories(categories);
+            } catch (error) {
+                console.error('Ошибка загрузки категорий:', error);
+                // Загружаем категории по умолчанию если API недоступно
+                loadDefaultCategories();
+            }
+            
+            hideLoading();
+        }
+
+        // Категории по умолчанию с изображениями из интернета
+        function loadDefaultCategories() {
+            categories = [
+                {
+                    id: 1,
+                    name: 'Лекарства',
+                    description: 'Медицинские препараты',
+                    image: 'https://images.unsplash.com/photo-1585435557343-3b092031d5ad?w=300&h=200&fit=crop'
+                },
+                {
+                    id: 2,
+                    name: 'Витамины',
+                    description: 'Витамины и БАДы',
+                    image: 'https://images.unsplash.com/photo-1550258987-190a2d41a8ba?w=300&h=200&fit=crop'
+                },
+                {
+                    id: 3,
+                    name: 'Красота',
+                    description: 'Средства по уходу',
+                    image: 'https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=300&h=200&fit=crop'
+                },
+                {
+                    id: 4,
+                    name: 'Гигиена',
+                    description: 'Средства личной гигиены',
+                    image: 'https://images.unsplash.com/photo-1583947215259-38e31be8751f?w=300&h=200&fit=crop'
+                },
+                {
+                    id: 5,
+                    name: 'Мама и ребенок',
+                    description: 'Товары для матери и ребенка',
+                    image: 'https://images.unsplash.com/photo-1516627145497-ae69578b5d77?w=300&h=200&fit=crop'
+                },
+                {
+                    id: 6,
+                    name: 'Медтехника',
+                    description: 'Медицинская техника',
+                    image: 'https://images.unsplash.com/photo-1559757148-5c350d0d3c56?w=300&h=200&fit=crop'
+                },
+                {
+                    id: 7,
+                    name: 'Антисептики',
+                    description: 'Дезинфицирующие средства',
+                    image: 'https://images.unsplash.com/photo-1584634731339-252c581abfc5?w=300&h=200&fit=crop'
+                }
+            ];
+            
+            displayCategories(categories);
+        }
+
+        // Отображение категорий
+        function displayCategories(categories) {
+            const grid = document.getElementById('categories-grid');
+            grid.innerHTML = '';
+
+            categories.forEach(category => {
+                const categoryCard = document.createElement('div');
+                categoryCard.className = 'category-card';
+                categoryCard.onclick = () => showCategoryProducts(category.id, category.name);
+                
+                // Иконки для разных категорий
+                const icons = {
+                    'Лекарства': 'fas fa-pills',
+                    'Витамины': 'fas fa-capsules',
+                    'Красота': 'fas fa-spa',
+                    'Гигиена': 'fas fa-soap',
+                    'Мама и ребенок': 'fas fa-baby',
+                    'Медтехника': 'fas fa-stethoscope',
+                    'Антисептики': 'fas fa-hand-sparkles'
+                };
+
+                categoryCard.innerHTML = `
+                    <div class="category-image">
+                        ${category.image ? 
+                            `<img src="${category.image}" alt="${category.name}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">` : 
+                            ''
+                        }
+                        <div class="category-icon" style="${category.image ? 'display: none;' : ''}">
+                            <i class="${icons[category.name] || 'fas fa-box'}"></i>
+                        </div>
+                    </div>
+                    <div class="category-info">
+                        <div class="category-name">${category.name}</div>
+                        <div class="category-count">${category.description || 'Товары'}</div>
+                    </div>
+                `;
+                
+                grid.appendChild(categoryCard);
+            });
+        }
+
+        // Показать товары категории
+        async function showCategoryProducts(categoryId, categoryName) {
+            showLoading();
+            currentCategoryId = categoryId;
+            
+            try {
+                const response = await fetch(`/api/products?category_id=${categoryId}`);
+                
+                if (!response.ok) {
+                    throw new Error('Ошибка загрузки товаров');
+                }
+
+                const data = await response.json();
+                currentProducts = data.products || [];
+                
+                displayProducts(currentProducts, categoryName);
+                showProductsSection();
+            } catch (error) {
+                console.error('Ошибка загрузки товаров:', error);
+                // Загружаем тестовые товары если API недоступно
+                loadSampleProducts(categoryName);
+            }
+            
+            hideLoading();
+        }
+
+        // Тестовые товары
+        function loadSampleProducts(categoryName) {
+            currentProducts = [
+                {
+                    id: 1,
+                    name: 'Нурофен таблетки 200мг №20',
+                    price: 250.50,
+                    old_price: 280.00,
+                    manufacturer: 'Рекитт Бенкизер',
+                    image: 'https://images.unsplash.com/photo-1585435557343-3b092031d5ad?w=300&h=200&fit=crop',
+                    is_new: true,
+                    is_popular: true
+                },
+                {
+                    id: 2,
+                    name: 'Витамин D3 2000 МЕ №60',
+                    price: 890.00,
+                    manufacturer: 'Солгар',
+                    image: 'https://images.unsplash.com/photo-1550258987-190a2d41a8ba?w=300&h=200&fit=crop',
+                    is_popular: true
+                },
+                {
+                    id: 3,
+                    name: 'Панадол 500мг №12',
+                    price: 180.00,
+                    manufacturer: 'ГлаксоСмитКляйн',
+                    image: 'https://images.unsplash.com/photo-1585435557343-3b092031d5ad?w=300&h=200&fit=crop'
+                }
+            ];
+            
+            displayProducts(currentProducts, categoryName);
+            showProductsSection();
+        }
+
+        // Отображение товаров
+        function displayProducts(products, categoryName) {
+            const grid = document.getElementById('products-grid');
+            const title = document.getElementById('category-title');
+            
+            title.textContent = categoryName;
+            grid.innerHTML = '';
+
+            if (products.length === 0) {
+                showNoProducts();
+                return;
+            }
+
+            hideNoProducts();
+
+            products.forEach(product => {
+                const hasDiscount = product.old_price && product.old_price > product.price;
+                const discountPercent = hasDiscount ? 
+                    Math.round((1 - product.price / product.old_price) * 100) : 0;
+
+                const productCard = document.createElement('div');
+                productCard.className = 'product-card';
+                productCard.onclick = () => openProductPage(product.id);
+                
+                productCard.innerHTML = `
+                    <div class="product-image">
+                        ${product.image ? 
+                            `<img src="${product.image}" alt="${product.name}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">` : 
+                            ''
+                        }
+                        <div style="${product.image ? 'display: none;' : ''} width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: #f8f8f8;">
+                            <i class="fas fa-pills" style="font-size: 40px; color: #ccc;"></i>
+                        </div>
+                        ${product.is_new ? `<div class="product-badge">Новинка</div>` : ''}
+                        ${product.is_popular ? `<div class="product-badge" style="background: #4CAF50;">Популярный</div>` : ''}
+                        ${hasDiscount ? `<div class="product-badge" style="background: #ff4444;">-${discountPercent}%</div>` : ''}
+                    </div>
+                    <div class="product-info">
+                        <div class="product-name">${product.name}</div>
+                        <div class="product-price">
+                            ${hasDiscount ? `<span class="product-old-price">${product.old_price} ₽</span>` : ''}
+                            ${product.price} ₽
+                        </div>
+                        ${product.manufacturer ? `<div class="product-manufacturer">${product.manufacturer}</div>` : ''}
+                    </div>
+                `;
+                
+                grid.appendChild(productCard);
+            });
+        }
+
+        // Переключение между категориями и товарами
+        function showCategories() {
+            document.getElementById('categories-grid').style.display = 'grid';
+            document.getElementById('products-section').style.display = 'none';
+            hideNoProducts();
+        }
+
+        function showProductsSection() {
+            document.getElementById('categories-grid').style.display = 'none';
+            document.getElementById('products-section').style.display = 'block';
+        }
+
+        // Открыть страницу товара
+        function openProductPage(productId) {
+            window.location.href = `product.html?id=${productId}`;
+        }
+
+        // Назад
+        function goBack() {
+            if (document.getElementById('products-section').style.display === 'block') {
+                showCategories();
+            } else {
+                window.history.back();
+            }
+        }
+
+        // Утилиты отображения
+        function showLoading() {
+            document.getElementById('loading').style.display = 'block';
+        }
+
+        function hideLoading() {
+            document.getElementById('loading').style.display = 'none';
+        }
+
+        function showNoProducts() {
+            document.getElementById('no-products').style.display = 'block';
+        }
+
+        function hideNoProducts() {
+            document.getElementById('no-products').style.display = 'none';
+        }
+
+        // Настройка обработчиков событий
+        function setupEventListeners() {
+            // Поиск с дебаунсом
+            let searchTimeout;
+            document.getElementById('search-input').addEventListener('input', (e) => {
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(() => {
+                    const searchTerm = e.target.value.trim();
+                    if (searchTerm) {
+                        searchProducts(searchTerm);
+                    } else if (currentCategoryId) {
+                        // Если есть активная категория, показываем её товары
+                        const category = categories.find(c => c.id === currentCategoryId);
+                        if (category) {
+                            showCategoryProducts(currentCategoryId, category.name);
+                        }
+                    }
+                }, 500);
+            });
+
+            // Корзина
+            document.getElementById('cart-nav').addEventListener('click', () => {
+                window.location.href = 'cart.html';
+            });
+        }
+
+        // Поиск товаров
+        async function searchProducts(searchTerm) {
+            showLoading();
+            
+            try {
+                const response = await fetch(`/api/products?search=${encodeURIComponent(searchTerm)}`);
+                
+                if (!response.ok) {
+                    throw new Error('Ошибка поиска товаров');
+                }
+
+                const data = await response.json();
+                currentProducts = data.products || [];
+                
+                displayProducts(currentProducts, `Результаты поиска: "${searchTerm}"`);
+                showProductsSection();
+            } catch (error) {
+                console.error('Ошибка поиска:', error);
+                showNoProducts();
+            }
+            
+            hideLoading();
+        }
+
+        // Обработка изменения ориентации
+        window.addEventListener('orientationchange', function() {
+            setTimeout(() => {
+                window.scrollTo(0, 0);
+            }, 100);
+        });
+    </script>
+</body>
+</html>
