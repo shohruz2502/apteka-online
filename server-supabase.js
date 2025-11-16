@@ -21,6 +21,7 @@ const client = new Client({
 
 let db;
 
+// Принудительно использовать Supabase
 async function initializeDatabase() {
   try {
     console.log('🔄 Подключение к Supabase PostgreSQL...');
@@ -28,16 +29,14 @@ async function initializeDatabase() {
     db = client;
     console.log('✅ Успешное подключение к Supabase');
     
-    // Создаем таблицы если их нет
     await createTables();
-    
     console.log('✅ База данных готова к работе');
     return db;
   } catch (err) {
     console.error('❌ Ошибка подключения к Supabase:', err);
-    console.log('🔄 Создаем in-memory хранилище для демонстрации...');
-    db = createMemoryDB();
-    return db;
+    
+    // ❌ ВРЕМЕННО: не переключаться на in-memory
+    throw new Error('Не удалось подключиться к Supabase');
   }
 }
 
@@ -118,6 +117,7 @@ async function createTables() {
     
   } catch (err) {
     console.error('❌ Ошибка создания таблиц:', err);
+    throw err;
   }
 }
 
@@ -163,369 +163,6 @@ async function addSampleData() {
   } catch (err) {
     console.error('❌ Ошибка добавления тестовых данных:', err);
   }
-}
-
-// In-memory хранилище для демонстрации
-function createMemoryDB() {
-  const memoryDB = {
-    data: {
-      categories: [
-        { id: 1, name: 'Лекарства', description: 'Медицинские препараты', image: 'https://images.unsplash.com/photo-1585435557343-3b092031d5ad?w=300&h=200&fit=crop' },
-        { id: 2, name: 'Витамины', description: 'Витамины и БАДы', image: 'https://images.unsplash.com/photo-1550258987-190a2d41a8ba?w=300&h=200&fit=crop' },
-        { id: 3, name: 'Красота', description: 'Средства по уходу', image: 'https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=300&h=200&fit=crop' },
-        { id: 4, name: 'Гигиена', description: 'Средства личной гигиены', image: 'https://images.unsplash.com/photo-1583947215259-38e31be8751f?w=300&h=200&fit=crop' }
-      ],
-      products: [
-        {
-          id: 1,
-          name: 'Нурофен таблетки 200мг №20',
-          description: 'Обезболивающее и жаропонижающее средство',
-          price: 250.50,
-          old_price: 280.00,
-          image: 'https://images.unsplash.com/photo-1585435557343-3b092031d5ad?w=300&h=200&fit=crop',
-          category_id: 1,
-          category_name: 'Лекарства',
-          manufacturer: 'Рекитт Бенкизер',
-          country: 'Великобритания',
-          stock_quantity: 50,
-          in_stock: true,
-          is_popular: true,
-          is_new: false,
-          composition: 'Ибупрофен 200 мг',
-          indications: 'Головная боль, зубная боль, мигрень',
-          usage: 'По 1 таблетке 3-4 раза в день',
-          contraindications: 'Язвенная болезнь, беременность'
-        },
-        {
-          id: 2,
-          name: 'Витамин C 1000мг',
-          description: 'Витамин C в таблетках для иммунитета',
-          price: 450.00,
-          old_price: 520.00,
-          image: 'https://images.unsplash.com/photo-1550258987-190a2d41a8ba?w=300&h=200&fit=crop',
-          category_id: 2,
-          category_name: 'Витамины',
-          manufacturer: 'Solgar',
-          country: 'США',
-          stock_quantity: 30,
-          in_stock: true,
-          is_popular: true,
-          is_new: true,
-          composition: 'Аскорбиновая кислота 1000 мг'
-        },
-        {
-          id: 3,
-          name: 'Панадол 500мг №12',
-          description: 'Обезболивающее средство',
-          price: 180.00,
-          old_price: null,
-          image: 'https://images.unsplash.com/photo-1585435557343-3b092031d5ad?w=300&h=200&fit=crop',
-          category_id: 1,
-          category_name: 'Лекарства',
-          manufacturer: 'ГлаксоСмитКляйн',
-          country: 'Великобритания',
-          stock_quantity: 25,
-          in_stock: true,
-          is_popular: false,
-          is_new: true,
-          composition: 'Парацетамол 500 мг'
-        }
-      ],
-      users: [
-        {
-          id: 1,
-          first_name: 'Админ',
-          last_name: 'Админов',
-          username: 'admin',
-          email: 'admin@example.com',
-          password: 'admin123',
-          phone: '+992 123456789',
-          is_admin: true,
-          login_count: 1,
-          created_at: new Date()
-        },
-        {
-          id: 2,
-          first_name: 'Иван',
-          last_name: 'Иванов',
-          username: 'ivan',
-          email: 'ivan@example.com',
-          password: 'password123',
-          phone: '+992 987654321',
-          is_admin: false,
-          login_count: 0,
-          created_at: new Date()
-        }
-      ],
-      cart_items: [
-        {
-          id: 1,
-          user_id: 2,
-          product_id: 1,
-          quantity: 2,
-          created_at: new Date()
-        },
-        {
-          id: 2,
-          user_id: 2,
-          product_id: 2,
-          quantity: 1,
-          created_at: new Date()
-        }
-      ]
-    },
-    query: function(sql, params = []) {
-      console.log('📝 Memory DB Query:', sql, params);
-      
-      // Простая имитация SQL запросов
-      if (sql.includes('SELECT') && sql.includes('categories')) {
-        if (sql.includes('WHERE id =')) {
-          const id = params[0];
-          const category = this.data.categories.find(c => c.id == id);
-          return { rows: category ? [category] : [] };
-        }
-        return { rows: this.data.categories };
-      }
-      
-      if (sql.includes('SELECT') && sql.includes('products')) {
-        if (sql.includes('WHERE p.id =')) {
-          const id = params[0];
-          const product = this.data.products.find(p => p.id == id);
-          return { rows: product ? [product] : [] };
-        }
-        
-        if (sql.includes('COUNT(*)')) {
-          return { rows: [{ total: this.data.products.length }] };
-        }
-        
-        // Фильтрация по категории
-        if (sql.includes('c.name =')) {
-          const categoryName = params[0];
-          const filteredProducts = this.data.products.filter(p => 
-            p.category_name === categoryName
-          );
-          return { rows: filteredProducts };
-        }
-
-        if (sql.includes('p.category_id =')) {
-          const categoryId = params[0];
-          const filteredProducts = this.data.products.filter(p => 
-            p.category_id == categoryId
-          );
-          return { rows: filteredProducts };
-        }
-        
-        // Поиск
-        if (sql.includes('ILIKE')) {
-          const searchParam = params[0].replace(/%/g, '');
-          const filteredProducts = this.data.products.filter(p => 
-            p.name.toLowerCase().includes(searchParam.toLowerCase()) ||
-            p.description.toLowerCase().includes(searchParam.toLowerCase()) ||
-            p.manufacturer.toLowerCase().includes(searchParam.toLowerCase())
-          );
-          return { rows: filteredProducts };
-        }
-        
-        return { rows: this.data.products };
-      }
-      
-      if (sql.includes('INSERT INTO users')) {
-        const newId = Math.max(0, ...this.data.users.map(u => u.id)) + 1;
-        const newUser = {
-          id: newId,
-          first_name: params[0],
-          last_name: params[1],
-          username: params[2],
-          email: params[3],
-          password: params[4],
-          phone: params[5],
-          login_count: params[6],
-          is_admin: false,
-          created_at: new Date()
-        };
-        this.data.users.push(newUser);
-        return { rows: [newUser] };
-      }
-      
-      if (sql.includes('SELECT * FROM users WHERE username =') || sql.includes('SELECT * FROM users WHERE email =')) {
-        const username = params[0];
-        const user = this.data.users.find(u => u.username === username || u.email === username);
-        return { rows: user ? [user] : [] };
-      }
-
-      if (sql.includes('SELECT * FROM users WHERE id =')) {
-        const id = params[0];
-        const user = this.data.users.find(u => u.id == id);
-        return { rows: user ? [user] : [] };
-      }
-      
-      if (sql.includes('UPDATE users SET')) {
-        if (sql.includes('avatar')) {
-          const avatar = params[0];
-          const id = params[1];
-          const user = this.data.users.find(u => u.id == id);
-          if (user) {
-            user.avatar = avatar;
-          }
-        } else if (sql.includes('first_name')) {
-          const firstName = params[0];
-          const lastName = params[1];
-          const middleName = params[2];
-          const phone = params[3];
-          const id = params[4];
-          const user = this.data.users.find(u => u.id == id);
-          if (user) {
-            user.first_name = firstName;
-            user.last_name = lastName;
-            user.middle_name = middleName;
-            user.phone = phone;
-          }
-        } else if (sql.includes('last_login')) {
-          // Просто обновляем счетчик входа
-          const id = params[1];
-          const user = this.data.users.find(u => u.id == id);
-          if (user) {
-            user.login_count = (user.login_count || 0) + 1;
-            user.last_login = new Date();
-          }
-        }
-        return { rows: [] };
-      }
-
-      // INSERT INTO products
-      if (sql.includes('INSERT INTO products')) {
-        const newId = Math.max(0, ...this.data.products.map(p => p.id)) + 1;
-        const demoImages = [
-          'https://images.unsplash.com/photo-1585435557343-3b092031d5ad?w=300&h=200&fit=crop',
-          'https://images.unsplash.com/photo-1550258987-190a2d41a8ba?w=300&h=200&fit=crop',
-          'https://images.unsplash.com/photo-1576671414121-d0b01c6c5f60?w=300&h=200&fit=crop',
-          'https://images.unsplash.com/photo-1559056199-641a0ac8b55e?w=300&h=200&fit=crop'
-        ];
-        const randomImage = demoImages[Math.floor(Math.random() * demoImages.length)];
-
-        const newProduct = {
-          id: newId,
-          name: params[0],
-          category_id: params[1],
-          description: params[2],
-          price: parseFloat(params[3]),
-          old_price: params[4] ? parseFloat(params[4]) : null,
-          manufacturer: params[5],
-          country: params[6],
-          stock_quantity: parseInt(params[7]),
-          in_stock: Boolean(params[8]),
-          is_popular: Boolean(params[9]),
-          is_new: Boolean(params[10]),
-          composition: params[11],
-          indications: params[12],
-          usage: params[13],
-          contraindications: params[14],
-          dosage: params[15],
-          expiry_date: params[16],
-          storage_conditions: params[17],
-          image: randomImage,
-          category_name: this.data.categories.find(c => c.id == params[1])?.name || 'Категория',
-          created_at: new Date()
-        };
-        this.data.products.push(newProduct);
-        return { rows: [newProduct] };
-      }
-
-      // Корзина - получение товаров корзины с информацией о продуктах
-      if (sql.includes('cart_items') && sql.includes('products') && sql.includes('LEFT JOIN')) {
-        const userId = params[0];
-        const userCart = this.data.cart_items
-          .filter(item => item.user_id == userId)
-          .map(item => {
-            const product = this.data.products.find(p => p.id == item.product_id);
-            return {
-              ...item,
-              name: product?.name,
-              price: product?.price,
-              image: product?.image,
-              description: product?.description,
-              manufacturer: product?.manufacturer,
-              in_stock: product?.in_stock
-            };
-          });
-        return { rows: userCart };
-      }
-
-      // Корзина - добавление товара
-      if (sql.includes('INSERT INTO cart_items')) {
-        const userId = params[0];
-        const productId = params[1];
-        const quantity = params[2] || 1;
-
-        // Проверяем есть ли уже такой товар в корзине
-        const existingItem = this.data.cart_items.find(
-          item => item.user_id == userId && item.product_id == productId
-        );
-
-        if (existingItem) {
-          // Обновляем количество
-          existingItem.quantity += quantity;
-          return { rows: [existingItem] };
-        } else {
-          // Добавляем новый товар
-          const newId = Math.max(0, ...this.data.cart_items.map(i => i.id)) + 1;
-          const newItem = {
-            id: newId,
-            user_id: userId,
-            product_id: productId,
-            quantity: quantity,
-            created_at: new Date()
-          };
-          this.data.cart_items.push(newItem);
-          return { rows: [newItem] };
-        }
-      }
-
-      // Корзина - обновление количества
-      if (sql.includes('UPDATE cart_items SET quantity =')) {
-        const quantity = params[0];
-        const itemId = params[1];
-        const userId = params[2];
-        
-        const item = this.data.cart_items.find(i => i.id == itemId && i.user_id == userId);
-        if (item) {
-          item.quantity = quantity;
-        }
-        return { rows: [] };
-      }
-
-      // Корзина - удаление товара
-      if (sql.includes('DELETE FROM cart_items')) {
-        const itemId = params[0];
-        const userId = params[1];
-        
-        this.data.cart_items = this.data.cart_items.filter(
-          item => !(item.id == itemId && item.user_id == userId)
-        );
-        return { rows: [] };
-      }
-
-      // Корзина - получение общей суммы
-      if (sql.includes('SUM(p.price * ci.quantity)')) {
-        const userId = params[0];
-        const userCart = this.data.cart_items.filter(item => item.user_id == userId);
-        let total = 0;
-        
-        userCart.forEach(item => {
-          const product = this.data.products.find(p => p.id == item.product_id);
-          if (product) {
-            total += product.price * item.quantity;
-          }
-        });
-        
-        return { rows: [{ total: total }] };
-      }
-      
-      return { rows: [] };
-    }
-  };
-  
-  return memoryDB;
 }
 
 // ==================== API ROUTES ====================
@@ -1309,7 +946,7 @@ app.get('/health', async (req, res) => {
     res.json({ 
       status: 'OK', 
       timestamp: new Date().toISOString(),
-      database: db === client ? 'Supabase PostgreSQL' : 'In-memory хранилище',
+      database: 'Supabase PostgreSQL',
       tables: {
         products: parseInt(productsCount.rows[0]?.count) || 0,
         categories: parseInt(categoriesCount.rows[0]?.count) || 0,
@@ -1326,6 +963,12 @@ app.get('/health', async (req, res) => {
   }
 });
 
+// Обработка ошибок подключения к БД
+process.on('unhandledRejection', (err) => {
+  console.error('❌ Необработанная ошибка:', err);
+  process.exit(1);
+});
+
 // Запуск сервера
 async function startServer() {
   try {
@@ -1334,7 +977,7 @@ async function startServer() {
     app.listen(PORT, () => {
       console.log(`\n🚀 Сервер запущен на порту ${PORT}`);
       console.log(`📍 http://localhost:${PORT}`);
-      console.log(`🗄️ База данных: ${db === client ? 'Supabase PostgreSQL' : 'In-memory хранилище'}`);
+      console.log(`🗄️ База данных: Supabase PostgreSQL`);
       console.log(`\n📋 Доступные endpoints:`);
       console.log(`   GET  /api/categories - Категории`);
       console.log(`   GET  /api/products - Товары`);
@@ -1350,10 +993,12 @@ async function startServer() {
     });
   } catch (err) {
     console.error('❌ Не удалось запустить сервер:', err);
+    console.error('💡 Убедитесь, что:');
+    console.error('   1. Supabase база данных запущена и доступна');
+    console.error('   2. Переменная окружения DATABASE_URL установлена правильно');
+    console.error('   3. Параметры подключения корректны');
     process.exit(1);
   }
 }
 
-
 startServer();
-
