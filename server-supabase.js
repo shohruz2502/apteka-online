@@ -1,4 +1,3 @@
-const __dirname = path.resolve();
 const express = require('express');
 const { Client } = require('pg');
 const path = require('path');
@@ -1357,3 +1356,4 @@ async function startServer() {
 
 
 startServer();
+
