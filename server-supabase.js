@@ -2,7 +2,6 @@ const express = require('express');
 const { Client } = require('pg');
 const path = require('path');
 const cors = require('cors');
-const fs = require('fs');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -15,16 +14,21 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // ✅ Supabase PostgreSQL подключение
 const client = new Client({
-  connectionString: process.env.DATABASE_URL || 'postgresql://postgres:password@localhost:5432/pharmacy',
+  connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false }
 });
 
 let db;
 
-// Принудительно использовать Supabase
+// Инициализация базы данных
 async function initializeDatabase() {
   try {
     console.log('🔄 Подключение к Supabase PostgreSQL...');
+    
+    if (!process.env.DATABASE_URL) {
+      throw new Error('DATABASE_URL не установлен. Проверьте Environment Variables в Vercel');
+    }
+    
     await client.connect();
     db = client;
     console.log('✅ Успешное подключение к Supabase');
@@ -33,10 +37,8 @@ async function initializeDatabase() {
     console.log('✅ База данных готова к работе');
     return db;
   } catch (err) {
-    console.error('❌ Ошибка подключения к Supabase:', err);
-    
-    // ❌ ВРЕМЕННО: не переключаться на in-memory
-    throw new Error('Не удалось подключиться к Supabase');
+    console.error('❌ Критическая ошибка подключения к Supabase:', err.message);
+    throw new Error('Не удалось подключиться к Supabase: ' + err.message);
   }
 }
 
@@ -127,7 +129,7 @@ async function addSampleData() {
     // Проверяем есть ли категории
     const { rows: existingCategories } = await db.query('SELECT COUNT(*) as count FROM categories');
     if (parseInt(existingCategories[0].count) === 0) {
-      // Добавляем категории
+      console.log('📝 Добавляем тестовые категории...');
       await db.query(`
         INSERT INTO categories (name, description, image) VALUES
         ('Лекарства', 'Медицинские препараты', 'https://images.unsplash.com/photo-1585435557343-3b092031d5ad?w=300&h=200&fit=crop'),
@@ -140,7 +142,7 @@ async function addSampleData() {
     // Проверяем есть ли продукты
     const { rows: existingProducts } = await db.query('SELECT COUNT(*) as count FROM products');
     if (parseInt(existingProducts[0].count) === 0) {
-      // Добавляем продукты
+      console.log('📝 Добавляем тестовые продукты...');
       await db.query(`
         INSERT INTO products (name, description, price, old_price, image, category_id, manufacturer, country, stock_quantity, is_popular, composition) VALUES
         ('Нурофен таблетки 200мг №20', 'Обезболивающее и жаропонижающее средство', 250.50, 280.00, 'https://images.unsplash.com/photo-1585435557343-3b092031d5ad?w=300&h=200&fit=crop', 1, 'Рекитт Бенкизер', 'Великобритания', 50, true, 'Ибупрофен 200 мг'),
@@ -152,6 +154,7 @@ async function addSampleData() {
     // Добавляем тестового пользователя если нет
     const { rows: existingUsers } = await db.query('SELECT COUNT(*) as count FROM users');
     if (parseInt(existingUsers[0].count) === 0) {
+      console.log('📝 Добавляем тестовых пользователей...');
       await db.query(`
         INSERT INTO users (first_name, last_name, username, email, password, phone, is_admin) VALUES
         ('Админ', 'Админов', 'admin', 'admin@example.com', 'admin123', '+992 123456789', true),
@@ -906,6 +909,34 @@ app.delete('/api/cart', async (req, res) => {
   }
 });
 
+// Health check
+app.get('/health', async (req, res) => {
+  try {
+    const productsCount = await db.query('SELECT COUNT(*) as count FROM products');
+    const categoriesCount = await db.query('SELECT COUNT(*) as count FROM categories');
+    const usersCount = await db.query('SELECT COUNT(*) as count FROM users');
+    const cartCount = await db.query('SELECT COUNT(*) as count FROM cart_items');
+    
+    res.json({ 
+      status: 'OK', 
+      timestamp: new Date().toISOString(),
+      database: 'Supabase PostgreSQL',
+      tables: {
+        products: parseInt(productsCount.rows[0]?.count) || 0,
+        categories: parseInt(categoriesCount.rows[0]?.count) || 0,
+        users: parseInt(usersCount.rows[0]?.count) || 0,
+        cart_items: parseInt(cartCount.rows[0]?.count) || 0
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ 
+      status: 'ERROR', 
+      timestamp: new Date().toISOString(),
+      error: err.message
+    });
+  }
+});
+
 // Статические страницы
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'main.html'));
@@ -935,40 +966,6 @@ app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'netuDostup.html'));
 });
 
-// Health check
-app.get('/health', async (req, res) => {
-  try {
-    const productsCount = await db.query('SELECT COUNT(*) as count FROM products');
-    const categoriesCount = await db.query('SELECT COUNT(*) as count FROM categories');
-    const usersCount = await db.query('SELECT COUNT(*) as count FROM users');
-    const cartCount = await db.query('SELECT COUNT(*) as count FROM cart_items');
-    
-    res.json({ 
-      status: 'OK', 
-      timestamp: new Date().toISOString(),
-      database: 'Supabase PostgreSQL',
-      tables: {
-        products: parseInt(productsCount.rows[0]?.count) || 0,
-        categories: parseInt(categoriesCount.rows[0]?.count) || 0,
-        users: parseInt(usersCount.rows[0]?.count) || 0,
-        cart_items: parseInt(cartCount.rows[0]?.count) || 0
-      }
-    });
-  } catch (err) {
-    res.status(500).json({ 
-      status: 'ERROR', 
-      timestamp: new Date().toISOString(),
-      error: err.message
-    });
-  }
-});
-
-// Обработка ошибок подключения к БД
-process.on('unhandledRejection', (err) => {
-  console.error('❌ Необработанная ошибка:', err);
-  process.exit(1);
-});
-
 // Запуск сервера
 async function startServer() {
   try {
@@ -979,24 +976,18 @@ async function startServer() {
       console.log(`📍 http://localhost:${PORT}`);
       console.log(`🗄️ База данных: Supabase PostgreSQL`);
       console.log(`\n📋 Доступные endpoints:`);
+      console.log(`   GET  /health - Проверка работы`);
       console.log(`   GET  /api/categories - Категории`);
       console.log(`   GET  /api/products - Товары`);
-      console.log(`   POST /api/admin/products - Добавление товара`);
-      console.log(`   GET  /api/auth/me - Получение пользователя`);
-      console.log(`   POST /api/cart/add - Добавление в корзину`);
-      console.log(`   GET  /api/cart - Получение корзины`);
-      console.log(`   PUT  /api/cart/:id - Обновление корзины`);
-      console.log(`   DELETE /api/cart/:id - Удаление из корзины`);
       console.log(`   POST /api/auth/register - Регистрация`);
       console.log(`   POST /api/auth/login - Вход`);
-      console.log(`   GET  /health - Проверка работы`);
     });
   } catch (err) {
-    console.error('❌ Не удалось запустить сервер:', err);
-    console.error('💡 Убедитесь, что:');
-    console.error('   1. Supabase база данных запущена и доступна');
-    console.error('   2. Переменная окружения DATABASE_URL установлена правильно');
-    console.error('   3. Параметры подключения корректны');
+    console.error('\n❌ Не удалось запустить сервер:', err.message);
+    console.error('\n💡 Для исправления:');
+    console.error('   1. Проверьте DATABASE_URL в Environment Variables Vercel');
+    console.error('   2. Убедитесь, что строка подключения правильная');
+    console.error('   3. Проверьте что Supabase база запущена');
     process.exit(1);
   }
 }
