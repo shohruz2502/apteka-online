@@ -13,161 +13,289 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 let db;
+let isConnected = false;
 
-// Инициализация базы данных ТОЛЬКО с Supabase
+// Простая функция для создания временной базы данных
+function createSimpleDB() {
+  console.log('📝 Создаем временную базу данных в памяти...');
+  
+  const data = {
+    categories: [
+      { id: 1, name: 'Лекарства', description: 'Медицинские препараты', image: 'https://images.unsplash.com/photo-1585435557343-3b092031d5ad?w=300&h=200&fit=crop' },
+      { id: 2, name: 'Витамины', description: 'Витамины и БАДы', image: 'https://images.unsplash.com/photo-1550258987-190a2d41a8ba?w=300&h=200&fit=crop' },
+      { id: 3, name: 'Красота', description: 'Средства по уходу', image: 'https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=300&h=200&fit=crop' },
+      { id: 4, name: 'Гигиена', description: 'Средства личной гигиены', image: 'https://images.unsplash.com/photo-1583947215259-38e31be8751f?w=300&h=200&fit=crop' }
+    ],
+    products: [
+      {
+        id: 1, name: 'Нурофен таблетки 200мг №20', description: 'Обезболивающее и жаропонижающее средство',
+        price: 250.50, old_price: 280.00, image: 'https://images.unsplash.com/photo-1585435557343-3b092031d5ad?w=300&h=200&fit=crop',
+        category_id: 1, category_name: 'Лекарства', manufacturer: 'Рекитт Бенкизер', country: 'Великобритания',
+        stock_quantity: 50, in_stock: true, is_popular: true, is_new: false, composition: 'Ибупрофен 200 мг'
+      },
+      {
+        id: 2, name: 'Витамин C 1000мг', description: 'Витамин C в таблетках для иммунитета',
+        price: 450.00, old_price: 520.00, image: 'https://images.unsplash.com/photo-1550258987-190a2d41a8ba?w=300&h=200&fit=crop',
+        category_id: 2, category_name: 'Витамины', manufacturer: 'Solgar', country: 'США',
+        stock_quantity: 30, in_stock: true, is_popular: true, is_new: true, composition: 'Аскорбиновая кислота 1000 мг'
+      },
+      {
+        id: 3, name: 'Панадол 500мг №12', description: 'Обезболивающее средство',
+        price: 180.00, old_price: null, image: 'https://images.unsplash.com/photo-1585435557343-3b092031d5ad?w=300&h=200&fit=crop',
+        category_id: 1, category_name: 'Лекарства', manufacturer: 'ГлаксоСмитКляйн', country: 'Великобритания',
+        stock_quantity: 25, in_stock: true, is_popular: false, is_new: true, composition: 'Парацетамол 500 мг'
+      }
+    ],
+    users: [
+      {
+        id: 1, first_name: 'Админ', last_name: 'Админов', username: 'admin', email: 'admin@example.com',
+        password: 'admin123', phone: '+992 123456789', is_admin: true, login_count: 1, avatar: null
+      },
+      {
+        id: 2, first_name: 'Иван', last_name: 'Иванов', username: 'ivan', email: 'ivan@example.com',
+        password: 'password123', phone: '+992 987654321', is_admin: false, login_count: 0, avatar: null
+      }
+    ],
+    cart_items: [],
+    nextId: { products: 4, users: 3, categories: 5, cart_items: 1 }
+  };
+
+  return {
+    query: (sql, params = []) => {
+      console.log('📝 Simple DB Query:', sql.substring(0, 100) + '...');
+      
+      // SELECT categories
+      if (sql.includes('SELECT') && sql.includes('categories')) {
+        if (sql.includes('WHERE id =')) {
+          const id = params[0];
+          return { rows: data.categories.filter(c => c.id == id) };
+        }
+        return { rows: data.categories };
+      }
+      
+      // SELECT products
+      if (sql.includes('SELECT') && sql.includes('products')) {
+        if (sql.includes('WHERE p.id =') || sql.includes('WHERE id =')) {
+          const id = params[0];
+          const product = data.products.find(p => p.id == id);
+          return { rows: product ? [product] : [] };
+        }
+        
+        if (sql.includes('COUNT(*)')) {
+          return { rows: [{ count: data.products.length, total: data.products.length }] };
+        }
+        
+        if (sql.includes('c.name =')) {
+          const categoryName = params[0];
+          const filtered = data.products.filter(p => {
+            const category = data.categories.find(c => c.id == p.category_id);
+            return category?.name === categoryName;
+          });
+          return { rows: filtered };
+        }
+        
+        if (sql.includes('p.category_id =')) {
+          const categoryId = params[0];
+          const filtered = data.products.filter(p => p.category_id == categoryId);
+          return { rows: filtered };
+        }
+        
+        if (sql.includes('ILIKE')) {
+          const searchTerm = params[0].replace(/%/g, '').toLowerCase();
+          const filtered = data.products.filter(p => 
+            p.name.toLowerCase().includes(searchTerm) ||
+            p.description.toLowerCase().includes(searchTerm) ||
+            p.manufacturer.toLowerCase().includes(searchTerm)
+          );
+          return { rows: filtered };
+        }
+        
+        return { rows: data.products };
+      }
+      
+      // SELECT users
+      if (sql.includes('SELECT') && sql.includes('users')) {
+        if (sql.includes('username =') || sql.includes('email =')) {
+          const username = params[0];
+          const user = data.users.find(u => u.username === username || u.email === username);
+          return { rows: user ? [user] : [] };
+        }
+        
+        if (sql.includes('id =')) {
+          const id = params[0];
+          const user = data.users.find(u => u.id == id);
+          return { rows: user ? [user] : [] };
+        }
+        
+        return { rows: data.users };
+      }
+      
+      // INSERT users (регистрация)
+      if (sql.includes('INSERT INTO users')) {
+        const newUser = {
+          id: data.nextId.users++,
+          first_name: params[0] || '',
+          last_name: params[1] || '',
+          username: params[2],
+          email: params[3],
+          password: params[4],
+          phone: params[5] || '',
+          is_admin: false,
+          login_count: 0,
+          avatar: null,
+          created_at: new Date()
+        };
+        data.users.push(newUser);
+        return { rows: [newUser] };
+      }
+      
+      // UPDATE users (логин)
+      if (sql.includes('UPDATE users SET last_login')) {
+        const userId = params[0];
+        const user = data.users.find(u => u.id == userId);
+        if (user) {
+          user.login_count = (user.login_count || 0) + 1;
+          user.last_login = new Date();
+        }
+        return { rows: [] };
+      }
+      
+      // INSERT products (добавление товара)
+      if (sql.includes('INSERT INTO products')) {
+        const newProduct = {
+          id: data.nextId.products++,
+          name: params[0],
+          category_id: params[1],
+          description: params[2] || '',
+          price: parseFloat(params[3]),
+          old_price: params[4] ? parseFloat(params[4]) : null,
+          manufacturer: params[5] || '',
+          country: params[6] || '',
+          stock_quantity: parseInt(params[7]) || 0,
+          in_stock: Boolean(params[8]),
+          is_popular: Boolean(params[9]),
+          is_new: Boolean(params[10]),
+          composition: params[11] || '',
+          indications: params[12] || '',
+          usage: params[13] || '',
+          contraindications: params[14] || '',
+          dosage: params[15] || '',
+          expiry_date: params[16] || '',
+          storage_conditions: params[17] || '',
+          image: params[18] || 'https://images.unsplash.com/photo-1585435557343-3b092031d5ad?w=300&h=200&fit=crop',
+          category_name: data.categories.find(c => c.id == params[1])?.name || 'Категория',
+          created_at: new Date()
+        };
+        data.products.push(newProduct);
+        return { rows: [newProduct] };
+      }
+      
+      // Корзина - добавление
+      if (sql.includes('INSERT INTO cart_items')) {
+        const userId = params[0];
+        const productId = params[1];
+        const quantity = params[2] || 1;
+        
+        const existingItem = data.cart_items.find(item => 
+          item.user_id == userId && item.product_id == productId
+        );
+        
+        if (existingItem) {
+          existingItem.quantity += quantity;
+          return { rows: [existingItem] };
+        } else {
+          const newItem = {
+            id: data.nextId.cart_items++,
+            user_id: userId,
+            product_id: productId,
+            quantity: quantity,
+            created_at: new Date()
+          };
+          data.cart_items.push(newItem);
+          return { rows: [newItem] };
+        }
+      }
+      
+      // Корзина - получение
+      if (sql.includes('cart_items') && sql.includes('products') && sql.includes('LEFT JOIN')) {
+        const userId = params[0];
+        const userCart = data.cart_items
+          .filter(item => item.user_id == userId)
+          .map(item => {
+            const product = data.products.find(p => p.id == item.product_id);
+            return {
+              ...item,
+              name: product?.name,
+              price: product?.price,
+              image: product?.image,
+              description: product?.description,
+              manufacturer: product?.manufacturer,
+              in_stock: product?.in_stock
+            };
+          });
+        return { rows: userCart };
+      }
+      
+      // Корзина - обновление
+      if (sql.includes('UPDATE cart_items SET quantity =')) {
+        const quantity = params[0];
+        const itemId = params[1];
+        const userId = params[2];
+        
+        const item = data.cart_items.find(i => i.id == itemId && i.user_id == userId);
+        if (item) {
+          item.quantity = quantity;
+        }
+        return { rows: [] };
+      }
+      
+      // Корзина - удаление
+      if (sql.includes('DELETE FROM cart_items')) {
+        const itemId = params[0];
+        const userId = params[1];
+        
+        data.cart_items = data.cart_items.filter(item => 
+          !(item.id == itemId && item.user_id == userId)
+        );
+        return { rows: [] };
+      }
+      
+      return { rows: [] };
+    }
+  };
+}
+
+// Инициализация базы данных
 async function initializeDatabase() {
   try {
-    console.log('🔄 Подключение к Supabase PostgreSQL...');
+    console.log('🔄 Попытка подключения к Supabase...');
     
     if (!process.env.DATABASE_URL) {
-      throw new Error('❌ DATABASE_URL не установлен. Добавьте в Vercel: Settings → Environment Variables');
+      console.log('❌ DATABASE_URL не установлен, используем временную базу');
+      db = createSimpleDB();
+      return db;
     }
+    
+    console.log('📡 DATABASE_URL установлен, подключаемся...');
     
     const client = new Client({
       connectionString: process.env.DATABASE_URL,
-      ssl: { rejectUnauthorized: false }
+      ssl: { rejectUnauthorized: false },
+      connectionTimeoutMillis: 10000,
+      query_timeout: 10000
     });
     
     await client.connect();
     db = client;
-    console.log('✅ Успешное подключение к Supabase');
+    isConnected = true;
+    console.log('✅ Успешное подключение к Supabase!');
     
-    await createTables();
-    await addSampleData();
-    
-    console.log('✅ База данных готова к работе');
     return db;
   } catch (err) {
     console.error('❌ Ошибка подключения к Supabase:', err.message);
-    console.log('💡 Решение:');
-    console.log('   1. Зайдите в Vercel → Settings → Environment Variables');
-    console.log('   2. Добавьте DATABASE_URL с вашей строкой подключения от Supabase');
-    console.log('   3. Передеплойте приложение');
-    throw err;
-  }
-}
-
-// Создание таблиц
-async function createTables() {
-  try {
-    // Таблица категорий
-    await db.query(`
-      CREATE TABLE IF NOT EXISTS categories (
-        id SERIAL PRIMARY KEY,
-        name VARCHAR(100) NOT NULL,
-        description TEXT,
-        image VARCHAR(500),
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-
-    // Таблица продуктов
-    await db.query(`
-      CREATE TABLE IF NOT EXISTS products (
-        id SERIAL PRIMARY KEY,
-        name VARCHAR(255) NOT NULL,
-        description TEXT,
-        price DECIMAL(10,2) NOT NULL,
-        old_price DECIMAL(10,2),
-        image VARCHAR(500),
-        category_id INTEGER REFERENCES categories(id),
-        manufacturer VARCHAR(100),
-        country VARCHAR(50),
-        stock_quantity INTEGER DEFAULT 0,
-        in_stock BOOLEAN DEFAULT true,
-        is_popular BOOLEAN DEFAULT false,
-        is_new BOOLEAN DEFAULT true,
-        composition TEXT,
-        indications TEXT,
-        usage TEXT,
-        contraindications TEXT,
-        dosage VARCHAR(100),
-        expiry_date VARCHAR(50),
-        storage_conditions VARCHAR(200),
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-
-    // Таблица пользователей
-    await db.query(`
-      CREATE TABLE IF NOT EXISTS users (
-        id SERIAL PRIMARY KEY,
-        first_name VARCHAR(50),
-        last_name VARCHAR(50),
-        middle_name VARCHAR(50),
-        username VARCHAR(50) UNIQUE NOT NULL,
-        email VARCHAR(100) UNIQUE NOT NULL,
-        password VARCHAR(255) NOT NULL,
-        phone VARCHAR(20),
-        avatar VARCHAR(500),
-        is_admin BOOLEAN DEFAULT false,
-        login_count INTEGER DEFAULT 0,
-        last_login TIMESTAMP,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-
-    // Таблица корзины
-    await db.query(`
-      CREATE TABLE IF NOT EXISTS cart_items (
-        id SERIAL PRIMARY KEY,
-        user_id INTEGER REFERENCES users(id),
-        product_id INTEGER REFERENCES products(id),
-        quantity INTEGER DEFAULT 1,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE(user_id, product_id)
-      )
-    `);
-
-    console.log('✅ Таблицы созданы/проверены');
-  } catch (err) {
-    console.error('❌ Ошибка создания таблиц:', err);
-    throw err;
-  }
-}
-
-// Добавление тестовых данных
-async function addSampleData() {
-  try {
-    // Проверяем есть ли категории
-    const { rows: existingCategories } = await db.query('SELECT COUNT(*) as count FROM categories');
-    if (parseInt(existingCategories[0].count) === 0) {
-      console.log('📝 Добавляем тестовые категории...');
-      await db.query(`
-        INSERT INTO categories (name, description, image) VALUES
-        ('Лекарства', 'Медицинские препараты', 'https://images.unsplash.com/photo-1585435557343-3b092031d5ad?w=300&h=200&fit=crop'),
-        ('Витамины', 'Витамины и БАДы', 'https://images.unsplash.com/photo-1550258987-190a2d41a8ba?w=300&h=200&fit=crop'),
-        ('Красота', 'Средства по уходу', 'https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=300&h=200&fit=crop'),
-        ('Гигиена', 'Средства личной гигиены', 'https://images.unsplash.com/photo-1583947215259-38e31be8751f?w=300&h=200&fit=crop')
-      `);
-    }
-
-    // Проверяем есть ли продукты
-    const { rows: existingProducts } = await db.query('SELECT COUNT(*) as count FROM products');
-    if (parseInt(existingProducts[0].count) === 0) {
-      console.log('📝 Добавляем тестовые продукты...');
-      await db.query(`
-        INSERT INTO products (name, description, price, old_price, image, category_id, manufacturer, country, stock_quantity, is_popular, composition) VALUES
-        ('Нурофен таблетки 200мг №20', 'Обезболивающее и жаропонижающее средство', 250.50, 280.00, 'https://images.unsplash.com/photo-1585435557343-3b092031d5ad?w=300&h=200&fit=crop', 1, 'Рекитт Бенкизер', 'Великобритания', 50, true, 'Ибупрофен 200 мг'),
-        ('Витамин C 1000мг', 'Витамин C в таблетках для иммунитета', 450.00, 520.00, 'https://images.unsplash.com/photo-1550258987-190a2d41a8ba?w=300&h=200&fit=crop', 2, 'Solgar', 'США', 30, true, 'Аскорбиновая кислота 1000 мг'),
-        ('Панадол 500мг №12', 'Обезболивающее средство', 180.00, NULL, 'https://images.unsplash.com/photo-1585435557343-3b092031d5ad?w=300&h=200&fit=crop', 1, 'ГлаксоСмитКляйн', 'Великобритания', 25, false, 'Парацетамол 500 мг')
-      `);
-    }
-
-    // Добавляем тестового пользователя если нет
-    const { rows: existingUsers } = await db.query('SELECT COUNT(*) as count FROM users');
-    if (parseInt(existingUsers[0].count) === 0) {
-      console.log('📝 Добавляем тестовых пользователей...');
-      await db.query(`
-        INSERT INTO users (first_name, last_name, username, email, password, phone, is_admin) VALUES
-        ('Админ', 'Админов', 'admin', 'admin@example.com', 'admin123', '+992 123456789', true),
-        ('Иван', 'Иванов', 'ivan', 'ivan@example.com', 'password123', '+992 987654321', false)
-      `);
-    }
-
-    console.log('✅ Тестовые данные добавлены');
-  } catch (err) {
-    console.error('❌ Ошибка добавления тестовых данных:', err);
+    console.log('🔄 Используем временную базу данных...');
+    db = createSimpleDB();
+    return db;
   }
 }
 
@@ -176,18 +304,14 @@ async function addSampleData() {
 // Health check
 app.get('/health', async (req, res) => {
   try {
-    const productsCount = await db.query('SELECT COUNT(*) as count FROM products');
-    const categoriesCount = await db.query('SELECT COUNT(*) as count FROM categories');
-    const usersCount = await db.query('SELECT COUNT(*) as count FROM users');
-    
     res.json({ 
       status: 'OK', 
       timestamp: new Date().toISOString(),
-      database: 'Supabase PostgreSQL',
-      tables: {
-        products: parseInt(productsCount.rows[0]?.count) || 0,
-        categories: parseInt(categoriesCount.rows[0]?.count) || 0,
-        users: parseInt(usersCount.rows[0]?.count) || 0
+      database: isConnected ? 'Supabase PostgreSQL' : 'Временная база (в памяти)',
+      message: isConnected ? 'Подключено к Supabase' : 'Используются временные данные',
+      environment: {
+        DATABASE_URL: process.env.DATABASE_URL ? 'установлен' : 'не установлен',
+        node_version: process.version
       }
     });
   } catch (err) {
@@ -208,7 +332,7 @@ app.get('/api/categories', async (req, res) => {
   }
 });
 
-// Товары с фильтрацией
+// Товары
 app.get('/api/products', async (req, res) => {
   const { category, search, popular, new: newProducts, category_id, limit = 50, page = 1 } = req.query;
   
@@ -532,19 +656,16 @@ async function startServer() {
     app.listen(PORT, () => {
       console.log(`\n🚀 Сервер запущен на порту ${PORT}`);
       console.log(`📍 http://localhost:${PORT}`);
-      console.log(`🗄️ База данных: Supabase PostgreSQL`);
+      console.log(`🗄️ База данных: ${isConnected ? 'Supabase PostgreSQL' : 'Временная база (в памяти)'}`);
       console.log(`\n📋 Все функции доступны:`);
       console.log(`   ✅ Добавление товаров`);
       console.log(`   ✅ Регистрация/вход`);
       console.log(`   ✅ Корзина`);
       console.log(`   ✅ Поиск и фильтрация`);
+      console.log(`\n💡 Проверьте работу: https://apteka-online.vercel.app/health`);
     });
   } catch (err) {
     console.error('\n❌ Не удалось запустить сервер:', err.message);
-    console.error('\n💡 Для исправления:');
-    console.error('   1. Зайдите в Vercel → Settings → Environment Variables');
-    console.error('   2. Добавьте DATABASE_URL с вашей строкой подключения от Supabase');
-    console.error('   3. Передеплойте приложение');
     process.exit(1);
   }
 }
