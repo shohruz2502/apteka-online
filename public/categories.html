@@ -352,16 +352,18 @@
 
         /* Нижнее меню */
         .bottom-nav {
+            border-radius: 50px;
             position: fixed;
-            bottom: 0;
-            width: 100%;
-            background: white;
+            bottom: 10px;
+            left: 0;
+            right: 0;
+            background: rgba(198, 195, 195, 0.418);
             display: flex;
             justify-content: space-around;
-            padding: 10px 0;
-            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+            padding: 0.8rem 0;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.237);
             z-index: 1000;
-            padding-bottom: calc(10px + env(safe-area-inset-bottom));
+            border-top: 1px solid var(--border);
         }
 
         .nav-item {
