@@ -2,6 +2,7 @@ const express = require('express');
 const { Client } = require('pg');
 const path = require('path');
 const cors = require('cors');
+const { OAuth2Client } = require('google-auth-library');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -11,6 +12,9 @@ app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
+
+// Google OAuth client
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID || '1004300515131-5tsdmr87045jn4157jcsj35sqlg9913h.apps.googleusercontent.com');
 
 // ✅ Neon.tech PostgreSQL подключение
 const client = new Client({
@@ -94,12 +98,13 @@ async function createTables() {
         middle_name VARCHAR(50),
         username VARCHAR(50) UNIQUE NOT NULL,
         email VARCHAR(100) UNIQUE NOT NULL,
-        password VARCHAR(255) NOT NULL,
+        password VARCHAR(255),
         phone VARCHAR(20),
         avatar VARCHAR(500),
         is_admin BOOLEAN DEFAULT false,
         login_count INTEGER DEFAULT 0,
         last_login TIMESTAMP,
+        google_id VARCHAR(100) UNIQUE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
@@ -135,7 +140,155 @@ function checkDatabaseConnection(req, res, next) {
   next();
 }
 
-// ==================== API ROUTES ====================
+// ==================== GOOGLE AUTH ROUTES ====================
+
+// Google OAuth авторизация
+app.post('/api/auth/google', checkDatabaseConnection, async (req, res) => {
+  console.log('📨 POST /api/auth/google');
+  
+  try {
+    const { token } = req.body;
+    
+    if (!token) {
+      return res.status(400).json({
+        success: false,
+        error: 'Google token обязателен'
+      });
+    }
+
+    // Верификация Google token
+    const ticket = await googleClient.verifyIdToken({
+      idToken: token,
+      audience: process.env.GOOGLE_CLIENT_ID || '1004300515131-5tsdmr87045jn4157jcsj35sqlg9913h.apps.googleusercontent.com'
+    });
+
+    const payload = ticket.getPayload();
+    const { sub: googleId, email, given_name, family_name, picture } = payload;
+
+    console.log('🔑 Google auth payload:', { googleId, email, given_name, family_name });
+
+    // Проверяем, существует ли пользователь с таким Google ID
+    const { rows: existingUsers } = await db.query(
+      'SELECT * FROM users WHERE google_id = $1 OR email = $2',
+      [googleId, email]
+    );
+
+    let user = existingUsers.find(u => u.google_id === googleId) || existingUsers[0];
+
+    if (user) {
+      // Пользователь существует - обновляем данные и логиним
+      if (!user.google_id) {
+        // Если пользователь был создан через обычную регистрацию, привязываем Google аккаунт
+        await db.query(
+          'UPDATE users SET google_id = $1, avatar = $2 WHERE id = $3',
+          [googleId, picture || user.avatar, user.id]
+        );
+      }
+
+      // Обновляем время последнего входа
+      await db.query(
+        'UPDATE users SET last_login = CURRENT_TIMESTAMP, login_count = login_count + 1 WHERE id = $1',
+        [user.id]
+      );
+
+      // Получаем обновленные данные пользователя
+      const { rows: updatedUsers } = await db.query('SELECT * FROM users WHERE id = $1', [user.id]);
+      user = updatedUsers[0];
+      delete user.password;
+
+      return res.json({
+        success: true,
+        user: user,
+        requires_additional_info: false
+      });
+    } else {
+      // Новый пользователь - требуем дополнительную информацию
+      return res.json({
+        success: true,
+        user: {
+          email: email,
+          given_name: given_name,
+          family_name: family_name,
+          avatar: picture,
+          google_id: googleId
+        },
+        requires_additional_info: true
+      });
+    }
+  } catch (error) {
+    console.error('❌ Ошибка Google авторизации:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Ошибка авторизации через Google'
+    });
+  }
+});
+
+// Завершение регистрации Google пользователя
+app.post('/api/auth/google/complete', checkDatabaseConnection, async (req, res) => {
+  console.log('📨 POST /api/auth/google/complete');
+  
+  try {
+    const { email, given_name, family_name, avatar, google_id, username, phone } = req.body;
+
+    if (!email || !username || !phone) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email, логин и телефон обязательны'
+      });
+    }
+
+    // Проверяем, не занят ли логин
+    const { rows: existingUsers } = await db.query(
+      'SELECT * FROM users WHERE username = $1 OR email = $2',
+      [username, email]
+    );
+
+    if (existingUsers.length > 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Пользователь с таким логином или email уже существует'
+      });
+    }
+
+    // Создаем нового пользователя
+    const { rows } = await db.query(
+      `INSERT INTO users (
+        first_name, last_name, username, email, password, phone, avatar, 
+        google_id, login_count, last_login
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      RETURNING *`,
+      [
+        given_name || '',
+        family_name || '',
+        username,
+        email,
+        null, // Пароль не устанавливаем для Google пользователей
+        phone,
+        avatar || '',
+        google_id,
+        1,
+        new Date()
+      ]
+    );
+
+    const newUser = rows[0];
+    delete newUser.password;
+
+    res.json({
+      success: true,
+      user: newUser
+    });
+  } catch (error) {
+    console.error('❌ Ошибка завершения Google регистрации:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Ошибка завершения регистрации'
+    });
+  }
+});
+
+// ==================== EXISTING API ROUTES ====================
 
 // Получение текущего пользователя
 app.get('/api/auth/me', checkDatabaseConnection, async (req, res) => {
@@ -237,6 +390,14 @@ app.post('/api/user/change-password', checkDatabaseConnection, async (req, res) 
     }
 
     const user = rows[0];
+    
+    // Для Google пользователей проверяем, установлен ли пароль
+    if (user.google_id && !user.password) {
+      return res.status(400).json({
+        success: false,
+        error: 'Установите пароль в настройках профиля'
+      });
+    }
     
     if (user.password !== current_password) {
       return res.status(400).json({
@@ -612,6 +773,14 @@ app.post('/api/auth/login', checkDatabaseConnection, async (req, res) => {
     
     const user = rows[0];
     
+    // Проверяем, является ли пользователь Google пользователем без пароля
+    if (user.google_id && !user.password) {
+      return res.status(401).json({ 
+        success: false,
+        error: 'Этот аккаунт использует вход через Google. Войдите через Google или установите пароль в настройках профиля.' 
+      });
+    }
+    
     if (user.password !== password) {
       return res.status(401).json({ 
         success: false,
@@ -957,7 +1126,10 @@ async function startServer() {
       console.log(`\n🚀 Сервер запущен на порту ${PORT}`);
       console.log(`📍 http://localhost:${PORT}`);
       console.log(`🗄️ База данных: Neon.tech PostgreSQL`);
+      console.log(`🔑 Google OAuth: Включено`);
       console.log(`\n📋 Доступные endpoints:`);
+      console.log(`   POST /api/auth/google - Google OAuth`);
+      console.log(`   POST /api/auth/google/complete - Завершение Google регистрации`);
       console.log(`   GET  /api/categories - Категории`);
       console.log(`   GET  /api/products - Товары`);
       console.log(`   POST /api/admin/products - Добавление товара`);
