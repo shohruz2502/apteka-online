@@ -147,6 +147,25 @@
             color: var(--gray);
             font-size: 0.9rem;
         }
+
+        .auth-badge {
+            display: inline-block;
+            background: var(--success);
+            color: white;
+            padding: 0.2rem 0.6rem;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            margin-left: 0.5rem;
+            vertical-align: middle;
+        }
+
+        .auth-badge.google {
+            background: #DB4437;
+        }
+
+        .auth-badge.email {
+            background: var(--primary);
+        }
         
         /* Аккаунт */
         .account-section {
@@ -191,6 +210,58 @@
         .account-value {
             color: var(--gray);
             text-align: right;
+        }
+
+        .editable-field {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .edit-btn {
+            background: none;
+            border: none;
+            color: var(--primary);
+            cursor: pointer;
+            padding: 0.3rem;
+            border-radius: 4px;
+            transition: background 0.3s;
+        }
+
+        .edit-btn:active {
+            background: var(--primary-light);
+        }
+
+        .edit-input {
+            padding: 0.5rem;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 0.9rem;
+            width: 150px;
+        }
+
+        .save-cancel-buttons {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+
+        .save-btn, .cancel-btn {
+            padding: 0.3rem 0.8rem;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            cursor: pointer;
+        }
+
+        .save-btn {
+            background: var(--success);
+            color: white;
+        }
+
+        .cancel-btn {
+            background: var(--light-gray);
+            color: var(--dark);
         }
         
         /* Кнопки действий */
@@ -250,6 +321,21 @@
         
         .btn-danger:active {
             background: #d32f2f;
+        }
+
+        .btn-google {
+            background: #DB4437;
+            color: white;
+        }
+
+        .btn-google:active {
+            background: #C23321;
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
         }
         
         /* Модальное окно смены пароля */
@@ -570,7 +656,10 @@
                         onchange="uploadAvatar(this.files[0])"
                     />
                 </div>
-                <div class="profile-name" id="profile-display-name">Загрузка...</div>
+                <div class="profile-name" id="profile-display-name">
+                    Загрузка...
+                    <span class="auth-badge" id="auth-badge"></span>
+                </div>
                 <div class="profile-email" id="profile-display-email">Загрузка...</div>
                 <div class="profile-phone" id="profile-display-phone">Загрузка...</div>
             </div>
@@ -584,7 +673,24 @@
                 
                 <div class="account-item">
                     <div class="account-label">ФИО</div>
-                    <div class="account-value" id="account-fullname">Загрузка...</div>
+                    <div class="account-value" id="account-fullname">
+                        <div class="editable-field">
+                            <span id="fullname-text">Загрузка...</span>
+                            <button class="edit-btn" onclick="editField('fullname')">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                        </div>
+                        <div id="fullname-edit" style="display: none;">
+                            <div style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem;">
+                                <input type="text" id="edit-first-name" class="edit-input" placeholder="Имя">
+                                <input type="text" id="edit-last-name" class="edit-input" placeholder="Фамилия">
+                            </div>
+                            <div class="save-cancel-buttons">
+                                <button class="save-btn" onclick="saveField('fullname')">Сохранить</button>
+                                <button class="cancel-btn" onclick="cancelEdit('fullname')">Отмена</button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 
                 <div class="account-item">
@@ -599,18 +705,37 @@
                 
                 <div class="account-item">
                     <div class="account-label">Телефон</div>
-                    <div class="account-value" id="account-phone">Загрузка...</div>
+                    <div class="account-value" id="account-phone">
+                        <div class="editable-field">
+                            <span id="phone-text">Загрузка...</span>
+                            <button class="edit-btn" onclick="editField('phone')">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                        </div>
+                        <div id="phone-edit" style="display: none;">
+                            <input type="tel" id="edit-phone" class="edit-input" placeholder="+992 XX XXX XX XX">
+                            <div class="save-cancel-buttons">
+                                <button class="save-btn" onclick="saveField('phone')">Сохранить</button>
+                                <button class="cancel-btn" onclick="cancelEdit('phone')">Отмена</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="account-item">
+                    <div class="account-label">Способ входа</div>
+                    <div class="account-value" id="account-auth-type">Загрузка...</div>
                 </div>
             </div>
 
             <!-- Кнопки действий -->
             <div class="actions-section">
-                <button class="btn btn-primary" id="save-btn" onclick="saveProfile()">
+                <button class="btn btn-primary" id="save-btn" onclick="saveProfile()" disabled>
                     <i class="fas fa-save"></i>
                     Сохранить изменения
                 </button>
 
-                <button class="btn btn-secondary" onclick="openPasswordModal()">
+                <button class="btn btn-secondary" id="change-password-btn" onclick="openPasswordModal()">
                     <i class="fas fa-key"></i>
                     Сменить пароль
                 </button>
@@ -726,6 +851,7 @@
     <script>
         let currentUser = null;
         let originalUserData = null;
+        let isGoogleUser = false;
 
         // Инициализация при загрузке страницы
         document.addEventListener("DOMContentLoaded", () => {
@@ -742,8 +868,14 @@
                 try {
                     currentUser = JSON.parse(storedUser);
                     originalUserData = { ...currentUser };
+                    isGoogleUser = !!currentUser.google_id;
+                    
+                    // Если у нас есть базовые данные пользователя, показываем их
                     displayUserData(currentUser);
                     showAuthorizedContent();
+                    
+                    // Загружаем актуальные данные с сервера
+                    loadProfile();
                 } catch (e) {
                     console.error("Ошибка парсинга данных пользователя:", e);
                     localStorage.removeItem("user");
@@ -777,6 +909,13 @@
                     },
                 });
 
+                if (response.status === 401) {
+                    // Пользователь не авторизован
+                    localStorage.removeItem("user");
+                    showUnauthorizedContent();
+                    return;
+                }
+
                 if (!response.ok) {
                     throw new Error("Ошибка загрузки профиля");
                 }
@@ -785,6 +924,7 @@
                 if (data.success) {
                     currentUser = data.user;
                     originalUserData = { ...currentUser };
+                    isGoogleUser = !!currentUser.google_id;
                     localStorage.setItem("user", JSON.stringify(currentUser));
                     displayUserData(currentUser);
                     showAuthorizedContent();
@@ -793,8 +933,19 @@
                 }
             } catch (error) {
                 console.error("Ошибка загрузки профиля:", error);
-                showNotification("Ошибка загрузки профиля", "error");
-                showUnauthorizedContent();
+                
+                // Если ошибка 401 (не авторизован), показываем форму входа
+                if (error.message.includes('401') || error.message.includes('Не авторизован')) {
+                    localStorage.removeItem("user");
+                    showUnauthorizedContent();
+                } else {
+                    showNotification("Ошибка загрузки профиля", "error");
+                    // Показываем данные из localStorage, даже если сервер недоступен
+                    if (currentUser) {
+                        displayUserData(currentUser);
+                        showAuthorizedContent();
+                    }
+                }
             } finally {
                 hideLoading();
             }
@@ -807,9 +958,21 @@
                 user.username || 
                 "Пользователь";
                 
-            document.getElementById("profile-display-name").textContent = displayName;
+            document.getElementById("profile-display-name").innerHTML = displayName;
             document.getElementById("profile-display-email").textContent = user.email || "Не указан";
             document.getElementById("profile-display-phone").textContent = user.phone || "Не указан";
+
+            // Отображаем бейдж способа входа
+            const authBadge = document.getElementById("auth-badge");
+            if (user.google_id) {
+                authBadge.textContent = "Google";
+                authBadge.className = "auth-badge google";
+                document.getElementById("change-password-btn").style.display = "none";
+            } else {
+                authBadge.textContent = "Email";
+                authBadge.className = "auth-badge email";
+                document.getElementById("change-password-btn").style.display = "block";
+            }
 
             if (user.avatar) {
                 document.getElementById("profile-avatar").innerHTML = `<img src="${user.avatar}" alt="Аватар">`;
@@ -819,11 +982,72 @@
 
             // Заполняем данные в разделе "Аккаунт"
             const fullName = `${user.last_name || ""} ${user.first_name || ""} ${user.middle_name || ""}`.trim() || "Не указано";
-            document.getElementById("account-fullname").textContent = fullName;
+            document.getElementById("fullname-text").textContent = fullName;
             document.getElementById("account-username").textContent = user.username || "Не указан";
             document.getElementById("account-email").textContent = user.email || "Не указан";
-            document.getElementById("account-phone").textContent = user.phone || "Не указан";
+            document.getElementById("phone-text").textContent = user.phone || "Не указан";
+            document.getElementById("account-auth-type").textContent = user.google_id ? "Google" : "Email/Пароль";
 
+            // Заполняем поля для редактирования
+            document.getElementById("edit-first-name").value = user.first_name || "";
+            document.getElementById("edit-last-name").value = user.last_name || "";
+            document.getElementById("edit-phone").value = user.phone || "";
+
+            checkForChanges();
+        }
+
+        // Редактирование поля
+        function editField(field) {
+            document.getElementById(`${field}-text`).style.display = "none";
+            document.getElementById(`${field}-edit`).style.display = "block";
+        }
+
+        // Отмена редактирования
+        function cancelEdit(field) {
+            document.getElementById(`${field}-edit`).style.display = "none";
+            document.getElementById(`${field}-text`).style.display = "block";
+            
+            // Восстанавливаем оригинальные значения
+            if (field === 'fullname') {
+                document.getElementById("edit-first-name").value = currentUser.first_name || "";
+                document.getElementById("edit-last-name").value = currentUser.last_name || "";
+            } else if (field === 'phone') {
+                document.getElementById("edit-phone").value = currentUser.phone || "";
+            }
+        }
+
+        // Сохранение поля
+        function saveField(field) {
+            if (field === 'fullname') {
+                const firstName = document.getElementById("edit-first-name").value.trim();
+                const lastName = document.getElementById("edit-last-name").value.trim();
+                
+                if (!firstName || !lastName) {
+                    showNotification("Заполните имя и фамилию", "error");
+                    return;
+                }
+                
+                currentUser.first_name = firstName;
+                currentUser.last_name = lastName;
+                
+            } else if (field === 'phone') {
+                const phone = document.getElementById("edit-phone").value.trim();
+                
+                if (!phone) {
+                    showNotification("Введите номер телефона", "error");
+                    return;
+                }
+                
+                if (!/^\+992[0-9]{9}$/.test(phone)) {
+                    showNotification("Введите корректный номер телефона Таджикистана (+992XXXXXXXXX)", "error");
+                    return;
+                }
+                
+                currentUser.phone = phone;
+            }
+            
+            cancelEdit(field);
+            displayUserData(currentUser);
             checkForChanges();
         }
 
@@ -871,6 +1095,7 @@
             } finally {
                 saveBtn.disabled = false;
                 saveBtn.innerHTML = '<i class="fas fa-save"></i> Сохранить изменения';
+                checkForChanges();
             }
         }
 
@@ -901,6 +1126,10 @@
                 
                 document.getElementById("profile-avatar").innerHTML = `<img src="${avatarUrl}" alt="Аватар">`;
                 showNotification("Аватар успешно обновлен");
+                
+                // Обновляем оригинальные данные
+                originalUserData.avatar = avatarUrl;
+                checkForChanges();
             } catch (error) {
                 console.error("Ошибка загрузки аватарки:", error);
                 showNotification(error.message, "error");
@@ -911,6 +1140,12 @@
 
         // Смена пароля
         async function changePassword() {
+            // Для Google пользователей отключаем смену пароля
+            if (isGoogleUser) {
+                showNotification("Для пользователей Google смена пароля недоступна", "error");
+                return;
+            }
+
             try {
                 const currentPassword = document.getElementById("current-password-modal").value;
                 const newPassword = document.getElementById("new-password-modal").value;
@@ -967,6 +1202,11 @@
 
         // Открытие модального окна смены пароля
         function openPasswordModal() {
+            // Для Google пользователей показываем сообщение
+            if (isGoogleUser) {
+                showNotification("Для пользователей Google смена пароля недоступна", "error");
+                return;
+            }
             document.getElementById("password-modal").style.display = "flex";
         }
 
@@ -1082,6 +1322,12 @@
         // Проверка изменений для кнопки сохранения
         function checkForChanges() {
             const saveBtn = document.getElementById("save-btn");
+            if (!currentUser || !originalUserData) {
+                saveBtn.disabled = true;
+                saveBtn.style.opacity = "0.7";
+                return;
+            }
+
             const hasChanges = JSON.stringify(currentUser) !== JSON.stringify(originalUserData);
 
             saveBtn.disabled = !hasChanges;
