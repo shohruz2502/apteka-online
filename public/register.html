@@ -3,180 +3,119 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Регистрация - Zeeptook</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+    <title>Вход и регистрация - ФармаПлюс</title>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
+        :root {
+            --primary: #2196F3;
+            --primary-dark: #1976D2;
+            --primary-light: #BBDEFB;
+            --secondary: #4CAF50;
+            --light: #f8f9fa;
+            --dark: #212121;
+            --gray: #757575;
+            --light-gray: #f5f5f5;
+            --border: #E0E0E0;
+            --error: #F44336;
+            --success: #4CAF50;
+            --shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
-        }
-        
-        :root {
-            --primary: #3498db;
-            --primary-dark: #2980b9;
-            --secondary: #2c3e50;
-            --accent: #e74c3c;
-            --google: #db4437;
-            --light: #ecf0f1;
-            --dark: #2c3e50;
-            --success: #2ecc71;
-            --warning: #f39c12;
-            --gray: #95a5a6;
-            --gray-light: #bdc3c7;
-            --white: #ffffff;
-            --shadow: 0 2px 15px rgba(0,0,0,0.1);
-            --radius: 16px;
-            --radius-sm: 12px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            -webkit-tap-highlight-color: transparent;
         }
         
         body {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%);
             color: var(--dark);
-            min-height: 100vh;
+            line-height: 1.6;
             display: flex;
-            align-items: center;
             justify-content: center;
-            padding: 20px;
+            align-items: center;
+            min-height: 100vh;
+            padding: 1rem;
         }
-
-        .app-container {
+        
+        .container {
+            max-width: 420px;
             width: 100%;
-            max-width: 400px;
+            background: white;
+            border-radius: 20px;
+            box-shadow: var(--shadow);
+            overflow: hidden;
         }
         
         .header {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-        
-        .logo {
-            font-size: 32px;
-            font-weight: 700;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
             color: white;
-            margin-bottom: 10px;
-        }
-        
-        .logo i {
-            margin-right: 10px;
-            font-size: 36px;
-        }
-        
-        .subtitle {
-            color: rgba(255,255,255,0.8);
-            font-size: 16px;
-        }
-        
-        .register-card {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(20px);
-            border-radius: var(--radius);
-            box-shadow: var(--shadow);
-            border: 1px solid rgba(255,255,255,0.2);
-            overflow: hidden;
-            padding: 30px;
-        }
-        
-        .card-title {
-            font-size: 24px;
-            font-weight: 700;
+            padding: 2rem 1.5rem;
             text-align: center;
-            margin-bottom: 25px;
-            color: var(--dark);
-        }
-        
-        .divider {
-            text-align: center;
-            margin: 25px 0;
             position: relative;
-            color: var(--gray);
-            font-size: 14px;
         }
         
-        .divider::before {
+        .header::after {
             content: '';
             position: absolute;
-            top: 50%;
-            left: 0;
-            right: 0;
-            height: 1px;
-            background: var(--gray-light);
-            z-index: 1;
+            bottom: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60px;
+            height: 4px;
+            background: rgba(255,255,255,0.3);
+            border-radius: 2px;
         }
         
-        .divider span {
-            background: white;
-            padding: 0 15px;
-            position: relative;
-            z-index: 2;
+        .header h1 {
+            font-size: 1.6rem;
+            margin-bottom: 0.5rem;
+            font-weight: 700;
         }
         
-        .form-group {
-            margin-bottom: 20px;
+        .header p {
+            opacity: 0.9;
+            font-size: 0.95rem;
         }
         
-        .form-label {
-            display: block;
-            margin-bottom: 8px;
-            font-size: 14px;
-            font-weight: 500;
-            color: var(--dark);
+        .form-container {
+            padding: 2rem 1.5rem;
         }
         
-        .form-input {
-            width: 100%;
-            padding: 15px;
-            border: 2px solid var(--gray-light);
-            border-radius: var(--radius-sm);
-            font-size: 15px;
-            transition: all 0.3s ease;
-            background: white;
-        }
-        
-        .form-input:focus {
-            outline: none;
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
-        }
-        
-        .phone-input {
-            display: flex;
-            gap: 10px;
-        }
-        
-        .phone-prefix {
-            flex: 0 0 80px;
-            padding: 15px;
-            background: var(--light);
-            border: 2px solid var(--gray-light);
-            border-radius: var(--radius-sm);
+        .welcome-text {
             text-align: center;
-            font-weight: 600;
-            color: var(--dark);
+            margin-bottom: 1.5rem;
         }
         
-        .phone-number {
-            flex: 1;
+        .welcome-text h2 {
+            color: var(--dark);
+            margin-bottom: 0.5rem;
+            font-size: 1.4rem;
+            font-weight: 600;
+        }
+        
+        .welcome-text p {
+            color: var(--gray);
+            font-size: 0.9rem;
         }
         
         .btn {
-            width: 100%;
-            padding: 15px;
+            padding: 14px 20px;
             border: none;
-            border-radius: var(--radius-sm);
-            font-size: 16px;
+            border-radius: 12px;
+            font-size: 1rem;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.3s ease;
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 8px;
+            gap: 10px;
+            text-decoration: none;
+            width: 100%;
         }
         
         .btn:active {
@@ -186,664 +125,958 @@
         .btn-primary {
             background: linear-gradient(135deg, var(--primary), var(--primary-dark));
             color: white;
+            box-shadow: 0 4px 12px rgba(33, 150, 243, 0.3);
         }
         
-        .btn:disabled {
-            background: var(--gray-light);
-            cursor: not-allowed;
-            transform: none;
+        .btn-primary:hover {
+            box-shadow: 0 6px 16px rgba(33, 150, 243, 0.4);
         }
         
-        .login-link {
-            text-align: center;
-            margin-top: 25px;
+        .btn-google {
+            background: white;
+            color: #333;
+            border: 2px solid var(--border);
+            margin-bottom: 1rem;
+        }
+        
+        .btn-google:active {
+            background: var(--light-gray);
+        }
+        
+        .divider {
+            display: flex;
+            align-items: center;
+            margin: 1.5rem 0;
             color: var(--gray);
+            font-size: 0.85rem;
         }
         
-        .login-link a {
-            color: var(--primary);
-            text-decoration: none;
+        .divider::before,
+        .divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--border);
+        }
+        
+        .divider span {
+            padding: 0 12px;
+        }
+        
+        .benefits {
+            background: var(--light-gray);
+            border-radius: 12px;
+            padding: 1.25rem;
+            margin-top: 1.5rem;
+        }
+        
+        .benefits h3 {
+            color: var(--dark);
+            margin-bottom: 0.8rem;
+            font-size: 1rem;
+            text-align: center;
             font-weight: 600;
         }
         
-        .login-link a:hover {
-            text-decoration: underline;
+        .benefits-list {
+            list-style: none;
         }
         
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0,0,0,0.5);
-            z-index: 2000;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-        }
-        
-        .modal.active {
+        .benefits-list li {
             display: flex;
-        }
-        
-        .modal-content {
-            background: white;
-            border-radius: var(--radius);
-            width: 100%;
-            max-width: 400px;
-            max-height: 90vh;
-            overflow-y: auto;
-            animation: slideUp 0.3s ease-out;
-        }
-        
-        .modal-header {
-            padding: 20px;
-            border-bottom: 1px solid rgba(0,0,0,0.1);
-            display: flex;
-            justify-content: space-between;
             align-items: center;
-        }
-        
-        .modal-title {
-            font-size: 18px;
-            font-weight: 700;
-            color: var(--dark);
-        }
-        
-        .modal-close {
-            background: none;
-            border: none;
-            font-size: 20px;
+            gap: 10px;
+            margin-bottom: 0.6rem;
+            font-size: 0.85rem;
             color: var(--gray);
-            cursor: pointer;
-            width: 30px;
-            height: 30px;
-            display: flex;
+        }
+        
+        .benefits-list li:last-child {
+            margin-bottom: 0;
+        }
+        
+        .benefit-icon {
+            color: var(--primary);
+            font-size: 0.9rem;
+            min-width: 16px;
+        }
+        
+        .back-link {
+            text-align: center;
+            margin-top: 1.5rem;
+        }
+        
+        .back-link a {
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.9rem;
+            display: inline-flex;
             align-items: center;
-            justify-content: center;
-            border-radius: 50%;
+            gap: 6px;
         }
         
-        .modal-close:active {
-            background: var(--light);
+        .step {
+            display: none;
+            animation: fadeIn 0.4s ease;
         }
         
-        .modal-body {
-            padding: 20px;
+        .step.active {
+            display: block;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(15px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .form-group {
+            margin-bottom: 1.25rem;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: var(--dark);
+            font-size: 0.9rem;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 14px 16px;
+            border: 2px solid var(--light-gray);
+            border-radius: 10px;
+            font-size: 1rem;
+            transition: all 0.3s;
+            background: white;
+        }
+        
+        .form-group input:focus {
+            border-color: var(--primary);
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
+        }
+        
+        .name-fields {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+        
+        .error-message {
+            color: var(--error);
+            font-size: 0.85rem;
+            margin-top: 0.5rem;
+            text-align: center;
+            padding: 8px 12px;
+            background: rgba(244, 67, 54, 0.1);
+            border-radius: 8px;
+            border-left: 3px solid var(--error);
+        }
+        
+        .success-message {
+            color: var(--success);
+            font-size: 0.85rem;
+            margin-top: 0.5rem;
+            text-align: center;
+            padding: 8px 12px;
+            background: rgba(76, 175, 80, 0.1);
+            border-radius: 8px;
+            border-left: 3px solid var(--success);
         }
         
         .user-info {
             text-align: center;
-            margin-bottom: 20px;
-            padding: 20px;
-            background: var(--light);
-            border-radius: var(--radius-sm);
+            margin-bottom: 1.5rem;
         }
         
         .user-avatar {
-            width: 60px;
-            height: 60px;
+            width: 80px;
+            height: 80px;
             border-radius: 50%;
-            margin: 0 auto 10px;
-            background: var(--primary);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 24px;
-            overflow: hidden;
-        }
-        
-        .user-avatar img {
-            width: 100%;
-            height: 100%;
-            border-radius: 50%;
+            margin: 0 auto 1rem;
+            border: 3px solid var(--primary);
             object-fit: cover;
         }
         
         .user-name {
-            font-size: 18px;
+            font-size: 1.2rem;
             font-weight: 600;
-            margin-bottom: 5px;
+            margin-bottom: 0.3rem;
+            color: var(--dark);
         }
         
         .user-email {
-            font-size: 14px;
             color: var(--gray);
+            font-size: 0.9rem;
         }
-        
-        .loading {
+
+        .form-footer {
             text-align: center;
-            padding: 40px 20px;
+            margin-top: 1.5rem;
             color: var(--gray);
+            font-size: 0.9rem;
         }
-        
-        .loading-spinner {
-            width: 40px;
-            height: 40px;
-            border: 3px solid var(--light);
-            border-top: 3px solid var(--primary);
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 15px;
-        }
-        
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        
-        .error-message {
-            background: rgba(231, 76, 60, 0.1);
-            color: var(--accent);
-            padding: 12px 15px;
-            border-radius: var(--radius-sm);
-            margin-bottom: 20px;
-            font-size: 14px;
-            border-left: 4px solid var(--accent);
-        }
-        
-        .success-message {
-            background: rgba(46, 204, 113, 0.1);
-            color: var(--success);
-            padding: 12px 15px;
-            border-radius: var(--radius-sm);
-            margin-bottom: 20px;
-            font-size: 14px;
-            border-left: 4px solid var(--success);
-        }
-        
-        .notification {
-            position: fixed;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: var(--success);
-            color: white;
-            padding: 12px 20px;
-            border-radius: 25px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-            z-index: 10000;
+
+        .form-footer a {
+            color: var(--primary);
+            text-decoration: none;
             font-weight: 500;
-            animation: slideDown 0.3s ease-out;
         }
-        
-        .notification.error {
-            background: var(--accent);
+
+        .google-btn-container {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 1rem;
         }
-        
-        @keyframes slideDown {
-            from { transform: translateX(-50%) translateY(-100%); opacity: 0; }
-            to { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #ffffff;
+            border-radius: 50%;
+            border-top-color: transparent;
+            animation: spin 1s ease-in-out infinite;
         }
-        
-        @keyframes slideUp {
-            from { transform: translateX(-50%) translateY(0); opacity: 1; }
-            to { transform: translateX(-50%) translateY(-100%); opacity: 0; }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
         }
-        
-        @keyframes modalSlideUp {
-            from {
-                opacity: 0;
-                transform: translateY(30px);
+
+        .phone-input-container {
+            position: relative;
+        }
+
+        .phone-prefix {
+            position: absolute;
+            left: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--gray);
+            font-weight: 500;
+        }
+
+        .phone-input {
+            padding-left: 60px !important;
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                max-width: 100%;
+                margin: 0.5rem;
             }
-            to {
-                opacity: 1;
-                transform: translateY(0);
+            
+            .header {
+                padding: 1.5rem 1rem;
+            }
+            
+            .form-container {
+                padding: 1.5rem 1rem;
+            }
+            
+            .header h1 {
+                font-size: 1.4rem;
+            }
+
+            .name-fields {
+                grid-template-columns: 1fr;
+            }
+            
+            .btn {
+                padding: 12px 16px;
+                font-size: 0.95rem;
             }
         }
-        
+
         @media (max-width: 360px) {
-            .register-card {
-                padding: 20px;
+            .header {
+                padding: 1.25rem 1rem;
             }
             
-            .card-title {
-                font-size: 20px;
+            .form-container {
+                padding: 1.25rem 1rem;
             }
             
-            .phone-input {
-                flex-direction: column;
-                gap: 10px;
-            }
-            
-            .phone-prefix {
-                flex: none;
+            .welcome-text h2 {
+                font-size: 1.2rem;
             }
         }
     </style>
 </head>
 <body>
-    <div class="app-container">
+    <div class="container">
         <div class="header">
-            <div class="logo">
-                <i class="fa fa-diamond"></i>
-                <span>Zeeptook</span>
-            </div>
-            <div class="subtitle">Присоединяйтесь к нашему сообществу</div>
+            <h1>ФармаПлюс</h1>
+            <p>Ваша онлайн-аптека</p>
         </div>
         
-        <div class="register-card">
-            <h1 class="card-title">Создать аккаунт</h1>
-            
-            <!-- Google Sign-In Button -->
-            <div id="g_id_onload"
-                 data-client_id="YOUR_GOOGLE_CLIENT_ID"
-                 data-context="signup"
-                 data-ux_mode="popup"
-                 data-callback="handleGoogleSignIn"
-                 data-auto_prompt="false">
-            </div>
+        <div class="form-container">
+            <!-- Шаг 1: Форма входа -->
+            <div class="step active" id="step-login">
+                <div class="welcome-text">
+                    <h2>Вход в аккаунт</h2>
+                    <p>Войдите, чтобы продолжить покупки</p>
+                </div>
+                
+                <!-- Кнопка Google -->
+                <div class="google-btn-container">
+                    <div id="g_id_onload"
+                         data-client_id="YOUR_GOOGLE_CLIENT_ID"
+                         data-context="signin"
+                         data-ux_mode="popup"
+                         data-callback="handleGoogleSignIn"
+                         data-auto_prompt="false">
+                    </div>
 
-            <div class="g_id_signin"
-                 data-type="standard"
-                 data-shape="rectangular"
-                 data-theme="outline"
-                 data-text="signup_with"
-                 data-size="large"
-                 data-logo_alignment="left"
-                 data-width="100%">
-            </div>
-            
-            <div class="divider">
-                <span>или через email</span>
-            </div>
-            
-            <!-- Форма регистрации -->
-            <form id="register-form">
-                <div class="form-group">
-                    <label class="form-label">Имя пользователя *</label>
-                    <input type="text" class="form-input" id="username" placeholder="Придумайте username" required>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Email *</label>
-                    <input type="email" class="form-input" id="email" placeholder="Введите ваш email" required>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Полное имя *</label>
-                    <input type="text" class="form-input" id="full_name" placeholder="Иванов Иван Иванович" required>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Телефон *</label>
-                    <div class="phone-input">
-                        <div class="phone-prefix">+992</div>
-                        <input type="tel" class="form-input phone-number" id="phone" placeholder="XX XXX XX XX" required 
-                               pattern="[0-9]{2} [0-9]{3} [0-9]{2} [0-9]{2}"
-                               title="Формат: 90 123 45 67">
+                    <div class="g_id_signin"
+                         data-type="standard"
+                         data-shape="rectangular"
+                         data-theme="filled_blue"
+                         data-text="signin_with"
+                         data-size="large"
+                         data-logo_alignment="left"
+                         data-width="300">
                     </div>
-                    <small style="color: var(--gray); font-size: 12px; margin-top: 5px; display: block;">
-                        Формат: 90 123 45 67
-                    </small>
                 </div>
                 
-                <div class="form-group">
-                    <label class="form-label">Год рождения *</label>
-                    <input type="number" class="form-input" id="birth_year" placeholder="1990" 
-                           min="1900" max="2024" required>
+                <div class="divider">
+                    <span>или через email</span>
                 </div>
                 
-                <div class="form-group">
-                    <label class="form-label">Пароль *</label>
-                    <input type="password" class="form-input" id="password" placeholder="Не менее 6 символов" 
-                           minlength="6" required>
-                </div>
-                
-                <button type="submit" class="btn btn-primary">
-                    <i class="fa fa-user-plus"></i>
-                    Зарегистрироваться
-                </button>
-            </form>
-            
-            <div class="login-link">
-                Уже есть аккаунт? <a href="login.html">Войти</a>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Модальное окно для доп. информации Google пользователя -->
-    <div class="modal" id="google-user-modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <div class="modal-title">Дополнительная информация</div>
-                <button class="modal-close" onclick="closeGoogleModal()">
-                    <i class="fa fa-times"></i>
-                </button>
-            </div>
-            <div class="modal-body">
-                <div class="user-info">
-                    <div class="user-avatar" id="google-user-avatar">
-                        <i class="fa fa-user"></i>
-                    </div>
-                    <div class="user-name" id="google-user-name">Пользователь Google</div>
-                    <div class="user-email" id="google-user-email">user@gmail.com</div>
-                </div>
-                
-                <div class="success-message">
-                    Аккаунт Google успешно подключен! Заполните дополнительную информацию:
-                </div>
-                
-                <form id="google-user-form">
+                <form id="login-form">
                     <div class="form-group">
-                        <label class="form-label">Полное имя *</label>
-                        <input type="text" class="form-input" id="google-full-name" placeholder="Иванов Иван Иванович" required>
+                        <label for="login-username">Логин или Email</label>
+                        <input type="text" id="login-username" placeholder="Введите ваш логин или email" required>
                     </div>
                     
                     <div class="form-group">
-                        <label class="form-label">Телефон *</label>
-                        <div class="phone-input">
-                            <div class="phone-prefix">+992</div>
-                            <input type="tel" class="form-input phone-number" id="google-phone" 
-                                   placeholder="XX XXX XX XX" required 
-                                   pattern="[0-9]{2} [0-9]{3} [0-9]{2} [0-9]{2}">
+                        <label for="login-password">Пароль</label>
+                        <input type="password" id="login-password" placeholder="Введите ваш пароль" required>
+                    </div>
+                    
+                    <div class="error-message" id="login-error"></div>
+                    
+                    <button type="submit" class="btn btn-primary" id="login-btn">
+                        <i class="fas fa-sign-in-alt"></i>
+                        Войти
+                    </button>
+                </form>
+                
+                <div class="form-footer">
+                    Нет аккаунта? <a href="#" id="show-register">Зарегистрироваться</a>
+                </div>
+                
+                <div class="benefits">
+                    <h3>Преимущества входа</h3>
+                    <ul class="benefits-list">
+                        <li>
+                            <i class="fas fa-shield-alt benefit-icon"></i>
+                            Безопасная авторизация
+                        </li>
+                        <li>
+                            <i class="fas fa-history benefit-icon"></i>
+                            История заказов
+                        </li>
+                        <li>
+                            <i class="fas fa-bolt benefit-icon"></i>
+                            Быстрое оформление
+                        </li>
+                        <li>
+                            <i class="fas fa-gift benefit-icon"></i>
+                            Специальные предложения
+                        </li>
+                    </ul>
+                </div>
+                
+                <div class="back-link">
+                    <a href="main.html">
+                        <i class="fas fa-arrow-left"></i>
+                        Вернуться на главную
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Шаг 2: Форма регистрации -->
+            <div class="step" id="step-register">
+                <div class="welcome-text">
+                    <h2>Регистрация</h2>
+                    <p>Создайте новый аккаунт</p>
+                </div>
+                
+                <form id="register-form">
+                    <div class="form-group name-fields">
+                        <div>
+                            <label for="first-name">Имя *</label>
+                            <input type="text" id="first-name" placeholder="Введите имя" required>
+                        </div>
+                        <div>
+                            <label for="last-name">Фамилия *</label>
+                            <input type="text" id="last-name" placeholder="Введите фамилию" required>
                         </div>
                     </div>
                     
                     <div class="form-group">
-                        <label class="form-label">Год рождения *</label>
-                        <input type="number" class="form-input" id="google-birth-year" 
-                               placeholder="1990" min="1900" max="2024" required>
+                        <label for="register-username">Логин *</label>
+                        <input type="text" id="register-username" placeholder="Придумайте логин" required>
                     </div>
                     
-                    <div class="form-actions">
-                        <button type="submit" class="btn btn-primary">
-                            <i class="fa fa-check"></i>
-                            Завершить регистрацию
-                        </button>
+                    <div class="form-group">
+                        <label for="register-email">Email *</label>
+                        <input type="email" id="register-email" placeholder="Введите ваш email" required>
                     </div>
+                    
+                    <div class="form-group">
+                        <label for="register-phone">Телефон (Таджикистан) *</label>
+                        <div class="phone-input-container">
+                            <span class="phone-prefix">+992</span>
+                            <input type="tel" id="register-phone" class="phone-input" placeholder="XX XXX XX XX" pattern="[0-9]{9}" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="register-password">Пароль *</label>
+                        <input type="password" id="register-password" placeholder="Придумайте пароль" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="confirm-password">Подтверждение пароля *</label>
+                        <input type="password" id="confirm-password" placeholder="Повторите пароль" required>
+                    </div>
+                    
+                    <div class="error-message" id="register-error"></div>
+                    <div class="success-message" id="register-success"></div>
+                    
+                    <button type="submit" class="btn btn-primary" id="register-btn">
+                        <i class="fas fa-user-plus"></i>
+                        Зарегистрироваться
+                    </button>
                 </form>
+                
+                <div class="form-footer">
+                    Уже есть аккаунт? <a href="#" id="show-login">Войти</a>
+                </div>
+                
+                <div class="back-link">
+                    <a href="#" id="back-to-login-from-register">
+                        <i class="fas fa-arrow-left"></i>
+                        Назад к входу
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Шаг 3: Дополнительная информация для Google пользователей -->
+            <div class="step" id="step-google-info">
+                <div class="welcome-text">
+                    <h2>Дополнительная информация</h2>
+                    <p>Завершите регистрацию вашего аккаунта</p>
+                </div>
+                
+                <form id="google-info-form">
+                    <div class="user-info">
+                        <img id="google-user-avatar" class="user-avatar" src="" alt="Аватар" onerror="this.style.display='none'">
+                        <div class="user-name" id="google-user-name"></div>
+                        <div class="user-email" id="google-user-email"></div>
+                    </div>
+                    
+                    <div class="form-group name-fields">
+                        <div>
+                            <label for="google-first-name">Имя *</label>
+                            <input type="text" id="google-first-name" placeholder="Введите имя" required>
+                        </div>
+                        <div>
+                            <label for="google-last-name">Фамилия *</label>
+                            <input type="text" id="google-last-name" placeholder="Введите фамилию" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="google-phone">Телефон (Таджикистан) *</label>
+                        <div class="phone-input-container">
+                            <span class="phone-prefix">+992</span>
+                            <input type="tel" id="google-phone" class="phone-input" placeholder="XX XXX XX XX" pattern="[0-9]{9}" required>
+                        </div>
+                    </div>
+                    
+                    <div class="error-message" id="google-info-error"></div>
+                    
+                    <button type="submit" class="btn btn-primary" id="save-google-info-btn">
+                        <i class="fas fa-save"></i>
+                        Сохранить и продолжить
+                    </button>
+                </form>
+            </div>
+            
+            <!-- Шаг 4: Успешная авторизация -->
+            <div class="step" id="step-success">
+                <div class="user-info">
+                    <img id="user-avatar" class="user-avatar" src="" alt="Аватар" onerror="this.style.display='none'">
+                    <div class="user-name" id="user-name"></div>
+                    <div class="user-email" id="user-email"></div>
+                </div>
+                
+                <div style="text-align: center; padding: 1rem 0;">
+                    <i class="fas fa-check-circle" style="font-size: 3rem; color: var(--success); margin-bottom: 1rem;"></i>
+                    <h2 style="margin-bottom: 0.5rem; color: var(--dark);">Успешный вход!</h2>
+                    <p style="color: var(--gray); margin-bottom: 1.5rem;">Вы успешно вошли в систему</p>
+                    <button class="btn btn-primary" id="go-to-main">
+                        <i class="fas fa-home"></i>
+                        Перейти на главную
+                    </button>
+                    <button class="btn btn-secondary" id="go-to-profile" style="margin-top: 0.8rem;">
+                        <i class="fas fa-user"></i>
+                        Перейти в профиль
+                    </button>
+                </div>
             </div>
         </div>
     </div>
 
     <script>
-        // Базовый URL API (замените на ваш Vercel URL)
-        const API_BASE = 'https://your-app.vercel.app/api';
-        let googleUserData = null;
+        document.addEventListener('DOMContentLoaded', function() {
+            // Элементы DOM
+            const stepLogin = document.getElementById('step-login');
+            const stepRegister = document.getElementById('step-register');
+            const stepGoogleInfo = document.getElementById('step-google-info');
+            const stepSuccess = document.getElementById('step-success');
+            
+            // Формы
+            const loginForm = document.getElementById('login-form');
+            const registerForm = document.getElementById('register-form');
+            const googleInfoForm = document.getElementById('google-info-form');
+            
+            // Кнопки навигации
+            const showRegisterBtn = document.getElementById('show-register');
+            const showLoginBtn = document.getElementById('show-login');
+            const backToLoginFromRegister = document.getElementById('back-to-login-from-register');
+            const goToMainBtn = document.getElementById('go-to-main');
+            const goToProfileBtn = document.getElementById('go-to-profile');
+            
+            // Сообщения об ошибках
+            const loginError = document.getElementById('login-error');
+            const registerError = document.getElementById('register-error');
+            const registerSuccess = document.getElementById('register-success');
+            const googleInfoError = document.getElementById('google-info-error');
+            
+            // Данные пользователя Google
+            let googleUserData = null;
 
-        // Обработка входа через Google
-        async function handleGoogleSignIn(response) {
-            try {
-                console.log('Google Sign-In response:', response);
+            // Навигация между шагами
+            showRegisterBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                showStep('step-register');
+            });
+
+            showLoginBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                showStep('step-login');
+            });
+
+            backToLoginFromRegister.addEventListener('click', function(e) {
+                e.preventDefault();
+                showStep('step-login');
+            });
+
+            // Функция показа шага
+            function showStep(stepId) {
+                document.querySelectorAll('.step').forEach(step => {
+                    step.classList.remove('active');
+                });
+                document.getElementById(stepId).classList.add('active');
+            }
+
+            // Обработка формы входа
+            loginForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
                 
-                // Декодируем JWT токен Google
-                const payload = decodeJWT(response.credential);
-                if (!payload) {
-                    throw new Error('Failed to decode Google token');
+                const username = document.getElementById('login-username').value.trim();
+                const password = document.getElementById('login-password').value;
+                const loginBtn = document.getElementById('login-btn');
+                
+                loginError.textContent = '';
+                loginBtn.innerHTML = '<div class="loading"></div> Вход...';
+                loginBtn.disabled = true;
+                
+                try {
+                    const response = await fetch('/api/auth/login', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            username: username,
+                            password: password
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (response.ok && data.success) {
+                        localStorage.setItem('user', JSON.stringify(data.user));
+                        showSuccessScreen(data.user);
+                    } else {
+                        loginError.textContent = data.error || 'Ошибка входа. Проверьте логин или пароль.';
+                    }
+                } catch (error) {
+                    loginError.textContent = 'Ошибка соединения с сервером. Попробуйте позже.';
+                    console.error('Login error:', error);
+                } finally {
+                    loginBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Войти';
+                    loginBtn.disabled = false;
                 }
+            });
+
+            // Обработка формы регистрации
+            registerForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
                 
-                // Создаем объект пользователя из данных Google
-                const googleUser = {
-                    google_id: payload.sub,
-                    email: payload.email,
-                    full_name: payload.name,
-                    avatar_url: payload.picture,
-                    email_verified: payload.email_verified
-                };
+                const firstName = document.getElementById('first-name').value.trim();
+                const lastName = document.getElementById('last-name').value.trim();
+                const username = document.getElementById('register-username').value.trim();
+                const email = document.getElementById('register-email').value.trim();
+                const phone = '+992' + document.getElementById('register-phone').value.trim();
+                const password = document.getElementById('register-password').value;
+                const confirmPassword = document.getElementById('confirm-password').value;
+                const registerBtn = document.getElementById('register-btn');
                 
-                // Проверяем есть ли пользователь в localStorage
-                const existingUsers = JSON.parse(localStorage.getItem('users') || '[]');
-                const existingUser = existingUsers.find(user => user.google_id === googleUser.google_id);
+                registerError.textContent = '';
+                registerSuccess.textContent = '';
+                registerBtn.innerHTML = '<div class="loading"></div> Регистрация...';
+                registerBtn.disabled = true;
                 
-                if (existingUser) {
-                    // Пользователь существует - сохраняем и переходим
-                    localStorage.setItem('currentUser', JSON.stringify(existingUser));
-                    showNotification('Успешный вход через Google!', 'success');
-                    setTimeout(() => {
-                        window.location.href = 'profile.html';
-                    }, 1000);
-                } else {
-                    // Новый пользователь - показываем форму для доп. информации
-                    googleUserData = googleUser;
-                    showGoogleUserModal();
+                // Валидация
+                if (!firstName || !lastName || !username || !email || !phone || !password) {
+                    registerError.textContent = 'Заполните все обязательные поля.';
+                    registerBtn.innerHTML = '<i class="fas fa-user-plus"></i> Зарегистрироваться';
+                    registerBtn.disabled = false;
+                    return;
                 }
-                
-            } catch (error) {
-                console.error('Google Sign-In error:', error);
-                showNotification('Ошибка авторизации через Google', 'error');
-            }
-        }
 
-        // Декодирование JWT токена
-        function decodeJWT(token) {
-            try {
-                const base64Url = token.split('.')[1];
-                const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-                const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
-                    return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-                }).join(''));
-                return JSON.parse(jsonPayload);
-            } catch (error) {
-                console.error('JWT decode error:', error);
-                return null;
-            }
-        }
-
-        // Показать модальное окно для Google пользователя
-        function showGoogleUserModal() {
-            if (!googleUserData) return;
-            
-            // Заполняем информацию о пользователе
-            const avatar = document.getElementById('google-user-avatar');
-            const name = document.getElementById('google-user-name');
-            const email = document.getElementById('google-user-email');
-            
-            name.textContent = googleUserData.full_name || 'Пользователь Google';
-            email.textContent = googleUserData.email;
-            
-            if (googleUserData.avatar_url) {
-                avatar.innerHTML = `<img src="${googleUserData.avatar_url}" alt="Avatar">`;
-            }
-            
-            // Заполняем имя из Google если есть
-            if (googleUserData.full_name) {
-                document.getElementById('google-full-name').value = googleUserData.full_name;
-            }
-            
-            document.getElementById('google-user-modal').classList.add('active');
-        }
-
-        // Закрыть модальное окно Google
-        function closeGoogleModal() {
-            document.getElementById('google-user-modal').classList.remove('active');
-            googleUserData = null;
-        }
-
-        // Регистрация Google пользователя
-        async function registerGoogleUser(event) {
-            event.preventDefault();
-            
-            const fullName = document.getElementById('google-full-name').value;
-            const phone = document.getElementById('google-phone').value;
-            const birthYear = document.getElementById('google-birth-year').value;
-            
-            if (!fullName || !phone || !birthYear) {
-                showNotification('Заполните все обязательные поля', 'error');
-                return;
-            }
-            
-            try {
-                const fullPhone = '+992 ' + phone;
-                
-                // Создаем нового пользователя
-                const newUser = {
-                    id: Date.now(), // Простой ID на основе времени
-                    google_id: googleUserData.google_id,
-                    email: googleUserData.email,
-                    full_name: fullName,
-                    phone: fullPhone,
-                    birth_year: parseInt(birthYear),
-                    avatar_url: googleUserData.avatar_url,
-                    auth_method: 'google',
-                    created_at: new Date().toISOString()
-                };
-                
-                // Сохраняем пользователя в localStorage
-                const users = JSON.parse(localStorage.getItem('users') || '[]');
-                users.push(newUser);
-                localStorage.setItem('users', JSON.stringify(users));
-                localStorage.setItem('currentUser', JSON.stringify(newUser));
-                
-                showNotification('Регистрация через Google завершена!', 'success');
-                closeGoogleModal();
-                
-                setTimeout(() => {
-                    window.location.href = 'profile.html';
-                }, 1500);
-                
-            } catch (error) {
-                console.error('Google registration error:', error);
-                showNotification('Ошибка регистрации', 'error');
-            }
-        }
-
-        // Обычная регистрация через email
-        async function handleEmailRegistration(event) {
-            event.preventDefault();
-            
-            const username = document.getElementById('username').value;
-            const email = document.getElementById('email').value;
-            const fullName = document.getElementById('full_name').value;
-            const phone = document.getElementById('phone').value;
-            const birthYear = document.getElementById('birth_year').value;
-            const password = document.getElementById('password').value;
-            
-            // Валидация
-            if (!username || !email || !fullName || !phone || !birthYear || !password) {
-                showNotification('Заполните все обязательные поля', 'error');
-                return;
-            }
-            
-            if (password.length < 6) {
-                showNotification('Пароль должен быть не менее 6 символов', 'error');
-                return;
-            }
-            
-            const currentYear = new Date().getFullYear();
-            if (birthYear < 1900 || birthYear > currentYear) {
-                showNotification('Укажите корректный год рождения', 'error');
-                return;
-            }
-            
-            try {
-                const fullPhone = '+992 ' + phone;
-                
-                // Создаем нового пользователя
-                const newUser = {
-                    id: Date.now(),
-                    username: username,
-                    email: email,
-                    password: password, // В реальном приложении хэшируйте пароль!
-                    full_name: fullName,
-                    phone: fullPhone,
-                    birth_year: parseInt(birthYear),
-                    auth_method: 'email',
-                    created_at: new Date().toISOString()
-                };
-                
-                // Сохраняем пользователя в localStorage
-                const users = JSON.parse(localStorage.getItem('users') || '[]');
-                
-                // Проверяем нет ли пользователя с таким email
-                const existingUser = users.find(user => user.email === email);
-                if (existingUser) {
-                    showNotification('Пользователь с таким email уже существует', 'error');
+                if (password !== confirmPassword) {
+                    registerError.textContent = 'Пароли не совпадают.';
+                    registerBtn.innerHTML = '<i class="fas fa-user-plus"></i> Зарегистрироваться';
+                    registerBtn.disabled = false;
                     return;
                 }
                 
-                users.push(newUser);
-                localStorage.setItem('users', JSON.stringify(users));
-                localStorage.setItem('currentUser', JSON.stringify(newUser));
-                
-                showNotification('Регистрация успешна!', 'success');
-                
-                setTimeout(() => {
-                    window.location.href = 'profile.html';
-                }, 1500);
-                
-            } catch (error) {
-                console.error('Registration error:', error);
-                showNotification('Ошибка регистрации', 'error');
-            }
-        }
+                if (password.length < 6) {
+                    registerError.textContent = 'Пароль должен содержать минимум 6 символов.';
+                    registerBtn.innerHTML = '<i class="fas fa-user-plus"></i> Зарегистрироваться';
+                    registerBtn.disabled = false;
+                    return;
+                }
 
-        // Форматирование телефона
-        function formatPhone(input) {
-            // Удаляем все нецифровые символы
-            let numbers = input.value.replace(/\D/g, '');
-            
-            // Форматируем: XX XXX XX XX
-            let formatted = '';
-            if (numbers.length > 0) {
-                formatted = numbers.substring(0, 2);
-            }
-            if (numbers.length > 2) {
-                formatted += ' ' + numbers.substring(2, 5);
-            }
-            if (numbers.length > 5) {
-                formatted += ' ' + numbers.substring(5, 7);
-            }
-            if (numbers.length > 7) {
-                formatted += ' ' + numbers.substring(7, 9);
-            }
-            
-            input.value = formatted;
-        }
-
-        // Показать уведомление
-        function showNotification(message, type = 'success') {
-            const notification = document.createElement('div');
-            notification.className = `notification ${type === 'error' ? 'error' : ''}`;
-            notification.textContent = message;
-            
-            document.body.appendChild(notification);
-            
-            setTimeout(() => {
-                notification.style.animation = 'slideUp 0.3s ease-in';
-                setTimeout(() => {
-                    if (notification.parentNode) {
-                        notification.parentNode.removeChild(notification);
+                if (!/^\+992[0-9]{9}$/.test(phone)) {
+                    registerError.textContent = 'Введите корректный номер телефона Таджикистана.';
+                    registerBtn.innerHTML = '<i class="fas fa-user-plus"></i> Зарегистрироваться';
+                    registerBtn.disabled = false;
+                    return;
+                }
+                
+                try {
+                    const response = await fetch('/api/auth/register', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            first_name: firstName,
+                            last_name: lastName,
+                            username: username,
+                            email: email,
+                            phone: phone,
+                            password: password
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (response.ok && data.success) {
+                        registerSuccess.textContent = 'Регистрация успешна! Выполняется вход...';
+                        
+                        // Автоматический вход после регистрации
+                        setTimeout(async () => {
+                            try {
+                                const loginResponse = await fetch('/api/auth/login', {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json'
+                                    },
+                                    body: JSON.stringify({
+                                        username: username,
+                                        password: password
+                                    })
+                                });
+                                
+                                const loginData = await loginResponse.json();
+                                
+                                if (loginResponse.ok && loginData.success) {
+                                    localStorage.setItem('user', JSON.stringify(loginData.user));
+                                    showSuccessScreen(loginData.user);
+                                } else {
+                                    registerError.textContent = loginData.error || 'Ошибка автоматического входа.';
+                                    registerBtn.innerHTML = '<i class="fas fa-user-plus"></i> Зарегистрироваться';
+                                    registerBtn.disabled = false;
+                                }
+                            } catch (error) {
+                                registerError.textContent = 'Ошибка соединения с сервером при входе.';
+                                console.error('Auto-login error:', error);
+                                registerBtn.innerHTML = '<i class="fas fa-user-plus"></i> Зарегистрироваться';
+                                registerBtn.disabled = false;
+                            }
+                        }, 1000);
+                    } else {
+                        registerError.textContent = data.error || 'Ошибка регистрации. Проверьте данные.';
+                        registerBtn.innerHTML = '<i class="fas fa-user-plus"></i> Зарегистрироваться';
+                        registerBtn.disabled = false;
                     }
-                }, 300);
-            }, 3000);
-        }
-
-        // Инициализация при загрузке страницы
-        document.addEventListener('DOMContentLoaded', function() {
-            // Обработчики форм
-            document.getElementById('register-form').addEventListener('submit', handleEmailRegistration);
-            document.getElementById('google-user-form').addEventListener('submit', registerGoogleUser);
-            
-            // Форматирование телефона в реальном времени
-            document.getElementById('phone').addEventListener('input', function() {
-                formatPhone(this);
-            });
-            
-            document.getElementById('google-phone').addEventListener('input', function() {
-                formatPhone(this);
-            });
-            
-            // Автозаполнение года рождения
-            const currentYear = new Date().getFullYear();
-            document.getElementById('birth_year').value = currentYear - 25;
-            document.getElementById('google-birth-year').value = currentYear - 25;
-            
-            // Закрытие модальных окон при клике вне контента
-            document.addEventListener('click', function(e) {
-                if (e.target.classList.contains('modal')) {
-                    e.target.classList.remove('active');
+                } catch (error) {
+                    registerError.textContent = 'Ошибка соединения с сервером. Попробуйте позже.';
+                    console.error('Register error:', error);
+                    registerBtn.innerHTML = '<i class="fas fa-user-plus"></i> Зарегистрироваться';
+                    registerBtn.disabled = false;
                 }
             });
 
-            // Если пользователь уже авторизован, перенаправляем в профиль
-            const currentUser = localStorage.getItem('currentUser');
-            if (currentUser) {
+            // Обработка дополнительной информации для Google
+            googleInfoForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                const firstName = document.getElementById('google-first-name').value.trim();
+                const lastName = document.getElementById('google-last-name').value.trim();
+                const phone = '+992' + document.getElementById('google-phone').value.trim();
+                const saveBtn = document.getElementById('save-google-info-btn');
+                
+                googleInfoError.textContent = '';
+                saveBtn.innerHTML = '<div class="loading"></div> Сохранение...';
+                saveBtn.disabled = true;
+                
+                // Валидация
+                if (!firstName || !lastName || !phone) {
+                    googleInfoError.textContent = 'Заполните все обязательные поля.';
+                    saveBtn.innerHTML = '<i class="fas fa-save"></i> Сохранить и продолжить';
+                    saveBtn.disabled = false;
+                    return;
+                }
+
+                if (!/^\+992[0-9]{9}$/.test(phone)) {
+                    googleInfoError.textContent = 'Введите корректный номер телефона Таджикистана.';
+                    saveBtn.innerHTML = '<i class="fas fa-save"></i> Сохранить и продолжить';
+                    saveBtn.disabled = false;
+                    return;
+                }
+                
+                try {
+                    // Создаем пользователя с данными от Google
+                    const response = await fetch('/api/auth/google/register', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            google_id: googleUserData.sub,
+                            email: googleUserData.email,
+                            first_name: firstName,
+                            last_name: lastName,
+                            phone: phone,
+                            avatar: googleUserData.picture,
+                            email_verified: googleUserData.email_verified
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (response.ok && data.success) {
+                        localStorage.setItem('user', JSON.stringify(data.user));
+                        showSuccessScreen(data.user);
+                    } else {
+                        googleInfoError.textContent = data.error || 'Ошибка сохранения данных.';
+                        saveBtn.innerHTML = '<i class="fas fa-save"></i> Сохранить и продолжить';
+                        saveBtn.disabled = false;
+                    }
+                } catch (error) {
+                    googleInfoError.textContent = 'Ошибка соединения с сервером. Попробуйте позже.';
+                    console.error('Google info error:', error);
+                    saveBtn.innerHTML = '<i class="fas fa-save"></i> Сохранить и продолжить';
+                    saveBtn.disabled = false;
+                }
+            });
+
+            // Переход на главную
+            goToMainBtn.addEventListener('click', function() {
+                window.location.href = 'main.html';
+            });
+
+            // Переход в профиль
+            goToProfileBtn.addEventListener('click', function() {
                 window.location.href = 'profile.html';
+            });
+
+            // Показать экран успеха
+            function showSuccessScreen(user) {
+                const userAvatar = document.getElementById('user-avatar');
+                const userName = document.getElementById('user-name');
+                const userEmail = document.getElementById('user-email');
+                
+                if (user.avatar) {
+                    userAvatar.src = user.avatar;
+                    userAvatar.style.display = 'block';
+                } else {
+                    userAvatar.style.display = 'none';
+                }
+                
+                const displayName = user.first_name && user.last_name 
+                    ? `${user.first_name} ${user.last_name}`
+                    : (user.username || 'Пользователь');
+                    
+                userName.textContent = displayName;
+                userEmail.textContent = user.email || '';
+                
+                showStep('step-success');
             }
+
+            // Проверяем, авторизован ли пользователь
+            const userData = localStorage.getItem('user');
+            if (userData) {
+                try {
+                    const user = JSON.parse(userData);
+                    showSuccessScreen(user);
+                } catch (e) {
+                    console.error('Error parsing user data:', e);
+                    localStorage.removeItem('user');
+                }
+            }
+
+            // Обработчик Google Sign-In
+            window.handleGoogleSignIn = async function(response) {
+                console.log('Google Sign-In response:', response);
+                
+                try {
+                    // Отправляем токен на сервер для проверки
+                    const authResponse = await fetch('/api/auth/google', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ token: response.credential })
+                    });
+                    
+                    const data = await authResponse.json();
+                    
+                    if (authResponse.ok && data.success) {
+                        if (data.requires_additional_info) {
+                            // Если пользователь новый, запрашиваем дополнительную информацию
+                            showGoogleInfoStep(data.user);
+                        } else {
+                            // Если пользователь существует, сразу входим
+                            localStorage.setItem('user', JSON.stringify(data.user));
+                            showSuccessScreen(data.user);
+                        }
+                    } else {
+                        showError(data.error || 'Ошибка авторизации через Google.');
+                    }
+                } catch (error) {
+                    console.error('Google auth error:', error);
+                    
+                    // Если сервер недоступен, обрабатываем локально
+                    const userData = decodeJWT(response.credential);
+                    if (userData) {
+                        // Проверяем, есть ли пользователь в localStorage
+                        const existingUsers = JSON.parse(localStorage.getItem('google_users') || '[]');
+                        const existingUser = existingUsers.find(u => u.email === userData.email);
+                        
+                        if (existingUser) {
+                            // Пользователь существует
+                            localStorage.setItem('user', JSON.stringify(existingUser));
+                            showSuccessScreen(existingUser);
+                        } else {
+                            // Новый пользователь
+                            showGoogleInfoStep(userData);
+                        }
+                    } else {
+                        showError('Ошибка обработки данных Google.');
+                    }
+                }
+            };
+
+            // Декодирование JWT токена
+            function decodeJWT(token) {
+                try {
+                    const base64Url = token.split('.')[1];
+                    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+                    const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+                        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+                    }).join(''));
+
+                    return JSON.parse(jsonPayload);
+                } catch (error) {
+                    console.error('Error decoding JWT:', error);
+                    return null;
+                }
+            }
+
+            // Показать шаг с дополнительной информацией для Google
+            function showGoogleInfoStep(user) {
+                showStep('step-google-info');
+                
+                // Заполняем поля данными от Google
+                document.getElementById('google-user-email').textContent = user.email || '';
+                document.getElementById('google-user-name').textContent = user.name || '';
+                
+                if (user.picture) {
+                    document.getElementById('google-user-avatar').src = user.picture;
+                    document.getElementById('google-user-avatar').style.display = 'block';
+                }
+                
+                // Предзаполняем имя и фамилию, если есть
+                if (user.given_name) {
+                    document.getElementById('google-first-name').value = user.given_name;
+                }
+                
+                if (user.family_name) {
+                    document.getElementById('google-last-name').value = user.family_name;
+                }
+                
+                window.googleUserData = user;
+            }
+
+            // Функция показа ошибки
+            function showError(message) {
+                const errorDiv = document.querySelector('.step.active .error-message');
+                if (errorDiv) {
+                    errorDiv.textContent = message;
+                } else {
+                    alert(message);
+                }
+            }
+
+            // Форматирование номера телефона
+            document.getElementById('register-phone').addEventListener('input', function(e) {
+                let value = e.target.value.replace(/\D/g, '');
+                if (value.length > 9) value = value.substring(0, 9);
+                
+                let formattedValue = '';
+                if (value.length > 0) formattedValue = value.substring(0, 2);
+                if (value.length > 2) formattedValue += ' ' + value.substring(2, 5);
+                if (value.length > 5) formattedValue += ' ' + value.substring(5, 7);
+                if (value.length > 7) formattedValue += ' ' + value.substring(7, 9);
+                
+                e.target.value = formattedValue;
+            });
+
+            document.getElementById('google-phone').addEventListener('input', function(e) {
+                let value = e.target.value.replace(/\D/g, '');
+                if (value.length > 9) value = value.substring(0, 9);
+                
+                let formattedValue = '';
+                if (value.length > 0) formattedValue = value.substring(0, 2);
+                if (value.length > 2) formattedValue += ' ' + value.substring(2, 5);
+                if (value.length > 5) formattedValue += ' ' + value.substring(5, 7);
+                if (value.length > 7) formattedValue += ' ' + value.substring(7, 9);
+                
+                e.target.value = formattedValue;
+            });
         });
     </script>
 </body>
