@@ -2,7 +2,6 @@ const express = require('express');
 const { Client } = require('pg');
 const path = require('path');
 const cors = require('cors');
-const { OAuth2Client } = require('google-auth-library');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -13,25 +12,42 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Google OAuth client
-const googleClient = new OAuth2Client(
-  process.env.GOOGLE_CLIENT_ID,
-  process.env.GOOGLE_CLIENT_SECRET
-);
-
-// Database connection
+// Глобальная переменная для подключения
 let db = null;
-let isDatabaseConnected = false;
+let lastConnectionTime = null;
+let connectionAttempts = 0;
 
-// Initialize database connection
-async function initializeDatabase() {
-  if (isDatabaseConnected && db) {
-    return db;
+// Функция для получения подключения к БД
+async function getDatabaseConnection() {
+  connectionAttempts++;
+  
+  // Если подключение уже есть и активно, используем его
+  if (db) {
+    try {
+      // Быстрая проверка подключения
+      await db.query('SELECT 1 as status');
+      console.log('✅ Используем существующее подключение к БД');
+      return db;
+    } catch (error) {
+      console.log('🔄 Подключение неактивно, создаем новое...');
+      try { 
+        await db.end(); 
+      } catch (e) {
+        console.log('⚠️ Ошибка при закрытии старого подключения:', e.message);
+      }
+      db = null;
+    }
   }
 
+  // Создаем новое подключение
   try {
-    console.log('🔄 Подключение к Neon.tech PostgreSQL...');
+    console.log('🔄 Создаем новое подключение к БД...');
+    console.log('📊 DATABASE_URL:', process.env.DATABASE_URL ? 'Установлена' : 'Не установлена');
     
+    if (!process.env.DATABASE_URL) {
+      throw new Error('DATABASE_URL не установлена в переменных окружения');
+    }
+
     const client = new Client({
       connectionString: process.env.DATABASE_URL,
       ssl: {
@@ -43,27 +59,29 @@ async function initializeDatabase() {
 
     await client.connect();
     db = client;
-    isDatabaseConnected = true;
+    lastConnectionTime = new Date();
     
-    console.log('✅ Успешное подключение к Neon.tech');
+    console.log('✅ Подключение к БД успешно установлено');
+    console.log('⏰ Время подключения:', lastConnectionTime.toISOString());
     
-    // Create tables and seed data
-    await createTables();
-    await seedInitialData();
+    // Инициализируем таблицы при первом подключении
+    await initializeTables();
     
     return db;
-  } catch (err) {
-    console.error('❌ Ошибка подключения к Neon.tech:', err);
-    isDatabaseConnected = false;
+  } catch (error) {
+    console.error('❌ Ошибка подключения к БД:', error.message);
+    console.error('🔧 Детали ошибки:', error);
     db = null;
-    throw err;
+    throw error;
   }
 }
 
-// Create tables
-async function createTables() {
+// Инициализация таблиц
+async function initializeTables() {
   try {
-    // Categories table
+    console.log('🔄 Инициализация таблиц БД...');
+    
+    // Таблица категорий
     await db.query(`
       CREATE TABLE IF NOT EXISTS categories (
         id SERIAL PRIMARY KEY,
@@ -74,7 +92,7 @@ async function createTables() {
       )
     `);
 
-    // Products table
+    // Таблица продуктов
     await db.query(`
       CREATE TABLE IF NOT EXISTS products (
         id SERIAL PRIMARY KEY,
@@ -83,7 +101,7 @@ async function createTables() {
         price DECIMAL(10,2) NOT NULL,
         old_price DECIMAL(10,2),
         image VARCHAR(500),
-        category_id INTEGER REFERENCES categories(id),
+        category_id INTEGER,
         manufacturer VARCHAR(100),
         country VARCHAR(50),
         stock_quantity INTEGER DEFAULT 0,
@@ -101,7 +119,7 @@ async function createTables() {
       )
     `);
 
-    // Users table
+    // Таблица пользователей
     await db.query(`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
@@ -122,7 +140,7 @@ async function createTables() {
       )
     `);
 
-    // Cart items table
+    // Таблица корзины
     await db.query(`
       CREATE TABLE IF NOT EXISTS cart_items (
         id SERIAL PRIMARY KEY,
@@ -134,41 +152,48 @@ async function createTables() {
       )
     `);
 
-    console.log('✅ Таблицы созданы/проверены');
-  } catch (err) {
-    console.error('❌ Ошибка создания таблиц:', err);
-    throw err;
+    console.log('✅ Таблицы БД инициализированы');
+    
+    // Добавляем тестовые данные
+    await seedInitialData();
+    
+  } catch (error) {
+    console.error('❌ Ошибка инициализации таблиц:', error);
+    throw error;
   }
 }
 
-// Seed initial data
+// Добавление тестовых данных
 async function seedInitialData() {
   try {
-    // Check if categories already exist
-    const { rows: existingCategories } = await db.query('SELECT COUNT(*) as count FROM categories');
-    if (parseInt(existingCategories[0].count) === 0) {
-      console.log('🌱 Заполнение начальными данными...');
+    // Проверяем есть ли категории
+    const { rows: categories } = await db.query('SELECT COUNT(*) as count FROM categories');
+    const categoriesCount = parseInt(categories[0].count);
+    
+    console.log(`📊 Найдено категорий в БД: ${categoriesCount}`);
+
+    if (categoriesCount === 0) {
+      console.log('🌱 Добавляем тестовые данные...');
       
-      // Add categories
-      const categories = [
+      // Добавляем категории
+      const categoriesData = [
         { name: 'Лекарства', description: 'Медицинские препараты', image: 'https://images.unsplash.com/photo-1585435557343-3b092031d5ad?w=300&h=200&fit=crop' },
         { name: 'Витамины', description: 'Витамины и БАДы', image: 'https://images.unsplash.com/photo-1550258987-190a2d41a8ba?w=300&h=200&fit=crop' },
         { name: 'Красота', description: 'Средства по уходу', image: 'https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=300&h=200&fit=crop' },
         { name: 'Гигиена', description: 'Средства личной гигиены', image: 'https://images.unsplash.com/photo-1583947215259-38e31be8751f?w=300&h=200&fit=crop' },
         { name: 'Мама и ребенок', description: 'Товары для матери и ребенка', image: 'https://images.unsplash.com/photo-1516627145497-ae69578b5d77?w=300&h=200&fit=crop' },
-        { name: 'Медтехника', description: 'Медицинская техника', image: 'https://images.unsplash.com/photo-1559757148-5c350d0d3c56?w=300&h=200&fit=crop' },
-        { name: 'Антисептики', description: 'Дезинфицирующие средства', image: 'https://images.unsplash.com/photo-1584634731339-252c581abfc5?w=300&h=200&fit=crop' }
+        { name: 'Медтехника', description: 'Медицинская техника', image: 'https://images.unsplash.com/photo-1559757148-5c350d0d3c56?w=300&h=200&fit=crop' }
       ];
 
-      for (const category of categories) {
+      for (const category of categoriesData) {
         await db.query(
           'INSERT INTO categories (name, description, image) VALUES ($1, $2, $3)',
           [category.name, category.description, category.image]
         );
       }
 
-      // Add sample products
-      const products = [
+      // Добавляем тестовые товары
+      const productsData = [
         {
           name: 'Нурофен таблетки 200мг №20',
           description: 'Обезболивающее и жаропонижающее средство',
@@ -180,6 +205,9 @@ async function seedInitialData() {
           stock_quantity: 50,
           is_popular: true,
           is_new: true,
+          composition: 'Ибупрофен 200 мг',
+          indications: 'Головная боль, зубная боль, менструальная боль',
+          usage: 'По 1 таблетке 3-4 раза в день',
           image: 'https://images.unsplash.com/photo-1585435557343-3b092031d5ad?w=300&h=200&fit=crop'
         },
         {
@@ -191,6 +219,9 @@ async function seedInitialData() {
           country: 'США',
           stock_quantity: 30,
           is_popular: true,
+          composition: 'Холекальциферол (витамин D3)',
+          indications: 'Профилактика дефицита витамина D',
+          usage: 'По 1 капсуле в день во время еды',
           image: 'https://images.unsplash.com/photo-1550258987-190a2d41a8ba?w=300&h=200&fit=crop'
         },
         {
@@ -201,81 +232,52 @@ async function seedInitialData() {
           manufacturer: 'ГлаксоСмитКляйн',
           country: 'Великобритания',
           stock_quantity: 25,
-          image: 'https://images.unsplash.com/photo-1585435557343-3b092031d5ad?w=300&h=200&fit=crop'
-        },
-        {
-          name: 'Аспирин 500мг №20',
-          description: 'Противовоспалительное средство',
-          price: 120.00,
-          old_price: 150.00,
-          category_id: 1,
-          manufacturer: 'Байер',
-          country: 'Германия',
-          stock_quantity: 40,
-          is_popular: true,
-          image: 'https://images.unsplash.com/photo-1585435557343-3b092031d5ad?w=300&h=200&fit=crop'
-        },
-        {
-          name: 'Витамин C 1000мг №60',
-          description: 'Витамин C для иммунитета',
-          price: 450.00,
-          category_id: 2,
-          manufacturer: 'Солгар',
-          country: 'США',
-          stock_quantity: 35,
-          is_new: true,
-          image: 'https://images.unsplash.com/photo-1550258987-190a2d41a8ba?w=300&h=200&fit=crop'
-        },
-        {
-          name: 'Ибупрофен 400мг №24',
-          description: 'Противовоспалительное и обезболивающее',
-          price: 190.00,
-          category_id: 1,
-          manufacturer: 'Берлин-Хеми',
-          country: 'Германия',
-          stock_quantity: 60,
-          is_popular: true,
+          composition: 'Парацетамол 500 мг',
+          indications: 'Боль и лихорадка',
+          usage: 'По 1-2 таблетки 3-4 раза в день',
           image: 'https://images.unsplash.com/photo-1585435557343-3b092031d5ad?w=300&h=200&fit=crop'
         }
       ];
 
-      for (const product of products) {
+      for (const product of productsData) {
         await db.query(
-          `INSERT INTO products (name, description, price, old_price, category_id, manufacturer, country, stock_quantity, is_popular, is_new, image) 
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+          `INSERT INTO products (name, description, price, old_price, category_id, manufacturer, country, stock_quantity, is_popular, is_new, composition, indications, usage, image) 
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
           [
             product.name, product.description, product.price, product.old_price,
             product.category_id, product.manufacturer, product.country,
-            product.stock_quantity, product.is_popular, product.is_new, product.image
+            product.stock_quantity, product.is_popular, product.is_new,
+            product.composition, product.indications, product.usage, product.image
           ]
         );
       }
 
-      console.log('✅ Начальные данные добавлены');
+      console.log('✅ Тестовые данные успешно добавлены');
+    } else {
+      console.log('✅ В БД уже есть данные, пропускаем добавление тестовых');
     }
-  } catch (err) {
-    console.error('❌ Ошибка заполнения начальных данных:', err);
+  } catch (error) {
+    console.error('❌ Ошибка добавления тестовых данных:', error);
   }
 }
 
-// Database connection middleware
+// Middleware для подключения к БД
 async function databaseMiddleware(req, res, next) {
   try {
-    if (!isDatabaseConnected) {
-      await initializeDatabase();
-    }
-    req.db = db;
+    const database = await getDatabaseConnection();
+    req.db = database;
     next();
-  } catch (err) {
-    console.error('❌ Ошибка подключения к БД в middleware:', err);
-    return res.status(503).json({
+  } catch (error) {
+    console.error('❌ Ошибка в databaseMiddleware:', error.message);
+    res.status(503).json({
       success: false,
-      error: 'Сервис временно недоступен. База данных не подключена.'
+      error: 'Сервис временно недоступен. Ошибка подключения к базе данных.',
+      details: error.message
     });
   }
 }
 
-// Simple password hash function
+// Простая хеш-функция для паролей
 function simpleHash(password) {
   let hash = 0;
   for (let i = 0; i < password.length; i++) {
@@ -286,47 +288,93 @@ function simpleHash(password) {
   return hash.toString();
 }
 
-function comparePassword(password, hashedPassword) {
-  return simpleHash(password) === hashedPassword;
-}
-
 // ==================== API ROUTES ====================
 
-// Health check
+// Health check с подробной информацией
 app.get('/health', async (req, res) => {
-  try {
-    if (!isDatabaseConnected) {
-      return res.status(503).json({
-        status: 'ERROR',
-        timestamp: new Date().toISOString(),
-        error: 'База данных не подключена',
-        database: 'Neon.tech PostgreSQL'
-      });
-    }
+  const startTime = Date.now();
+  const healthInfo = {
+    status: 'OK',
+    timestamp: new Date().toISOString(),
+    service: 'Apteka Online API',
+    version: '1.0.0',
+    environment: process.env.NODE_ENV || 'development',
+    uptime: process.uptime(),
+    database: {
+      provider: 'Neon.tech PostgreSQL',
+      status: 'CHECKING',
+      connectionAttempts: connectionAttempts,
+      lastConnection: lastConnectionTime ? lastConnectionTime.toISOString() : null
+    },
+    system: {
+      node_version: process.version,
+      platform: process.platform,
+      memory: process.memoryUsage(),
+      cpu_usage: process.cpuUsage()
+    },
+    endpoints: {
+      total: 15,
+      categories: '/api/categories',
+      products: '/api/products', 
+      auth: '/api/auth/*',
+      cart: '/api/cart/*',
+      health: '/health'
+    },
+    responseTime: 0
+  };
 
-    const productsCount = await db.query('SELECT COUNT(*) as count FROM products');
-    const categoriesCount = await db.query('SELECT COUNT(*) as count FROM categories');
-    const usersCount = await db.query('SELECT COUNT(*) as count FROM users');
-    const cartCount = await db.query('SELECT COUNT(*) as count FROM cart_items');
-    
-    res.json({ 
-      status: 'OK', 
-      timestamp: new Date().toISOString(),
-      database: 'Neon.tech PostgreSQL',
+  try {
+    // Проверяем подключение к БД
+    const database = await getDatabaseConnection();
+    const dbCheckStart = Date.now();
+    await database.query('SELECT 1 as status');
+    const dbResponseTime = Date.now() - dbCheckStart;
+
+    // Получаем статистику по таблицам
+    const [productsCount, categoriesCount, usersCount, cartCount] = await Promise.all([
+      database.query('SELECT COUNT(*) as count FROM products'),
+      database.query('SELECT COUNT(*) as count FROM categories'),
+      database.query('SELECT COUNT(*) as count FROM users'),
+      database.query('SELECT COUNT(*) as count FROM cart_items')
+    ]);
+
+    healthInfo.database = {
+      ...healthInfo.database,
+      status: 'OK',
+      responseTime: `${dbResponseTime}ms`,
       tables: {
         products: parseInt(productsCount.rows[0]?.count) || 0,
         categories: parseInt(categoriesCount.rows[0]?.count) || 0,
         users: parseInt(usersCount.rows[0]?.count) || 0,
         cart_items: parseInt(cartCount.rows[0]?.count) || 0
+      },
+      connection: {
+        active: true,
+        protocol: 'SSL',
+        pool: 'Single connection'
       }
-    });
-  } catch (err) {
-    res.status(500).json({ 
-      status: 'ERROR', 
-      timestamp: new Date().toISOString(),
-      error: err.message,
-      database: 'Neon.tech PostgreSQL'
-    });
+    };
+
+    healthInfo.status = 'OK';
+    healthInfo.responseTime = `${Date.now() - startTime}ms`;
+
+    res.json(healthInfo);
+
+  } catch (error) {
+    healthInfo.status = 'ERROR';
+    healthInfo.database = {
+      ...healthInfo.database,
+      status: 'ERROR',
+      error: error.message,
+      connection: {
+        active: false,
+        error: error.message
+      }
+    };
+    healthInfo.responseTime = `${Date.now() - startTime}ms`;
+    
+    console.error('❌ Health check failed:', error.message);
+    res.status(503).json(healthInfo);
   }
 });
 
@@ -334,32 +382,53 @@ app.get('/health', async (req, res) => {
 app.get('/api/config', (req, res) => {
   res.json({
     success: true,
-    googleClientId: process.env.GOOGLE_CLIENT_ID || 'demo'
+    service: 'Apteka Online',
+    version: '1.0.0',
+    features: {
+      auth: true,
+      cart: true,
+      products: true,
+      categories: true,
+      search: true
+    },
+    googleClientId: process.env.GOOGLE_CLIENT_ID || 'not-configured'
   });
 });
 
 // Categories
 app.get('/api/categories', databaseMiddleware, async (req, res) => {
-  console.log('📨 GET /api/categories');
   try {
+    console.log('📨 GET /api/categories');
     const { rows } = await req.db.query('SELECT * FROM categories ORDER BY name');
-    res.json(rows || []);
-  } catch (err) {
-    console.error('❌ Ошибка получения категорий:', err);
+    
+    res.json({
+      success: true,
+      data: rows,
+      count: rows.length,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('❌ Categories error:', error);
     res.status(500).json({ 
       success: false,
-      error: err.message 
+      error: error.message,
+      endpoint: '/api/categories'
     });
   }
 });
 
 // Products
 app.get('/api/products', databaseMiddleware, async (req, res) => {
-  console.log('📨 GET /api/products');
-  const { category, search, popular, new: newProducts, category_id, limit = 50, page = 1 } = req.query;
-  
   try {
-    let sql = `SELECT p.*, c.name as category_name FROM products p LEFT JOIN categories c ON p.category_id = c.id WHERE 1=1`;
+    console.log('📨 GET /api/products', req.query);
+    const { category, search, popular, limit = 20, page = 1 } = req.query;
+    
+    let sql = `
+      SELECT p.*, c.name as category_name 
+      FROM products p 
+      LEFT JOIN categories c ON p.category_id = c.id 
+      WHERE 1=1
+    `;
     let params = [];
     let paramCount = 1;
 
@@ -369,159 +438,95 @@ app.get('/api/products', databaseMiddleware, async (req, res) => {
       paramCount++;
     }
 
-    if (category_id) {
-      sql += ` AND p.category_id = $${paramCount}`;
-      params.push(parseInt(category_id));
-      paramCount++;
-    }
-
     if (search) {
-      sql += ` AND (p.name ILIKE $${paramCount} OR p.description ILIKE $${paramCount + 1} OR p.manufacturer ILIKE $${paramCount + 2} OR c.name ILIKE $${paramCount + 3})`;
+      sql += ` AND (p.name ILIKE $${paramCount} OR p.description ILIKE $${paramCount + 1} OR p.manufacturer ILIKE $${paramCount + 2})`;
       const searchParam = `%${search}%`;
-      params.push(searchParam, searchParam, searchParam, searchParam);
-      paramCount += 4;
+      params.push(searchParam, searchParam, searchParam);
+      paramCount += 3;
     }
 
     if (popular === 'true') {
-      sql += " AND p.is_popular = true";
+      sql += ` AND p.is_popular = true`;
     }
 
-    if (newProducts === 'true') {
-      sql += " AND p.is_new = true";
-    }
-
-    sql += " ORDER BY p.created_at DESC";
+    sql += ` ORDER BY p.created_at DESC`;
 
     const offset = (parseInt(page) - 1) * parseInt(limit);
     sql += ` LIMIT $${paramCount} OFFSET $${paramCount + 1}`;
     params.push(parseInt(limit), offset);
 
     const { rows } = await req.db.query(sql, params);
-    
-    let countSql = `SELECT COUNT(*) as total FROM products p LEFT JOIN categories c ON p.category_id = c.id WHERE 1=1`;
-    let countParams = [];
-    paramCount = 1;
-
-    if (category && category !== 'all') {
-      countSql += ` AND c.name = $${paramCount}`;
-      countParams.push(category);
-      paramCount++;
-    }
-
-    if (category_id) {
-      countSql += ` AND p.category_id = $${paramCount}`;
-      countParams.push(parseInt(category_id));
-      paramCount++;
-    }
-
-    if (search) {
-      countSql += ` AND (p.name ILIKE $${paramCount} OR p.description ILIKE $${paramCount + 1} OR p.manufacturer ILIKE $${paramCount + 2} OR c.name ILIKE $${paramCount + 3})`;
-      const searchParam = `%${search}%`;
-      countParams.push(searchParam, searchParam, searchParam, searchParam);
-    }
-
-    const { rows: countResult } = await req.db.query(countSql, countParams);
 
     res.json({ 
       success: true,
-      products: rows || [],
-      total: parseInt(countResult[0]?.total) || 0,
-      page: parseInt(page),
-      limit: parseInt(limit),
-      totalPages: Math.ceil((parseInt(countResult[0]?.total) || 0) / parseInt(limit))
+      data: rows,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total: rows.length
+      },
+      timestamp: new Date().toISOString()
     });
-  } catch (err) {
-    console.error('❌ Ошибка получения товаров:', err);
+  } catch (error) {
+    console.error('❌ Products error:', error);
     res.status(500).json({ 
       success: false,
-      error: err.message 
+      error: error.message,
+      endpoint: '/api/products'
     });
   }
 });
 
 // Single product
 app.get('/api/products/:id', databaseMiddleware, async (req, res) => {
-  const productId = req.params.id;
-  console.log('📨 GET /api/products/' + productId);
-  
   try {
+    console.log('📨 GET /api/products/' + req.params.id);
+    
     const { rows } = await req.db.query(
-      `SELECT p.*, c.name as category_name FROM products p LEFT JOIN categories c ON p.category_id = c.id WHERE p.id = $1`,
-      [productId]
+      `SELECT p.*, c.name as category_name 
+       FROM products p 
+       LEFT JOIN categories c ON p.category_id = c.id 
+       WHERE p.id = $1`,
+      [req.params.id]
     );
     
     if (rows.length === 0) {
       return res.status(404).json({ 
         success: false,
-        error: 'Товар не найден' 
+        error: 'Товар не найден',
+        product_id: req.params.id
       });
     }
     
     res.json({ 
       success: true,
-      product: rows[0] 
+      data: rows[0],
+      timestamp: new Date().toISOString()
     });
-  } catch (err) {
-    console.error('❌ Ошибка получения товара:', err);
+  } catch (error) {
+    console.error('❌ Product error:', error);
     res.status(500).json({ 
       success: false,
-      error: err.message 
-    });
-  }
-});
-
-// Auth - Get current user
-app.get('/api/auth/me', databaseMiddleware, async (req, res) => {
-  console.log('📨 GET /api/auth/me');
-  
-  try {
-    const userId = req.query.user_id || req.headers['user-id'];
-    
-    if (!userId) {
-      return res.status(401).json({
-        success: false,
-        error: 'Не авторизован'
-      });
-    }
-
-    const { rows } = await req.db.query('SELECT * FROM users WHERE id = $1', [userId]);
-    
-    if (rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        error: 'Пользователь не найден'
-      });
-    }
-
-    const user = rows[0];
-    delete user.password;
-
-    res.json({
-      success: true,
-      user: user
-    });
-  } catch (err) {
-    console.error('❌ Ошибка получения пользователя:', err);
-    res.status(500).json({
-      success: false,
-      error: 'Ошибка сервера'
+      error: error.message,
+      endpoint: `/api/products/${req.params.id}`
     });
   }
 });
 
 // Auth - Register
 app.post('/api/auth/register', databaseMiddleware, async (req, res) => {
-  console.log('📨 POST /api/auth/register');
-  const { first_name, last_name, username, email, password, phone } = req.body;
-  
-  if (!username || !email || !password) {
-    return res.status(400).json({ 
-      success: false,
-      error: 'Логин, email и пароль обязательны' 
-    });
-  }
-  
   try {
+    console.log('📨 POST /api/auth/register');
+    const { username, email, password, first_name, last_name, phone } = req.body;
+    
+    if (!username || !email || !password) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'Логин, email и пароль обязательны' 
+      });
+    }
+    
+    // Проверяем существующего пользователя
     const { rows: existingUsers } = await req.db.query(
       'SELECT * FROM users WHERE username = $1 OR email = $2', 
       [username, email]
@@ -537,44 +542,43 @@ app.post('/api/auth/register', databaseMiddleware, async (req, res) => {
     const hashedPassword = simpleHash(password);
     
     const { rows } = await req.db.query(
-      `INSERT INTO users (first_name, last_name, username, email, password, phone, login_count) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
-       RETURNING *`,
-      [first_name, last_name, username, email, hashedPassword, phone, 0]
+      `INSERT INTO users (username, email, password, first_name, last_name, phone) 
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING id, username, email, first_name, last_name, phone, created_at`,
+      [username, email, hashedPassword, first_name, last_name, phone]
     );
-    
-    const newUser = rows[0];
-    delete newUser.password;
     
     res.json({
       success: true,
       message: 'Регистрация успешна',
-      user: newUser
+      data: rows[0],
+      timestamp: new Date().toISOString()
     });
-  } catch (err) {
-    console.error('❌ Ошибка регистрации:', err);
+  } catch (error) {
+    console.error('❌ Registration error:', error);
     res.status(500).json({ 
       success: false,
-      error: 'Ошибка создания пользователя' 
+      error: 'Ошибка регистрации',
+      endpoint: '/api/auth/register'
     });
   }
 });
 
 // Auth - Login
 app.post('/api/auth/login', databaseMiddleware, async (req, res) => {
-  console.log('📨 POST /api/auth/login');
-  const { username, password } = req.body;
-  
-  if (!username || !password) {
-    return res.status(400).json({ 
-      success: false,
-      error: 'Логин и пароль обязательны' 
-    });
-  }
-  
   try {
+    console.log('📨 POST /api/auth/login');
+    const { username, password } = req.body;
+    
+    if (!username || !password) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'Логин и пароль обязательны' 
+      });
+    }
+    
     const { rows } = await req.db.query(
-      "SELECT * FROM users WHERE username = $1 OR email = $1", 
+      'SELECT * FROM users WHERE username = $1 OR email = $1', 
       [username]
     );
     
@@ -586,8 +590,8 @@ app.post('/api/auth/login', databaseMiddleware, async (req, res) => {
     }
     
     const user = rows[0];
+    const isPasswordValid = simpleHash(password) === user.password;
     
-    const isPasswordValid = comparePassword(password, user.password);
     if (!isPasswordValid) {
       return res.status(401).json({ 
         success: false,
@@ -595,187 +599,44 @@ app.post('/api/auth/login', databaseMiddleware, async (req, res) => {
       });
     }
     
+    // Обновляем последний вход
     await req.db.query(
-      "UPDATE users SET last_login = CURRENT_TIMESTAMP, login_count = login_count + 1 WHERE id = $1",
+      'UPDATE users SET last_login = CURRENT_TIMESTAMP, login_count = login_count + 1 WHERE id = $1',
       [user.id]
     );
     
-    delete user.password;
+    // Убираем пароль из ответа
+    const { password: _, ...userWithoutPassword } = user;
     
     res.json({
       success: true,
       message: 'Вход выполнен успешно',
-      user: user
+      data: userWithoutPassword,
+      timestamp: new Date().toISOString()
     });
-  } catch (err) {
-    console.error('❌ Ошибка входа:', err);
+  } catch (error) {
+    console.error('❌ Login error:', error);
     res.status(500).json({ 
       success: false,
-      error: 'Ошибка сервера' 
+      error: 'Ошибка входа',
+      endpoint: '/api/auth/login'
     });
   }
 });
-
-// User - Update profile
-app.put('/api/user/update-profile', databaseMiddleware, async (req, res) => {
-  console.log('📨 PUT /api/user/update-profile');
-  
-  const { user_id, first_name, last_name, middle_name, phone } = req.body;
-  
-  if (!user_id) {
-    return res.status(400).json({
-      success: false,
-      error: 'ID пользователя обязателен'
-    });
-  }
-
-  try {
-    await req.db.query(
-      'UPDATE users SET first_name = $1, last_name = $2, middle_name = $3, phone = $4 WHERE id = $5',
-      [first_name, last_name, middle_name, phone, user_id]
-    );
-
-    const { rows } = await req.db.query('SELECT * FROM users WHERE id = $1', [user_id]);
-    const user = rows[0];
-    delete user.password;
-
-    res.json({
-      success: true,
-      message: 'Профиль успешно обновлен',
-      user: user
-    });
-  } catch (err) {
-    console.error('❌ Ошибка обновления профиля:', err);
-    res.status(500).json({
-      success: false,
-      error: 'Ошибка обновления профиля'
-    });
-  }
-});
-
-// User - Change password
-app.post('/api/user/change-password', databaseMiddleware, async (req, res) => {
-  console.log('📨 POST /api/user/change-password');
-  
-  const { user_id, current_password, new_password } = req.body;
-  
-  if (!user_id || !current_password || !new_password) {
-    return res.status(400).json({
-      success: false,
-      error: 'Все поля обязательны'
-    });
-  }
-
-  try {
-    const { rows } = await req.db.query('SELECT * FROM users WHERE id = $1', [user_id]);
-    
-    if (rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        error: 'Пользователь не найден'
-      });
-    }
-
-    const user = rows[0];
-    
-    const isPasswordValid = comparePassword(current_password, user.password);
-    if (!isPasswordValid) {
-      return res.status(400).json({
-        success: false,
-        error: 'Текущий пароль неверен'
-      });
-    }
-
-    const hashedNewPassword = simpleHash(new_password);
-    await req.db.query('UPDATE users SET password = $1 WHERE id = $2', [hashedNewPassword, user_id]);
-
-    res.json({
-      success: true,
-      message: 'Пароль успешно изменен'
-    });
-  } catch (err) {
-    console.error('❌ Ошибка смены пароля:', err);
-    res.status(500).json({
-      success: false,
-      error: 'Ошибка смены пароля'
-    });
-  }
-});
-
-// User - Upload avatar
-app.post('/api/user/upload-avatar', databaseMiddleware, async (req, res) => {
-  console.log('📨 POST /api/user/upload-avatar');
-  
-  const { user_id, avatar } = req.body;
-  
-  if (!user_id) {
-    return res.status(400).json({ 
-      success: false, 
-      error: 'ID пользователя обязателен' 
-    });
-  }
-
-  try {
-    await req.db.query(
-      'UPDATE users SET avatar = $1 WHERE id = $2',
-      [avatar, user_id]
-    );
-
-    res.json({
-      success: true,
-      message: 'Аватар успешно загружен',
-      avatar_url: avatar
-    });
-  } catch (err) {
-    console.error('❌ Ошибка загрузки аватарки:', err);
-    res.status(500).json({
-      success: false,
-      error: 'Ошибка загрузки аватарки'
-    });
-  }
-});
-
-// ==================== CART ROUTES ====================
 
 // Cart - Add item
 app.post('/api/cart/add', databaseMiddleware, async (req, res) => {
-  console.log('📨 POST /api/cart/add');
-  const { user_id, product_id, quantity = 1 } = req.body;
-
-  if (!user_id) {
-    return res.status(400).json({
-      success: false,
-      error: 'user_id обязателен'
-    });
-  }
-
-  if (!product_id) {
-    return res.status(400).json({
-      success: false,
-      error: 'product_id обязателен'
-    });
-  }
-
   try {
-    // Check if product exists
-    const { rows: products } = await req.db.query('SELECT * FROM products WHERE id = $1', [product_id]);
-    if (products.length === 0) {
-      return res.status(404).json({
+    console.log('📨 POST /api/cart/add', req.body);
+    const { user_id, product_id, quantity = 1 } = req.body;
+
+    if (!user_id || !product_id) {
+      return res.status(400).json({
         success: false,
-        error: 'Товар не найден'
+        error: 'user_id и product_id обязательны'
       });
     }
 
-    // Check if user exists
-    const { rows: users } = await req.db.query('SELECT * FROM users WHERE id = $1', [user_id]);
-    if (users.length === 0) {
-      return res.status(404).json({
-        success: false,
-        error: 'Пользователь не найден'
-      });
-    }
-
-    // Add or update item in cart
     const { rows } = await req.db.query(`
       INSERT INTO cart_items (user_id, product_id, quantity) 
       VALUES ($1, $2, $3)
@@ -787,30 +648,32 @@ app.post('/api/cart/add', databaseMiddleware, async (req, res) => {
     res.json({
       success: true,
       message: 'Товар добавлен в корзину',
-      item: rows[0]
+      data: rows[0],
+      timestamp: new Date().toISOString()
     });
-  } catch (err) {
-    console.error('❌ Ошибка добавления в корзину:', err);
+  } catch (error) {
+    console.error('❌ Cart add error:', error);
     res.status(500).json({
       success: false,
-      error: 'Ошибка сервера: ' + err.message
+      error: error.message,
+      endpoint: '/api/cart/add'
     });
   }
 });
 
 // Cart - Get cart
 app.get('/api/cart', databaseMiddleware, async (req, res) => {
-  console.log('📨 GET /api/cart');
-  const { user_id } = req.query;
-
-  if (!user_id) {
-    return res.status(400).json({
-      success: false,
-      error: 'user_id обязателен'
-    });
-  }
-
   try {
+    console.log('📨 GET /api/cart', req.query);
+    const { user_id } = req.query;
+
+    if (!user_id) {
+      return res.status(400).json({
+        success: false,
+        error: 'user_id обязателен'
+      });
+    }
+
     const { rows } = await req.db.query(`
       SELECT ci.*, p.name, p.price, p.image, p.description, p.manufacturer, p.in_stock
       FROM cart_items ci
@@ -819,71 +682,40 @@ app.get('/api/cart', databaseMiddleware, async (req, res) => {
       ORDER BY ci.created_at DESC
     `, [user_id]);
 
-    res.json({
-      success: true,
-      items: rows || [],
-      total: rows.reduce((sum, item) => sum + (item.price * item.quantity), 0)
-    });
-  } catch (err) {
-    console.error('❌ Ошибка получения корзины:', err);
-    res.status(500).json({
-      success: false,
-      error: 'Ошибка сервера'
-    });
-  }
-});
-
-// Cart - Update quantity
-app.put('/api/cart/:itemId', databaseMiddleware, async (req, res) => {
-  console.log('📨 PUT /api/cart/' + req.params.itemId);
-  const { user_id, quantity } = req.body;
-  
-  if (!user_id) {
-    return res.status(400).json({
-      success: false,
-      error: 'user_id обязателен'
-    });
-  }
-
-  if (!quantity || quantity < 1) {
-    return res.status(400).json({
-      success: false,
-      error: 'Количество должно быть не менее 1'
-    });
-  }
-
-  try {
-    await req.db.query(
-      'UPDATE cart_items SET quantity = $1 WHERE id = $2 AND user_id = $3',
-      [quantity, req.params.itemId, user_id]
-    );
+    const total = rows.reduce((sum, item) => sum + (parseFloat(item.price) * item.quantity), 0);
 
     res.json({
       success: true,
-      message: 'Количество обновлено'
+      data: {
+        items: rows,
+        total: total,
+        count: rows.length
+      },
+      timestamp: new Date().toISOString()
     });
-  } catch (err) {
-    console.error('❌ Ошибка обновления корзины:', err);
+  } catch (error) {
+    console.error('❌ Cart get error:', error);
     res.status(500).json({
       success: false,
-      error: 'Ошибка сервера'
+      error: error.message,
+      endpoint: '/api/cart'
     });
   }
 });
 
 // Cart - Remove item
 app.delete('/api/cart/:itemId', databaseMiddleware, async (req, res) => {
-  console.log('📨 DELETE /api/cart/' + req.params.itemId);
-  const { user_id } = req.body;
-  
-  if (!user_id) {
-    return res.status(400).json({
-      success: false,
-      error: 'user_id обязателен'
-    });
-  }
-
   try {
+    console.log('📨 DELETE /api/cart/' + req.params.itemId);
+    const { user_id } = req.body;
+    
+    if (!user_id) {
+      return res.status(400).json({
+        success: false,
+        error: 'user_id обязателен'
+      });
+    }
+
     await req.db.query(
       'DELETE FROM cart_items WHERE id = $1 AND user_id = $2',
       [req.params.itemId, user_id]
@@ -891,290 +723,20 @@ app.delete('/api/cart/:itemId', databaseMiddleware, async (req, res) => {
 
     res.json({
       success: true,
-      message: 'Товар удален из корзины'
+      message: 'Товар удален из корзины',
+      timestamp: new Date().toISOString()
     });
-  } catch (err) {
-    console.error('❌ Ошибка удаления из корзины:', err);
-    res.status(500).json({
-      success: false,
-      error: 'Ошибка сервера'
-    });
-  }
-});
-
-// Cart - Clear cart
-app.delete('/api/cart', databaseMiddleware, async (req, res) => {
-  console.log('📨 DELETE /api/cart');
-  const { user_id } = req.body;
-  
-  if (!user_id) {
-    return res.status(400).json({
-      success: false,
-      error: 'user_id обязателен'
-    });
-  }
-
-  try {
-    await req.db.query('DELETE FROM cart_items WHERE user_id = $1', [user_id]);
-
-    res.json({
-      success: true,
-      message: 'Корзина очищена'
-    });
-  } catch (err) {
-    console.error('❌ Ошибка очистки корзины:', err);
-    res.status(500).json({
-      success: false,
-      error: 'Ошибка сервера'
-    });
-  }
-});
-
-// ==================== GOOGLE AUTH ====================
-
-// Verify Google token
-async function verifyGoogleToken(token) {
-  try {
-    const ticket = await googleClient.verifyIdToken({
-      idToken: token,
-      audience: process.env.GOOGLE_CLIENT_ID
-    });
-    return ticket.getPayload();
   } catch (error) {
-    console.error('❌ Ошибка верификации Google токена:', error);
-    return null;
-  }
-}
-
-// Google OAuth check
-app.post('/api/auth/google', databaseMiddleware, async (req, res) => {
-  console.log('📨 POST /api/auth/google');
-  
-  const { token } = req.body;
-  
-  if (!token) {
-    return res.status(400).json({
-      success: false,
-      error: 'Токен обязателен'
-    });
-  }
-
-  try {
-    const payload = await verifyGoogleToken(token);
-    
-    if (!payload) {
-      return res.status(401).json({
-        success: false,
-        error: 'Неверный Google токен'
-      });
-    }
-
-    const { rows } = await req.db.query(
-      'SELECT * FROM users WHERE google_id = $1 OR email = $2',
-      [payload.sub, payload.email]
-    );
-
-    if (rows.length > 0) {
-      const user = rows[0];
-      delete user.password;
-      
-      await req.db.query(
-        "UPDATE users SET last_login = CURRENT_TIMESTAMP, login_count = login_count + 1 WHERE id = $1",
-        [user.id]
-      );
-      
-      res.json({
-        success: true,
-        user: user,
-        requires_additional_info: false
-      });
-    } else {
-      res.json({
-        success: true,
-        user: {
-          sub: payload.sub,
-          email: payload.email,
-          email_verified: payload.email_verified,
-          name: payload.name,
-          given_name: payload.given_name,
-          family_name: payload.family_name,
-          picture: payload.picture
-        },
-        requires_additional_info: true
-      });
-    }
-  } catch (err) {
-    console.error('❌ Ошибка Google аутентификации:', err);
+    console.error('❌ Cart delete error:', error);
     res.status(500).json({
       success: false,
-      error: 'Ошибка Google аутентификации'
+      error: error.message,
+      endpoint: `/api/cart/${req.params.itemId}`
     });
   }
 });
 
-// Google OAuth register
-app.post('/api/auth/google/register', databaseMiddleware, async (req, res) => {
-  console.log('📨 POST /api/auth/google/register');
-  
-  const { google_id, email, first_name, last_name, phone, avatar, email_verified } = req.body;
-  
-  if (!google_id || !email) {
-    return res.status(400).json({
-      success: false,
-      error: 'Google ID и email обязательны'
-    });
-  }
-
-  try {
-    let { rows } = await req.db.query(
-      'SELECT * FROM users WHERE google_id = $1 OR email = $2',
-      [google_id, email]
-    );
-
-    let user;
-
-    if (rows.length > 0) {
-      user = rows[0];
-      await req.db.query(
-        'UPDATE users SET first_name = $1, last_name = $2, phone = $3, avatar = $4, email_verified = $5, google_id = $6, last_login = CURRENT_TIMESTAMP, login_count = login_count + 1 WHERE id = $7',
-        [first_name, last_name, phone, avatar, email_verified, google_id, user.id]
-      );
-    } else {
-      const username = email.split('@')[0] + '_google';
-      const tempPassword = simpleHash(Math.random().toString(36));
-      
-      const result = await req.db.query(
-        `INSERT INTO users (first_name, last_name, username, email, password, phone, avatar, google_id, email_verified, login_count) 
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-         RETURNING *`,
-        [first_name, last_name, username, email, tempPassword, phone, avatar, google_id, email_verified, 1]
-      );
-      
-      user = result.rows[0];
-    }
-
-    delete user.password;
-
-    res.json({
-      success: true,
-      message: 'Google авторизация успешна',
-      user: user
-    });
-  } catch (err) {
-    console.error('❌ Ошибка Google авторизации:', err);
-    res.status(500).json({
-      success: false,
-      error: 'Ошибка Google авторизации'
-    });
-  }
-});
-
-// ==================== ADMIN ROUTES ====================
-
-// Admin - Add product
-app.post('/api/admin/products', databaseMiddleware, async (req, res) => {
-  console.log('📨 POST /api/admin/products');
-  
-  const {
-    name,
-    category_id,
-    description,
-    price,
-    old_price,
-    manufacturer,
-    country,
-    stock_quantity,
-    in_stock,
-    is_popular,
-    is_new,
-    composition,
-    indications,
-    usage,
-    contraindications,
-    dosage,
-    expiry_date,
-    storage_conditions
-  } = req.body;
-
-  if (!name || !category_id || !price || stock_quantity === undefined) {
-    return res.status(400).json({
-      success: false,
-      error: 'Обязательные поля: название, категория, цена, количество'
-    });
-  }
-
-  try {
-    const { rows: categoryRows } = await req.db.query(
-      'SELECT * FROM categories WHERE id = $1',
-      [category_id]
-    );
-
-    if (categoryRows.length === 0) {
-      return res.status(400).json({
-        success: false,
-        error: 'Указанная категория не существует'
-      });
-    }
-
-    const demoImages = [
-      'https://images.unsplash.com/photo-1585435557343-3b092031d5ad?w=300&h=200&fit=crop',
-      'https://images.unsplash.com/photo-1550258987-190a2d41a8ba?w=300&h=200&fit=crop',
-      'https://images.unsplash.com/photo-1576671414121-d0b01c6c5f60?w=300&h=200&fit=crop',
-      'https://images.unsplash.com/photo-1559056199-641a0ac8b55e?w=300&h=200&fit=crop'
-    ];
-    const randomImage = demoImages[Math.floor(Math.random() * demoImages.length)];
-
-    const { rows } = await req.db.query(
-      `INSERT INTO products (
-        name, category_id, description, price, old_price, manufacturer, country,
-        stock_quantity, in_stock, is_popular, is_new, composition, indications,
-        usage, contraindications, dosage, expiry_date, storage_conditions, image
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
-      RETURNING *`,
-      [
-        name,
-        category_id,
-        description || '',
-        parseFloat(price),
-        old_price ? parseFloat(old_price) : null,
-        manufacturer || '',
-        country || '',
-        parseInt(stock_quantity),
-        Boolean(in_stock),
-        Boolean(is_popular),
-        Boolean(is_new),
-        composition || '',
-        indications || '',
-        usage || '',
-        contraindications || '',
-        dosage || '',
-        expiry_date || '',
-        storage_conditions || '',
-        randomImage
-      ]
-    );
-
-    const newProduct = rows[0];
-    
-    console.log('✅ Товар успешно добавлен:', newProduct.id);
-
-    res.json({
-      success: true,
-      message: 'Товар успешно добавлен',
-      product: newProduct
-    });
-
-  } catch (err) {
-    console.error('❌ Ошибка добавления товара:', err);
-    res.status(500).json({
-      success: false,
-      error: 'Ошибка добавления товара: ' + err.message
-    });
-  }
-});
-
-// ==================== STATIC ROUTES ====================
-
+// Static routes
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'main.html'));
 });
@@ -1199,68 +761,55 @@ app.get('/profile', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'profile.html'));
 });
 
-app.get('/admin', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'netuDostup.html'));
-});
-
-// Handle 404
+// 404 handler
 app.use('*', (req, res) => {
   res.status(404).json({
     success: false,
-    error: 'Endpoint not found'
+    error: 'Endpoint not found',
+    path: req.originalUrl,
+    method: req.method,
+    timestamp: new Date().toISOString()
   });
 });
 
 // Error handler
-app.use((err, req, res, next) => {
-  console.error('❌ Server error:', err);
+app.use((error, req, res, next) => {
+  console.error('❌ Server error:', error);
   res.status(500).json({
     success: false,
-    error: 'Internal server error'
+    error: 'Internal server error',
+    message: error.message,
+    timestamp: new Date().toISOString()
   });
 });
 
-// Initialize database on startup
-async function startServer() {
-  try {
-    await initializeDatabase();
-    
-    app.listen(PORT, () => {
-      console.log(`\n🚀 Сервер запущен на порту ${PORT}`);
-      console.log(`📍 http://localhost:${PORT}`);
-      console.log(`🗄️ База данных: Neon.tech PostgreSQL`);
-      console.log(`🔐 Google OAuth: ${process.env.GOOGLE_CLIENT_ID ? 'Настроен' : 'Не настроен'}`);
-      console.log(`\n📋 Доступные endpoints:`);
-      console.log(`   GET  /api/categories - Категории`);
-      console.log(`   GET  /api/products - Товары`);
-      console.log(`   POST /api/admin/products - Добавление товара`);
-      console.log(`   GET  /api/auth/me - Получение пользователя`);
-      console.log(`   POST /api/cart/add - Добавление в корзину`);
-      console.log(`   GET  /api/cart - Получение корзины`);
-      console.log(`   PUT  /api/cart/:id - Обновление корзины`);
-      console.log(`   DELETE /api/cart/:id - Удаление из корзины`);
-      console.log(`   POST /api/auth/register - Регистрация`);
-      console.log(`   POST /api/auth/login - Вход`);
-      console.log(`   POST /api/auth/google - Google OAuth`);
-      console.log(`   POST /api/auth/google/register - Google регистрация`);
-      console.log(`   GET  /health - Проверка работы`);
-    });
-  } catch (err) {
-    console.error('❌ Не удалось подключиться к базе данных:', err);
-    console.log(`\n⚠️  Сервер запущен без подключения к БД на порту ${PORT}`);
-    console.log(`📍 http://localhost:${PORT}`);
-    console.log(`❌ API endpoints будут возвращать ошибки`);
-    
-    app.listen(PORT, () => {
-      console.log(`📍 Server running on port ${PORT} (without database)`);
-    });
-  }
-}
-
-// For Vercel
+// Export for Vercel
 module.exports = app;
 
-// For local development
+// Start server for local development
 if (require.main === module) {
-  startServer();
+  app.listen(PORT, async () => {
+    console.log(`\n🚀 Сервер запущен на порту ${PORT}`);
+    console.log(`📍 http://localhost:${PORT}`);
+    console.log(`⏰ ${new Date().toISOString()}`);
+    console.log(`🔧 NODE_ENV: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`📊 DATABASE_URL: ${process.env.DATABASE_URL ? 'Установлена' : 'Не установлена'}`);
+    
+    // Пытаемся подключиться к БД при старте
+    try {
+      await getDatabaseConnection();
+      console.log('✅ База данных готова к работе');
+    } catch (error) {
+      console.log('⚠️  База данных недоступна, но сервер запущен');
+    }
+    
+    console.log('\n📋 Доступные endpoints:');
+    console.log('   GET  /health          - Проверка здоровья сервера');
+    console.log('   GET  /api/categories  - Категории товаров');
+    console.log('   GET  /api/products    - Товары');
+    console.log('   POST /api/auth/login  - Вход');
+    console.log('   POST /api/auth/register - Регистрация');
+    console.log('   GET  /api/cart        - Корзина');
+    console.log('   POST /api/cart/add    - Добавить в корзину');
+  });
 }
