@@ -1,1186 +1,1015 @@
+require('dotenv').config();
 const express = require('express');
-const { Client } = require('pg');
 const path = require('path');
+const { Pool } = require('pg');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 const cors = require('cors');
 const { OAuth2Client } = require('google-auth-library');
 
 const app = express();
+
+// Configuration
 const PORT = process.env.PORT || 3000;
+const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-key-for-development';
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
+
+// Database configuration
+const poolConfig = process.env.DATABASE_URL ? {
+    connectionString: process.env.DATABASE_URL,
+    ssl: { rejectUnauthorized: false },
+    connectionTimeoutMillis: 10000,
+    idleTimeoutMillis: 30000,
+    max: 10
+} : {
+    user: process.env.DB_USER,
+    host: process.env.DB_HOST,
+    database: process.env.DB_NAME,
+    password: process.env.DB_PASSWORD,
+    port: process.env.DB_PORT || 5432,
+    connectionTimeoutMillis: 10000,
+    idleTimeoutMillis: 30000,
+    max: 10
+};
+
+const pool = new Pool(poolConfig);
 
 // Middleware
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// ✅ Google OAuth client (безопасно из переменных окружения)
-const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
-const googleClient = GOOGLE_CLIENT_ID ? new OAuth2Client(GOOGLE_CLIENT_ID) : null;
+// Utility functions
+const formatTimeAgo = (date) => {
+    const now = new Date();
+    const diffMs = now - new Date(date);
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
 
-if (!GOOGLE_CLIENT_ID) {
-  console.warn('⚠️ GOOGLE_CLIENT_ID не установлен. Google OAuth будет недоступен.');
-} else {
-  console.log('✅ Google OAuth настроен');
-}
+    if (diffMins < 1) return 'только что';
+    if (diffMins < 60) return `${diffMins} мин назад`;
+    if (diffHours < 24) return `${diffHours} ч назад`;
+    if (diffDays < 7) return `${diffDays} дн назад`;
+    return new Date(date).toLocaleDateString('ru-RU');
+};
 
-// ✅ Neon.tech PostgreSQL подключение
-const client = new Client({
-  connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false
-  }
-});
-
-let db;
-let isDatabaseConnected = false;
-
-// Инициализация базы данных
-async function initializeDatabase() {
-  try {
-    console.log('🔄 Подключение к Neon.tech PostgreSQL...');
-    
-    if (!process.env.DATABASE_URL) {
-      throw new Error('DATABASE_URL не установлен в переменных окружения');
+const decodeJWT = (token) => {
+    try {
+        const base64Url = token.split('.')[1];
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const jsonPayload = decodeURIComponent(atob(base64).split('').map(c => 
+            '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
+        ).join(''));
+        return JSON.parse(jsonPayload);
+    } catch (error) {
+        console.error('JWT decode error:', error);
+        return null;
     }
-    
-    await client.connect();
-    db = client;
-    isDatabaseConnected = true;
-    console.log('✅ Успешное подключение к Neon.tech');
-    
-    await createTables();
-    console.log('✅ База данных готова к работе');
-    return db;
-  } catch (err) {
-    console.error('❌ Ошибка подключения к Neon.tech:', err.message);
-    isDatabaseConnected = false;
-  }
-}
+};
 
-// Создание таблиц
-async function createTables() {
-  if (!isDatabaseConnected) return;
+// Authentication middleware
+const authenticateToken = (req, res, next) => {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
 
-  try {
-    // Таблица категорий
-    await db.query(`
-      CREATE TABLE IF NOT EXISTS categories (
-        id SERIAL PRIMARY KEY,
-        name VARCHAR(100) NOT NULL,
-        description TEXT,
-        image VARCHAR(500),
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-
-    // Таблица продуктов
-    await db.query(`
-      CREATE TABLE IF NOT EXISTS products (
-        id SERIAL PRIMARY KEY,
-        name VARCHAR(255) NOT NULL,
-        description TEXT,
-        price DECIMAL(10,2) NOT NULL,
-        old_price DECIMAL(10,2),
-        image VARCHAR(500),
-        category_id INTEGER REFERENCES categories(id),
-        manufacturer VARCHAR(100),
-        country VARCHAR(50),
-        stock_quantity INTEGER DEFAULT 0,
-        in_stock BOOLEAN DEFAULT true,
-        is_popular BOOLEAN DEFAULT false,
-        is_new BOOLEAN DEFAULT true,
-        composition TEXT,
-        indications TEXT,
-        usage TEXT,
-        contraindications TEXT,
-        dosage VARCHAR(100),
-        expiry_date VARCHAR(50),
-        storage_conditions VARCHAR(200),
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-
-    // Таблица пользователей
-    await db.query(`
-      CREATE TABLE IF NOT EXISTS users (
-        id SERIAL PRIMARY KEY,
-        first_name VARCHAR(50),
-        last_name VARCHAR(50),
-        middle_name VARCHAR(50),
-        username VARCHAR(50) UNIQUE NOT NULL,
-        email VARCHAR(100) UNIQUE NOT NULL,
-        password VARCHAR(255),
-        phone VARCHAR(20),
-        avatar VARCHAR(500),
-        is_admin BOOLEAN DEFAULT false,
-        login_count INTEGER DEFAULT 0,
-        last_login TIMESTAMP,
-        google_id VARCHAR(100) UNIQUE,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-
-    // Таблица корзины
-    await db.query(`
-      CREATE TABLE IF NOT EXISTS cart_items (
-        id SERIAL PRIMARY KEY,
-        user_id INTEGER REFERENCES users(id),
-        product_id INTEGER REFERENCES products(id),
-        quantity INTEGER DEFAULT 1,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE(user_id, product_id)
-      )
-    `);
-
-    console.log('✅ Таблицы созданы/проверены');
-    
-  } catch (err) {
-    console.error('❌ Ошибка создания таблиц:', err);
-  }
-}
-
-// Middleware для проверки подключения к БД
-function checkDatabaseConnection(req, res, next) {
-  if (!isDatabaseConnected) {
-    return res.status(503).json({
-      success: false,
-      error: 'Сервис временно недоступен. База данных не подключена.'
-    });
-  }
-  next();
-}
-
-// ==================== КОНФИГУРАЦИЯ ====================
-
-// Конфигурация для фронтенда
-app.get('/api/config', (req, res) => {
-  res.json({
-    googleClientId: GOOGLE_CLIENT_ID || null,
-    hasDatabase: isDatabaseConnected,
-    status: 'OK'
-  });
-});
-
-// ==================== GOOGLE AUTH ROUTES ====================
-
-// Google OAuth авторизация
-app.post('/api/auth/google', checkDatabaseConnection, async (req, res) => {
-  console.log('📨 POST /api/auth/google');
-  
-  try {
-    const { token } = req.body;
-    
     if (!token) {
-      return res.status(400).json({
-        success: false,
-        error: 'Google token обязателен'
-      });
+        return res.status(401).json({ error: 'Access token required' });
     }
 
-    if (!googleClient) {
-      return res.status(500).json({
-        success: false,
-        error: 'Google OAuth не настроен на сервере'
-      });
-    }
-
-    // Верификация Google token
-    const ticket = await googleClient.verifyIdToken({
-      idToken: token,
-      audience: GOOGLE_CLIENT_ID
+    jwt.verify(token, JWT_SECRET, (err, user) => {
+        if (err) {
+            return res.status(403).json({ error: 'Invalid token' });
+        }
+        req.user = user;
+        next();
     });
+};
 
-    const payload = ticket.getPayload();
-    const { sub: googleId, email, given_name, family_name, picture } = payload;
+// Database initialization
+const initializeDatabase = async () => {
+    try {
+        // Users table
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS users (
+                id SERIAL PRIMARY KEY,
+                username VARCHAR(50) UNIQUE NOT NULL,
+                email VARCHAR(100) UNIQUE NOT NULL,
+                password VARCHAR(255),
+                full_name VARCHAR(100),
+                phone VARCHAR(20),
+                birth_year INTEGER,
+                avatar_url VARCHAR(255),
+                google_id VARCHAR(100) UNIQUE,
+                rating DECIMAL(3,2) DEFAULT 5.0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
 
-    console.log('🔑 Google auth payload:', { googleId, email, given_name, family_name });
+        // Categories table
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS categories (
+                id SERIAL PRIMARY KEY,
+                name VARCHAR(50) NOT NULL,
+                icon VARCHAR(50),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
 
-    // Проверяем, существует ли пользователь с таким Google ID
-    const { rows: existingUsers } = await db.query(
-      'SELECT * FROM users WHERE google_id = $1 OR email = $2',
-      [googleId, email]
-    );
+        // Ads table
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS ads (
+                id SERIAL PRIMARY KEY,
+                title VARCHAR(200) NOT NULL,
+                description TEXT,
+                price DECIMAL(12,2),
+                category_id INTEGER REFERENCES categories(id),
+                user_id INTEGER REFERENCES users(id),
+                location VARCHAR(100),
+                image_urls TEXT[],
+                seller_info JSONB,
+                is_urgent BOOLEAN DEFAULT FALSE,
+                is_active BOOLEAN DEFAULT TRUE,
+                views INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
 
-    let user = existingUsers.find(u => u.google_id === googleId) || existingUsers[0];
+        // Favorites table
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS favorites (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER REFERENCES users(id),
+                ad_id INTEGER REFERENCES ads(id),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(user_id, ad_id)
+            )
+        `);
 
-    if (user) {
-      // Пользователь существует - обновляем данные и логиним
-      if (!user.google_id) {
-        // Если пользователь был создан через обычную регистрацию, привязываем Google аккаунт
-        await db.query(
-          'UPDATE users SET google_id = $1, avatar = $2 WHERE id = $3',
-          [googleId, picture || user.avatar, user.id]
+        // Messages table
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS messages (
+                id SERIAL PRIMARY KEY,
+                sender_id INTEGER REFERENCES users(id),
+                receiver_id INTEGER REFERENCES users(id),
+                ad_id INTEGER REFERENCES ads(id),
+                content TEXT NOT NULL,
+                is_read BOOLEAN DEFAULT FALSE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        // Chats table
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS chats (
+                id SERIAL PRIMARY KEY,
+                user1_id INTEGER REFERENCES users(id),
+                user2_id INTEGER REFERENCES users(id),
+                ad_id INTEGER REFERENCES ads(id),
+                last_message TEXT,
+                last_message_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                unread_count INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        // Insert default data
+        const categoriesCount = await pool.query('SELECT COUNT(*) FROM categories');
+        if (parseInt(categoriesCount.rows[0].count) === 0) {
+            await pool.query(`
+                INSERT INTO categories (name, icon) VALUES 
+                ('Электроника', 'fa-laptop'),
+                ('Недвижимость', 'fa-home'),
+                ('Авто', 'fa-car'),
+                ('Работа', 'fa-briefcase'),
+                ('Услуги', 'fa-cogs'),
+                ('Мебель', 'fa-couch'),
+                ('Одежда', 'fa-tshirt'),
+                ('Спорт', 'fa-futbol-o'),
+                ('Хобби', 'fa-music'),
+                ('Животные', 'fa-paw')
+            `);
+        }
+
+        const usersCount = await pool.query('SELECT COUNT(*) FROM users WHERE username = $1', ['admin']);
+        if (parseInt(usersCount.rows[0].count) === 0) {
+            const hashedPassword = await bcrypt.hash('admin123', 10);
+            await pool.query(`
+                INSERT INTO users (username, email, password, full_name, phone) 
+                VALUES ('admin', 'admin@zeeptook.ru', $1, 'Администратор', '+79990000000')
+            `, [hashedPassword]);
+        }
+
+        console.log('✅ Database initialized successfully');
+    } catch (error) {
+        console.error('❌ Database initialization error:', error);
+        throw error;
+    }
+};
+
+// Serve static pages
+const servePage = (page) => (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', `${page}.html`));
+};
+
+app.get('/', servePage('index'));
+app.get('/favorites', servePage('favorites'));
+app.get('/ad-details', servePage('ad-details'));
+app.get('/add-ad', servePage('add-ad'));
+app.get('/messages', servePage('messages'));
+app.get('/profile', servePage('profile'));
+app.get('/register', servePage('register'));
+app.get('/login', servePage('login'));
+
+// Auth Routes
+app.post('/api/register', async (req, res) => {
+    try {
+        const { 
+            username, email, password, full_name, phone, birth_year, 
+            avatar_url, google_id, auth_method = 'email' 
+        } = req.body;
+
+        console.log('🔐 Registration attempt:', { email, auth_method });
+
+        // Validation
+        if (auth_method === 'email' && (!username || !password)) {
+            return res.status(400).json({ error: 'Username and password are required for email registration' });
+        }
+
+        if (!email || !full_name || !phone) {
+            return res.status(400).json({ error: 'Email, full name and phone are required' });
+        }
+
+        // Check if user exists
+        let userExists;
+        if (google_id) {
+            userExists = await pool.query(
+                'SELECT id FROM users WHERE google_id = $1 OR email = $2',
+                [google_id, email]
+            );
+        } else {
+            userExists = await pool.query(
+                'SELECT id FROM users WHERE username = $1 OR email = $2',
+                [username, email]
+            );
+        }
+
+        if (userExists.rows.length > 0) {
+            return res.status(400).json({ error: 'User already exists' });
+        }
+
+        // Generate username for Google auth if not provided
+        let actualUsername = username;
+        if (auth_method === 'google' && !username) {
+            actualUsername = 'user_' + Math.random().toString(36).substr(2, 9);
+        }
+
+        // Hash password
+        let hashedPassword = null;
+        if (auth_method === 'email') {
+            hashedPassword = await bcrypt.hash(password, 10);
+        }
+
+        // Create user
+        const result = await pool.query(
+            `INSERT INTO users (username, email, password, full_name, phone, birth_year, avatar_url, google_id) 
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8) 
+             RETURNING id, username, email, full_name, phone, birth_year, avatar_url, rating, created_at`,
+            [actualUsername, email, hashedPassword, full_name, phone, birth_year, avatar_url, google_id]
         );
-      }
 
-      // Обновляем время последнего входа
-      await db.query(
-        'UPDATE users SET last_login = CURRENT_TIMESTAMP, login_count = login_count + 1 WHERE id = $1',
-        [user.id]
-      );
+        const user = result.rows[0];
+        const token = jwt.sign({ userId: user.id, username: user.username }, JWT_SECRET);
 
-      // Получаем обновленные данные пользователя
-      const { rows: updatedUsers } = await db.query('SELECT * FROM users WHERE id = $1', [user.id]);
-      user = updatedUsers[0];
-      delete user.password;
+        console.log('✅ User registered:', user.email);
 
-      return res.json({
-        success: true,
-        user: user,
-        requires_additional_info: false
-      });
-    } else {
-      // Новый пользователь - требуем дополнительную информацию
-      return res.json({
-        success: true,
-        user: {
-          email: email,
-          given_name: given_name,
-          family_name: family_name,
-          avatar: picture,
-          google_id: googleId
-        },
-        requires_additional_info: true
-      });
+        res.json({
+            message: 'User registered successfully',
+            token,
+            user: {
+                id: user.id,
+                username: user.username,
+                email: user.email,
+                full_name: user.full_name,
+                phone: user.phone,
+                birth_year: user.birth_year,
+                rating: user.rating,
+                avatar_url: user.avatar_url,
+                created_at: user.created_at
+            }
+        });
+
+    } catch (error) {
+        console.error('❌ Registration error:', error);
+        res.status(500).json({ error: 'Internal server error' });
     }
-  } catch (error) {
-    console.error('❌ Ошибка Google авторизации:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Ошибка авторизации через Google'
-    });
-  }
 });
 
-// Завершение регистрации Google пользователя
-app.post('/api/auth/google/complete', checkDatabaseConnection, async (req, res) => {
-  console.log('📨 POST /api/auth/google/complete');
-  
-  try {
-    const { email, given_name, family_name, avatar, google_id, username, phone } = req.body;
+app.post('/api/login', async (req, res) => {
+    try {
+        const { username, password } = req.body;
 
-    if (!email || !username || !phone) {
-      return res.status(400).json({
-        success: false,
-        error: 'Email, логин и телефон обязательны'
-      });
+        if (!username || !password) {
+            return res.status(400).json({ error: 'Username and password are required' });
+        }
+
+        const result = await pool.query(
+            'SELECT * FROM users WHERE username = $1 OR email = $1',
+            [username]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(400).json({ error: 'Invalid credentials' });
+        }
+
+        const user = result.rows[0];
+
+        if (!user.password) {
+            return res.status(400).json({ error: 'Please use Google sign-in for this account' });
+        }
+
+        const validPassword = await bcrypt.compare(password, user.password);
+        if (!validPassword) {
+            return res.status(400).json({ error: 'Invalid credentials' });
+        }
+
+        const token = jwt.sign({ userId: user.id, username: user.username }, JWT_SECRET);
+
+        console.log('✅ User logged in:', user.email);
+
+        res.json({
+            message: 'Login successful',
+            token,
+            user: {
+                id: user.id,
+                username: user.username,
+                email: user.email,
+                full_name: user.full_name,
+                phone: user.phone,
+                birth_year: user.birth_year,
+                rating: user.rating,
+                avatar_url: user.avatar_url
+            }
+        });
+    } catch (error) {
+        console.error('❌ Login error:', error);
+        res.status(500).json({ error: 'Internal server error' });
     }
+});
 
-    // Проверяем, не занят ли логин
-    const { rows: existingUsers } = await db.query(
-      'SELECT * FROM users WHERE username = $1 OR email = $2',
-      [username, email]
-    );
+app.post('/api/auth/google', async (req, res) => {
+    try {
+        if (!GOOGLE_CLIENT_ID) {
+            return res.status(503).json({ error: 'Google OAuth is not configured' });
+        }
 
-    if (existingUsers.length > 0) {
-      return res.status(400).json({
-        success: false,
-        error: 'Пользователь с таким логином или email уже существует'
-      });
+        const { credential } = req.body;
+        
+        if (!credential) {
+            return res.status(400).json({ error: 'Google credential is required' });
+        }
+
+        const payload = decodeJWT(credential);
+        if (!payload) {
+            return res.status(400).json({ error: 'Invalid Google token' });
+        }
+
+        const { sub: googleId, email, name, picture } = payload;
+
+        console.log('🔐 Google auth attempt:', { email, name, googleId });
+
+        // Check if user exists
+        const userResult = await pool.query(
+            'SELECT * FROM users WHERE google_id = $1 OR email = $2',
+            [googleId, email]
+        );
+
+        if (userResult.rows.length > 0) {
+            const user = userResult.rows[0];
+            const token = jwt.sign({ userId: user.id, username: user.username }, JWT_SECRET);
+            
+            console.log('✅ Google user logged in:', user.email);
+
+            return res.json({
+                exists: true,
+                token,
+                user: {
+                    id: user.id,
+                    username: user.username,
+                    email: user.email,
+                    full_name: user.full_name,
+                    phone: user.phone,
+                    birth_year: user.birth_year,
+                    rating: user.rating,
+                    avatar_url: user.avatar_url
+                }
+            });
+        } else {
+            console.log('🆕 New Google user:', email);
+            return res.json({
+                exists: false,
+                user: {
+                    google_id: googleId,
+                    email: email,
+                    full_name: name,
+                    avatar_url: picture,
+                    email_verified: payload.email_verified
+                }
+            });
+        }
+
+    } catch (error) {
+        console.error('❌ Google auth error:', error);
+        res.status(500).json({ error: 'Google authentication failed' });
     }
-
-    // Создаем нового пользователя
-    const { rows } = await db.query(
-      `INSERT INTO users (
-        first_name, last_name, username, email, password, phone, avatar, 
-        google_id, login_count, last_login
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-      RETURNING *`,
-      [
-        given_name || '',
-        family_name || '',
-        username,
-        email,
-        null, // Пароль не устанавливаем для Google пользователей
-        phone,
-        avatar || '',
-        google_id,
-        1,
-        new Date()
-      ]
-    );
-
-    const newUser = rows[0];
-    delete newUser.password;
-
-    res.json({
-      success: true,
-      user: newUser
-    });
-  } catch (error) {
-    console.error('❌ Ошибка завершения Google регистрации:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Ошибка завершения регистрации'
-    });
-  }
 });
 
-// ==================== AUTH ROUTES ====================
+// Ads Routes
+app.get('/api/ads', async (req, res) => {
+    try {
+        const { page = 1, limit = 20, category, search } = req.query;
+        const offset = (page - 1) * limit;
 
-// Получение текущего пользователя
-app.get('/api/auth/me', checkDatabaseConnection, async (req, res) => {
-  console.log('📨 GET /api/auth/me');
-  
-  try {
-    const userId = req.query.user_id || req.headers['user-id'];
-    
-    if (!userId) {
-      return res.status(401).json({
-        success: false,
-        error: 'Не авторизован'
-      });
+        let query = `
+            SELECT 
+                a.*,
+                COALESCE(u.username, a.seller_info->>'name') as seller_username,
+                COALESCE(u.full_name, a.seller_info->>'name') as seller_name,
+                COALESCE(u.rating, 5.0) as seller_rating,
+                COALESCE(u.phone, a.seller_info->>'phone') as seller_phone,
+                c.name as category_name,
+                c.icon as category_icon,
+                COUNT(*) OVER() as total_count
+            FROM ads a
+            LEFT JOIN users u ON a.user_id = u.id
+            LEFT JOIN categories c ON a.category_id = c.id
+            WHERE a.is_active = TRUE
+        `;
+        
+        let params = [];
+        let paramCount = 0;
+
+        if (category && category !== 'all') {
+            paramCount++;
+            query += ` AND c.name = $${paramCount}`;
+            params.push(category);
+        }
+
+        if (search) {
+            paramCount++;
+            query += ` AND (a.title ILIKE $${paramCount} OR a.description ILIKE $${paramCount})`;
+            params.push(`%${search}%`);
+        }
+
+        query += ` ORDER BY a.created_at DESC LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}`;
+        params.push(parseInt(limit), offset);
+
+        const result = await pool.query(query, params);
+
+        // Get favorites for authenticated users
+        let favoriteAds = [];
+        const authHeader = req.headers['authorization'];
+        if (authHeader) {
+            const token = authHeader.split(' ')[1];
+            try {
+                const decoded = jwt.verify(token, JWT_SECRET);
+                const favoritesResult = await pool.query(
+                    'SELECT ad_id FROM favorites WHERE user_id = $1',
+                    [decoded.userId]
+                );
+                favoriteAds = favoritesResult.rows.map(row => row.ad_id);
+            } catch (error) {
+                // Invalid token, continue without favorites
+            }
+        }
+
+        res.json({
+            ads: result.rows.map(ad => ({
+                id: ad.id,
+                title: ad.title,
+                description: ad.description,
+                price: ad.price,
+                category: ad.category_name,
+                location: ad.location,
+                isUrgent: ad.is_urgent,
+                isFavorite: favoriteAds.includes(ad.id),
+                seller: {
+                    username: ad.seller_username,
+                    name: ad.seller_name,
+                    rating: ad.seller_rating,
+                    phone: ad.seller_phone
+                },
+                image: ad.image_urls && ad.image_urls.length > 0 ? ad.image_urls[0] : null,
+                time: formatTimeAgo(ad.created_at),
+                views: ad.views
+            })),
+            total: result.rows[0]?.total_count || 0,
+            page: parseInt(page),
+            totalPages: Math.ceil((result.rows[0]?.total_count || 0) / limit)
+        });
+    } catch (error) {
+        console.error('❌ Get ads error:', error);
+        res.status(500).json({ error: 'Internal server error' });
     }
+});
 
-    const { rows } = await db.query('SELECT * FROM users WHERE id = $1', [userId]);
-    
-    if (rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        error: 'Пользователь не найден'
-      });
+app.get('/api/ads/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        await pool.query(
+            'UPDATE ads SET views = views + 1 WHERE id = $1',
+            [id]
+        );
+
+        const result = await pool.query(`
+            SELECT 
+                a.*,
+                COALESCE(u.username, a.seller_info->>'name') as seller_username,
+                COALESCE(u.full_name, a.seller_info->>'name') as seller_name,
+                COALESCE(u.rating, 5.0) as seller_rating,
+                COALESCE(u.phone, a.seller_info->>'phone') as seller_phone,
+                u.created_at as seller_since,
+                c.name as category_name
+            FROM ads a
+            LEFT JOIN users u ON a.user_id = u.id
+            LEFT JOIN categories c ON a.category_id = c.id
+            WHERE a.id = $1 AND a.is_active = TRUE
+        `, [id]);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Ad not found' });
+        }
+
+        const ad = result.rows[0];
+
+        let isFavorite = false;
+        const authHeader = req.headers['authorization'];
+        if (authHeader) {
+            const token = authHeader.split(' ')[1];
+            try {
+                const decoded = jwt.verify(token, JWT_SECRET);
+                const favoriteResult = await pool.query(
+                    'SELECT 1 FROM favorites WHERE user_id = $1 AND ad_id = $2',
+                    [decoded.userId, id]
+                );
+                isFavorite = favoriteResult.rows.length > 0;
+            } catch (error) {
+                // Invalid token
+            }
+        }
+
+        res.json({
+            id: ad.id,
+            title: ad.title,
+            description: ad.description,
+            price: ad.price,
+            category: ad.category_name,
+            location: ad.location,
+            isUrgent: ad.is_urgent,
+            isFavorite: isFavorite,
+            views: ad.views,
+            imageUrls: ad.image_urls || [],
+            seller: {
+                id: ad.user_id,
+                username: ad.seller_username,
+                name: ad.seller_name,
+                rating: ad.seller_rating,
+                phone: ad.seller_phone,
+                since: formatTimeAgo(ad.seller_since)
+            },
+            time: formatTimeAgo(ad.created_at)
+        });
+    } catch (error) {
+        console.error('❌ Get ad error:', error);
+        res.status(500).json({ error: 'Internal server error' });
     }
-
-    const user = rows[0];
-    delete user.password;
-
-    res.json({
-      success: true,
-      user: user
-    });
-  } catch (err) {
-    console.error('❌ Ошибка получения пользователя:', err);
-    res.status(500).json({
-      success: false,
-      error: 'Ошибка сервера'
-    });
-  }
 });
 
-// Регистрация
-app.post('/api/auth/register', checkDatabaseConnection, async (req, res) => {
-  console.log('📨 POST /api/auth/register');
-  const { first_name, last_name, username, email, password, phone } = req.body;
-  
-  if (!username || !email || !password) {
-    return res.status(400).json({ 
-      success: false,
-      error: 'Логин, email и пароль обязательны' 
-    });
-  }
-  
-  try {
-    const { rows: existingUsers } = await db.query(
-      'SELECT * FROM users WHERE username = $1 OR email = $2', 
-      [username, email]
-    );
-    
-    if (existingUsers.length > 0) {
-      return res.status(400).json({ 
-        success: false,
-        error: 'Пользователь с таким логином или email уже существует' 
-      });
+app.post('/api/ads', async (req, res) => {
+    try {
+        const { title, description, price, category_id, location, image_urls, is_urgent, seller_info } = req.body;
+        
+        if (!title || !description || !category_id) {
+            return res.status(400).json({ error: 'Title, description and category are required' });
+        }
+
+        let user_id = null;
+        let actual_seller_info = seller_info || {};
+
+        const authHeader = req.headers['authorization'];
+        if (authHeader) {
+            const token = authHeader.split(' ')[1];
+            try {
+                const decoded = jwt.verify(token, JWT_SECRET);
+                user_id = decoded.userId;
+            } catch (error) {
+                console.log('⚠️ Invalid token, creating anonymous ad');
+            }
+        }
+
+        if (!user_id) {
+            if (!seller_info || !seller_info.phone) {
+                return res.status(400).json({ error: 'Phone number is required for anonymous ads' });
+            }
+            actual_seller_info = seller_info;
+        }
+
+        const result = await pool.query(`
+            INSERT INTO ads (title, description, price, category_id, user_id, location, image_urls, is_urgent, seller_info)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            RETURNING *
+        `, [title, description, price, category_id, user_id, location, image_urls || [], is_urgent || false, actual_seller_info]);
+
+        console.log('✅ Ad created:', title, user_id ? '(by user)' : '(anonymous)');
+
+        res.json({
+            message: 'Ad created successfully',
+            ad: result.rows[0]
+        });
+    } catch (error) {
+        console.error('❌ Create ad error:', error);
+        res.status(500).json({ error: 'Internal server error' });
     }
-    
-    const { rows } = await db.query(
-      `INSERT INTO users (first_name, last_name, username, email, password, phone, login_count) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
-       RETURNING *`,
-      [first_name, last_name, username, email, password, phone, 0]
-    );
-    
-    const newUser = rows[0];
-    
-    res.json({
-      success: true,
-      message: 'Регистрация успешна',
-      user: {
-        id: newUser.id,
-        first_name: newUser.first_name,
-        last_name: newUser.last_name,
-        username: newUser.username,
-        email: newUser.email,
-        phone: newUser.phone,
-        is_admin: newUser.is_admin
-      }
-    });
-  } catch (err) {
-    console.error('❌ Ошибка регистрации:', err);
-    res.status(500).json({ 
-      success: false,
-      error: 'Ошибка создания пользователя' 
-    });
-  }
 });
 
-// Вход
-app.post('/api/auth/login', checkDatabaseConnection, async (req, res) => {
-  console.log('📨 POST /api/auth/login');
-  const { username, password } = req.body;
-  
-  if (!username || !password) {
-    return res.status(400).json({ 
-      success: false,
-      error: 'Логин и пароль обязательны' 
-    });
-  }
-  
-  try {
-    const { rows } = await db.query(
-      "SELECT * FROM users WHERE username = $1 OR email = $1", 
-      [username]
-    );
-    
-    if (rows.length === 0) {
-      return res.status(401).json({ 
-        success: false,
-        error: 'Неверный логин или пароль' 
-      });
+// Favorites Routes
+app.get('/api/favorites', authenticateToken, async (req, res) => {
+    try {
+        const { page = 1, limit = 20 } = req.query;
+        const offset = (page - 1) * limit;
+        const user_id = req.user.userId;
+
+        const result = await pool.query(`
+            SELECT 
+                a.*,
+                COALESCE(u.username, a.seller_info->>'name') as seller_username,
+                COALESCE(u.full_name, a.seller_info->>'name') as seller_name,
+                COALESCE(u.rating, 5.0) as seller_rating,
+                c.name as category_name,
+                c.icon as category_icon,
+                COUNT(*) OVER() as total_count
+            FROM favorites f
+            JOIN ads a ON f.ad_id = a.id
+            LEFT JOIN users u ON a.user_id = u.id
+            LEFT JOIN categories c ON a.category_id = c.id
+            WHERE f.user_id = $1 AND a.is_active = TRUE
+            ORDER BY f.created_at DESC
+            LIMIT $2 OFFSET $3
+        `, [user_id, limit, offset]);
+
+        res.json({
+            ads: result.rows.map(ad => ({
+                id: ad.id,
+                title: ad.title,
+                description: ad.description,
+                price: ad.price,
+                category: ad.category_name,
+                location: ad.location,
+                isUrgent: ad.is_urgent,
+                isFavorite: true,
+                seller: {
+                    username: ad.seller_username,
+                    name: ad.seller_name,
+                    rating: ad.seller_rating
+                },
+                image: ad.image_urls && ad.image_urls.length > 0 ? ad.image_urls[0] : null,
+                time: formatTimeAgo(ad.created_at),
+                views: ad.views
+            })),
+            total: result.rows[0]?.total_count || 0
+        });
+    } catch (error) {
+        console.error('❌ Get favorites error:', error);
+        res.status(500).json({ error: 'Internal server error' });
     }
-    
-    const user = rows[0];
-    
-    // Проверяем, является ли пользователь Google пользователем без пароля
-    if (user.google_id && !user.password) {
-      return res.status(401).json({ 
-        success: false,
-        error: 'Этот аккаунт использует вход через Google. Войдите через Google или установите пароль в настройках профиля.' 
-      });
+});
+
+app.post('/api/favorites/:adId', authenticateToken, async (req, res) => {
+    try {
+        const { adId } = req.params;
+        const user_id = req.user.userId;
+
+        const adCheck = await pool.query('SELECT id FROM ads WHERE id = $1 AND is_active = TRUE', [adId]);
+        if (adCheck.rows.length === 0) {
+            return res.status(404).json({ error: 'Ad not found' });
+        }
+
+        await pool.query(`
+            INSERT INTO favorites (user_id, ad_id)
+            VALUES ($1, $2)
+            ON CONFLICT (user_id, ad_id) DO NOTHING
+        `, [user_id, adId]);
+
+        res.json({ message: 'Added to favorites' });
+    } catch (error) {
+        console.error('❌ Add favorite error:', error);
+        res.status(500).json({ error: 'Internal server error' });
     }
-    
-    if (user.password !== password) {
-      return res.status(401).json({ 
-        success: false,
-        error: 'Неверный пароль' 
-      });
+});
+
+app.delete('/api/favorites/:adId', authenticateToken, async (req, res) => {
+    try {
+        const { adId } = req.params;
+        const user_id = req.user.userId;
+
+        await pool.query(`
+            DELETE FROM favorites 
+            WHERE user_id = $1 AND ad_id = $2
+        `, [user_id, adId]);
+
+        res.json({ message: 'Removed from favorites' });
+    } catch (error) {
+        console.error('❌ Remove favorite error:', error);
+        res.status(500).json({ error: 'Internal server error' });
     }
-    
-    await db.query(
-      "UPDATE users SET last_login = CURRENT_TIMESTAMP, login_count = login_count + 1 WHERE id = $1",
-      [user.id]
-    );
-    
-    res.json({
-      success: true,
-      message: 'Вход выполнен успешно',
-      user: {
-        id: user.id,
-        first_name: user.first_name,
-        last_name: user.last_name,
-        username: user.username,
-        email: user.email,
-        phone: user.phone,
-        is_admin: user.is_admin
-      }
-    });
-  } catch (err) {
-    console.error('❌ Ошибка входа:', err);
-    res.status(500).json({ 
-      success: false,
-      error: 'Ошибка сервера' 
-    });
-  }
 });
 
-// ==================== USER PROFILE ROUTES ====================
-
-// Обновление профиля пользователя
-app.put('/api/user/update-profile', checkDatabaseConnection, async (req, res) => {
-  console.log('📨 PUT /api/user/update-profile');
-  
-  const { user_id, first_name, last_name, middle_name, phone } = req.body;
-  
-  if (!user_id) {
-    return res.status(400).json({
-      success: false,
-      error: 'ID пользователя обязателен'
-    });
-  }
-
-  try {
-    await db.query(
-      'UPDATE users SET first_name = $1, last_name = $2, middle_name = $3, phone = $4 WHERE id = $5',
-      [first_name, last_name, middle_name, phone, user_id]
-    );
-
-    const { rows } = await db.query('SELECT * FROM users WHERE id = $1', [user_id]);
-    const user = rows[0];
-    delete user.password;
-
-    res.json({
-      success: true,
-      message: 'Профиль успешно обновлен',
-      user: user
-    });
-  } catch (err) {
-    console.error('❌ Ошибка обновления профиля:', err);
-    res.status(500).json({
-      success: false,
-      error: 'Ошибка обновления профиля'
-    });
-  }
-});
-
-// Смена пароля
-app.post('/api/user/change-password', checkDatabaseConnection, async (req, res) => {
-  console.log('📨 POST /api/user/change-password');
-  
-  const { user_id, current_password, new_password } = req.body;
-  
-  if (!user_id || !current_password || !new_password) {
-    return res.status(400).json({
-      success: false,
-      error: 'Все поля обязательны'
-    });
-  }
-
-  try {
-    const { rows } = await db.query('SELECT * FROM users WHERE id = $1', [user_id]);
-    
-    if (rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        error: 'Пользователь не найден'
-      });
+// Categories Routes
+app.get('/api/categories', async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT id, name, icon, 
+                   (SELECT COUNT(*) FROM ads WHERE category_id = categories.id AND is_active = TRUE) as ad_count
+            FROM categories 
+            ORDER BY name
+        `);
+        res.json(result.rows);
+    } catch (error) {
+        console.error('❌ Get categories error:', error);
+        res.status(500).json({ error: 'Internal server error' });
     }
+});
 
-    const user = rows[0];
-    
-    // Для Google пользователей проверяем, установлен ли пароль
-    if (user.google_id && !user.password) {
-      return res.status(400).json({
-        success: false,
-        error: 'Установите пароль в настройках профиля'
-      });
+// Messages Routes
+app.get('/api/messages/chats', authenticateToken, async (req, res) => {
+    try {
+        const user_id = req.user.userId;
+
+        const result = await pool.query(`
+            SELECT 
+                c.id,
+                CASE 
+                    WHEN c.user1_id = $1 THEN u2.username
+                    ELSE u1.username
+                END as name,
+                CASE 
+                    WHEN c.user1_id = $1 THEN u2.id
+                    ELSE u1.id
+                END as contact_id,
+                c.last_message,
+                c.last_message_time,
+                c.unread_count,
+                'user' as type,
+                CASE 
+                    WHEN c.user1_id = $1 THEN u2.id
+                    ELSE u1.id
+                END != $1 as is_online
+            FROM chats c
+            LEFT JOIN users u1 ON c.user1_id = u1.id
+            LEFT JOIN users u2 ON c.user2_id = u2.id
+            WHERE c.user1_id = $1 OR c.user2_id = $1
+            ORDER BY c.last_message_time DESC
+        `, [user_id]);
+
+        if (result.rows.length === 0) {
+            result.rows.push({
+                id: 'support',
+                name: 'Поддержка Zeeptook',
+                contact_id: 'support',
+                last_message: 'Здравствуйте! Чем могу помочь?',
+                last_message_time: new Date(),
+                unread_count: 0,
+                type: 'support',
+                is_online: true
+            });
+        }
+
+        res.json(result.rows);
+    } catch (error) {
+        console.error('❌ Get chats error:', error);
+        res.status(500).json({ error: 'Internal server error' });
     }
-    
-    if (user.password !== current_password) {
-      return res.status(400).json({
-        success: false,
-        error: 'Текущий пароль неверен'
-      });
+});
+
+app.get('/api/messages/chat/:chatId', authenticateToken, async (req, res) => {
+    try {
+        const { chatId } = req.params;
+        const user_id = req.user.userId;
+
+        if (chatId === 'support') {
+            const result = await pool.query(`
+                SELECT 
+                    m.*,
+                    u.username as sender_username
+                FROM messages m
+                LEFT JOIN users u ON m.sender_id = u.id
+                WHERE (m.sender_id = $1 AND m.receiver_id = 1) 
+                   OR (m.sender_id = 1 AND m.receiver_id = $1)
+                ORDER BY m.created_at ASC
+            `, [user_id]);
+            res.json(result.rows);
+        } else {
+            const chatCheck = await pool.query(
+                'SELECT user1_id, user2_id FROM chats WHERE id = $1',
+                [chatId]
+            );
+
+            if (chatCheck.rows.length === 0) {
+                return res.status(404).json({ error: 'Chat not found' });
+            }
+
+            const chat = chatCheck.rows[0];
+            const otherUserId = chat.user1_id === user_id ? chat.user2_id : chat.user1_id;
+
+            const result = await pool.query(`
+                SELECT 
+                    m.*,
+                    u.username as sender_username
+                FROM messages m
+                LEFT JOIN users u ON m.sender_id = u.id
+                WHERE (m.sender_id = $1 AND m.receiver_id = $2)
+                   OR (m.sender_id = $2 AND m.receiver_id = $1)
+                ORDER BY m.created_at ASC
+            `, [user_id, otherUserId]);
+
+            res.json(result.rows);
+        }
+    } catch (error) {
+        console.error('❌ Get chat messages error:', error);
+        res.status(500).json({ error: 'Internal server error' });
     }
-
-    await db.query('UPDATE users SET password = $1 WHERE id = $2', [new_password, user_id]);
-
-    res.json({
-      success: true,
-      message: 'Пароль успешно изменен'
-    });
-  } catch (err) {
-    console.error('❌ Ошибка смены пароля:', err);
-    res.status(500).json({
-      success: false,
-      error: 'Ошибка смены пароля'
-    });
-  }
 });
 
-// Загрузка аватарки
-app.post('/api/user/upload-avatar', checkDatabaseConnection, async (req, res) => {
-  console.log('📨 POST /api/user/upload-avatar');
-  
-  const { user_id, avatar } = req.body;
-  
-  if (!user_id) {
-    return res.status(400).json({ 
-      success: false, 
-      error: 'ID пользователя обязателен' 
-    });
-  }
+app.post('/api/messages', authenticateToken, async (req, res) => {
+    try {
+        const { chat_id, content, receiver_id, ad_id } = req.body;
+        const sender_id = req.user.userId;
 
-  try {
-    const avatarUrl = avatar;
+        if (!content) {
+            return res.status(400).json({ error: 'Message content is required' });
+        }
 
-    await db.query(
-      'UPDATE users SET avatar = $1 WHERE id = $2',
-      [avatarUrl, user_id]
-    );
+        let actual_receiver_id = receiver_id;
+        let actual_chat_id = chat_id;
 
-    res.json({
-      success: true,
-      message: 'Аватар успешно загружен',
-      avatar_url: avatarUrl
-    });
-  } catch (err) {
-    console.error('❌ Ошибка загрузки аватарки:', err);
-    res.status(500).json({
-      success: false,
-      error: 'Ошибка загрузки аватарки'
-    });
-  }
-});
+        if (chat_id === 'support') {
+            actual_receiver_id = 1;
+            actual_chat_id = null;
+        }
 
-// ==================== CATEGORIES ROUTES ====================
+        const result = await pool.query(`
+            INSERT INTO messages (sender_id, receiver_id, ad_id, content)
+            VALUES ($1, $2, $3, $4)
+            RETURNING *
+        `, [sender_id, actual_receiver_id, ad_id, content]);
 
-// Категории
-app.get('/api/categories', checkDatabaseConnection, async (req, res) => {
-  console.log('📨 GET /api/categories');
-  try {
-    const { rows } = await db.query('SELECT * FROM categories ORDER BY name');
-    res.json(rows || []);
-  } catch (err) {
-    console.error('❌ Ошибка получения категорий:', err);
-    res.status(500).json({ 
-      success: false,
-      error: err.message 
-    });
-  }
-});
+        if (actual_chat_id && actual_chat_id !== 'support') {
+            await pool.query(`
+                UPDATE chats 
+                SET last_message = $1, last_message_time = CURRENT_TIMESTAMP, unread_count = unread_count + 1
+                WHERE id = $2
+            `, [content, actual_chat_id]);
+        }
 
-// ==================== PRODUCTS ROUTES ====================
-
-// Товары
-app.get('/api/products', checkDatabaseConnection, async (req, res) => {
-  console.log('📨 GET /api/products');
-  const { category, search, popular, new: newProducts, category_id, limit = 50, page = 1 } = req.query;
-  
-  try {
-    let sql = `SELECT p.*, c.name as category_name FROM products p LEFT JOIN categories c ON p.category_id = c.id WHERE 1=1`;
-    let params = [];
-    let paramCount = 1;
-
-    if (category && category !== 'all') {
-      sql += ` AND c.name = $${paramCount}`;
-      params.push(category);
-      paramCount++;
+        res.json({
+            message: 'Message sent successfully',
+            message: result.rows[0]
+        });
+    } catch (error) {
+        console.error('❌ Send message error:', error);
+        res.status(500).json({ error: 'Internal server error' });
     }
+});
 
-    if (category_id) {
-      sql += ` AND p.category_id = $${paramCount}`;
-      params.push(parseInt(category_id));
-      paramCount++;
+// Profile Routes
+app.get('/api/profile', authenticateToken, async (req, res) => {
+    try {
+        const user_id = req.user.userId;
+
+        const userResult = await pool.query(`
+            SELECT id, username, email, full_name, phone, birth_year, avatar_url, rating, created_at
+            FROM users WHERE id = $1
+        `, [user_id]);
+
+        if (userResult.rows.length === 0) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        const adsResult = await pool.query(`
+            SELECT COUNT(*) as total_ads,
+                   COUNT(CASE WHEN is_active = TRUE THEN 1 END) as active_ads
+            FROM ads WHERE user_id = $1
+        `, [user_id]);
+
+        const favoritesResult = await pool.query(`
+            SELECT COUNT(*) as total_favorites
+            FROM favorites WHERE user_id = $1
+        `, [user_id]);
+
+        res.json({
+            user: userResult.rows[0],
+            stats: {
+                total_ads: parseInt(adsResult.rows[0].total_ads || 0),
+                active_ads: parseInt(adsResult.rows[0].active_ads || 0),
+                total_favorites: parseInt(favoritesResult.rows[0].total_favorites || 0)
+            }
+        });
+    } catch (error) {
+        console.error('❌ Get profile error:', error);
+        res.status(500).json({ error: 'Internal server error' });
     }
+});
 
-    if (search) {
-      sql += ` AND (p.name ILIKE $${paramCount} OR p.description ILIKE $${paramCount + 1} OR p.manufacturer ILIKE $${paramCount + 2} OR c.name ILIKE $${paramCount + 3})`;
-      const searchParam = `%${search}%`;
-      params.push(searchParam, searchParam, searchParam, searchParam);
-      paramCount += 4;
+app.put('/api/profile', authenticateToken, async (req, res) => {
+    try {
+        const user_id = req.user.userId;
+        const { full_name, phone, birth_year, avatar_url } = req.body;
+
+        const result = await pool.query(`
+            UPDATE users 
+            SET full_name = $1, phone = $2, birth_year = $3, avatar_url = $4, updated_at = CURRENT_TIMESTAMP
+            WHERE id = $5
+            RETURNING id, username, email, full_name, phone, birth_year, avatar_url, rating
+        `, [full_name, phone, birth_year, avatar_url, user_id]);
+
+        res.json({
+            message: 'Profile updated successfully',
+            user: result.rows[0]
+        });
+    } catch (error) {
+        console.error('❌ Update profile error:', error);
+        res.status(500).json({ error: 'Internal server error' });
     }
-
-    if (popular === 'true') {
-      sql += " AND p.is_popular = true";
-    }
-
-    if (newProducts === 'true') {
-      sql += " AND p.is_new = true";
-    }
-
-    sql += " ORDER BY p.created_at DESC";
-
-    const offset = (parseInt(page) - 1) * parseInt(limit);
-    sql += ` LIMIT $${paramCount} OFFSET $${paramCount + 1}`;
-    params.push(parseInt(limit), offset);
-
-    const { rows } = await db.query(sql, params);
-    
-    let countSql = `SELECT COUNT(*) as total FROM products p LEFT JOIN categories c ON p.category_id = c.id WHERE 1=1`;
-    let countParams = [];
-    paramCount = 1;
-
-    if (category && category !== 'all') {
-      countSql += ` AND c.name = $${paramCount}`;
-      countParams.push(category);
-      paramCount++;
-    }
-
-    if (category_id) {
-      countSql += ` AND p.category_id = $${paramCount}`;
-      countParams.push(parseInt(category_id));
-      paramCount++;
-    }
-
-    if (search) {
-      countSql += ` AND (p.name ILIKE $${paramCount} OR p.description ILIKE $${paramCount + 1} OR p.manufacturer ILIKE $${paramCount + 2} OR c.name ILIKE $${paramCount + 3})`;
-      const searchParam = `%${search}%`;
-      countParams.push(searchParam, searchParam, searchParam, searchParam);
-    }
-
-    const { rows: countResult } = await db.query(countSql, countParams);
-
-    res.json({ 
-      success: true,
-      products: rows || [],
-      total: parseInt(countResult[0]?.total) || 0,
-      page: parseInt(page),
-      limit: parseInt(limit),
-      totalPages: Math.ceil((parseInt(countResult[0]?.total) || 0) / parseInt(limit))
-    });
-  } catch (err) {
-    console.error('❌ Ошибка получения товаров:', err);
-    res.status(500).json({ 
-      success: false,
-      error: err.message 
-    });
-  }
 });
 
-// Получение одного товара
-app.get('/api/products/:id', checkDatabaseConnection, async (req, res) => {
-  const productId = req.params.id;
-  console.log('📨 GET /api/products/' + productId);
-  
-  try {
-    const { rows } = await db.query(
-      `SELECT p.*, c.name as category_name FROM products p LEFT JOIN categories c ON p.category_id = c.id WHERE p.id = $1`,
-      [productId]
-    );
-    
-    if (rows.length === 0) {
-      return res.status(404).json({ 
-        success: false,
-        error: 'Товар не найден' 
-      });
-    }
-    
-    res.json({ 
-      success: true,
-      product: rows[0] 
-    });
-  } catch (err) {
-    console.error('❌ Ошибка получения товара:', err);
-    res.status(500).json({ 
-      success: false,
-      error: err.message 
-    });
-  }
-});
-
-// Добавление товара через админку
-app.post('/api/admin/products', checkDatabaseConnection, async (req, res) => {
-  console.log('📨 POST /api/admin/products');
-  
-  const {
-    name,
-    category_id,
-    description,
-    price,
-    old_price,
-    manufacturer,
-    country,
-    stock_quantity,
-    in_stock,
-    is_popular,
-    is_new,
-    composition,
-    indications,
-    usage,
-    contraindications,
-    dosage,
-    expiry_date,
-    storage_conditions
-  } = req.body;
-
-  if (!name || !category_id || !price || stock_quantity === undefined) {
-    return res.status(400).json({
-      success: false,
-      error: 'Обязательные поля: название, категория, цена, количество'
-    });
-  }
-
-  try {
-    const { rows: categoryRows } = await db.query(
-      'SELECT * FROM categories WHERE id = $1',
-      [category_id]
-    );
-
-    if (categoryRows.length === 0) {
-      return res.status(400).json({
-        success: false,
-        error: 'Указанная категория не существует'
-      });
-    }
-
-    const demoImages = [
-      'https://images.unsplash.com/photo-1585435557343-3b092031d5ad?w=300&h=200&fit=crop',
-      'https://images.unsplash.com/photo-1550258987-190a2d41a8ba?w=300&h=200&fit=crop',
-      'https://images.unsplash.com/photo-1576671414121-d0b01c6c5f60?w=300&h=200&fit=crop',
-      'https://images.unsplash.com/photo-1559056199-641a0ac8b55e?w=300&h=200&fit=crop'
-    ];
-    const randomImage = demoImages[Math.floor(Math.random() * demoImages.length)];
-
-    const { rows } = await db.query(
-      `INSERT INTO products (
-        name, category_id, description, price, old_price, manufacturer, country,
-        stock_quantity, in_stock, is_popular, is_new, composition, indications,
-        usage, contraindications, dosage, expiry_date, storage_conditions, image
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
-      RETURNING *`,
-      [
-        name,
-        category_id,
-        description || '',
-        parseFloat(price),
-        old_price ? parseFloat(old_price) : null,
-        manufacturer || '',
-        country || '',
-        parseInt(stock_quantity),
-        Boolean(in_stock),
-        Boolean(is_popular),
-        Boolean(is_new),
-        composition || '',
-        indications || '',
-        usage || '',
-        contraindications || '',
-        dosage || '',
-        expiry_date || '',
-        storage_conditions || '',
-        randomImage
-      ]
-    );
-
-    const newProduct = rows[0];
-    
-    console.log('✅ Товар успешно добавлен:', newProduct.id);
-
-    res.json({
-      success: true,
-      message: 'Товар успешно добавлен',
-      product: newProduct
-    });
-
-  } catch (err) {
-    console.error('❌ Ошибка добавления товара:', err);
-    res.status(500).json({
-      success: false,
-      error: 'Ошибка добавления товара: ' + err.message
-    });
-  }
-});
-
-// ==================== CART ROUTES ====================
-
-// Корзина - добавление товара
-app.post('/api/cart/add', checkDatabaseConnection, async (req, res) => {
-  console.log('📨 POST /api/cart/add');
-  const { user_id, product_id, quantity = 1 } = req.body;
-
-  if (!user_id) {
-    return res.status(400).json({
-      success: false,
-      error: 'user_id обязателен'
-    });
-  }
-
-  if (!product_id) {
-    return res.status(400).json({
-      success: false,
-      error: 'product_id обязателен'
-    });
-  }
-
-  try {
-    // Проверяем существование товара
-    const { rows: products } = await db.query('SELECT * FROM products WHERE id = $1', [product_id]);
-    if (products.length === 0) {
-      return res.status(404).json({
-        success: false,
-        error: 'Товар не найден'
-      });
-    }
-
-    // Проверяем существование пользователя
-    const { rows: users } = await db.query('SELECT * FROM users WHERE id = $1', [user_id]);
-    if (users.length === 0) {
-      return res.status(404).json({
-        success: false,
-        error: 'Пользователь не найден'
-      });
-    }
-
-    // Добавляем или обновляем товар в корзине
-    const { rows } = await db.query(`
-      INSERT INTO cart_items (user_id, product_id, quantity) 
-      VALUES ($1, $2, $3)
-      ON CONFLICT (user_id, product_id) 
-      DO UPDATE SET quantity = cart_items.quantity + $3
-      RETURNING *
-    `, [user_id, product_id, quantity]);
-
-    res.json({
-      success: true,
-      message: 'Товар добавлен в корзину',
-      item: rows[0]
-    });
-  } catch (err) {
-    console.error('❌ Ошибка добавления в корзину:', err);
-    res.status(500).json({
-      success: false,
-      error: 'Ошибка сервера: ' + err.message
-    });
-  }
-});
-
-// Корзина - получение содержимого
-app.get('/api/cart', checkDatabaseConnection, async (req, res) => {
-  console.log('📨 GET /api/cart');
-  const { user_id } = req.query;
-
-  if (!user_id) {
-    return res.status(400).json({
-      success: false,
-      error: 'user_id обязателен'
-    });
-  }
-
-  try {
-    const { rows } = await db.query(`
-      SELECT ci.*, p.name, p.price, p.image, p.description, p.manufacturer, p.in_stock
-      FROM cart_items ci
-      LEFT JOIN products p ON ci.product_id = p.id
-      WHERE ci.user_id = $1
-      ORDER BY ci.created_at DESC
-    `, [user_id]);
-
-    res.json({
-      success: true,
-      items: rows || [],
-      total: rows.reduce((sum, item) => sum + (item.price * item.quantity), 0)
-    });
-  } catch (err) {
-    console.error('❌ Ошибка получения корзины:', err);
-    res.status(500).json({
-      success: false,
-      error: 'Ошибка сервера'
-    });
-  }
-});
-
-// Корзина - обновление количества
-app.put('/api/cart/:itemId', checkDatabaseConnection, async (req, res) => {
-  console.log('📨 PUT /api/cart/' + req.params.itemId);
-  const { user_id, quantity } = req.body;
-  
-  if (!user_id) {
-    return res.status(400).json({
-      success: false,
-      error: 'user_id обязателен'
-    });
-  }
-
-  if (!quantity || quantity < 1) {
-    return res.status(400).json({
-      success: false,
-      error: 'Количество должно быть не менее 1'
-    });
-  }
-
-  try {
-    await db.query(
-      'UPDATE cart_items SET quantity = $1 WHERE id = $2 AND user_id = $3',
-      [quantity, req.params.itemId, user_id]
-    );
-
-    res.json({
-      success: true,
-      message: 'Количество обновлено'
-    });
-  } catch (err) {
-    console.error('❌ Ошибка обновления корзины:', err);
-    res.status(500).json({
-      success: false,
-      error: 'Ошибка сервера'
-    });
-  }
-});
-
-// Корзина - удаление товара
-app.delete('/api/cart/:itemId', checkDatabaseConnection, async (req, res) => {
-  console.log('📨 DELETE /api/cart/' + req.params.itemId);
-  const { user_id } = req.body;
-  
-  if (!user_id) {
-    return res.status(400).json({
-      success: false,
-      error: 'user_id обязателен'
-    });
-  }
-
-  try {
-    await db.query(
-      'DELETE FROM cart_items WHERE id = $1 AND user_id = $2',
-      [req.params.itemId, user_id]
-    );
-
-    res.json({
-      success: true,
-      message: 'Товар удален из корзины'
-    });
-  } catch (err) {
-    console.error('❌ Ошибка удаления из корзины:', err);
-    res.status(500).json({
-      success: false,
-      error: 'Ошибка сервера'
-    });
-  }
-});
-
-// Корзина - получение общей суммы
-app.get('/api/cart/total', checkDatabaseConnection, async (req, res) => {
-  console.log('📨 GET /api/cart/total');
-  const { user_id } = req.query;
-  
-  if (!user_id) {
-    return res.status(400).json({
-      success: false,
-      error: 'user_id обязателен'
-    });
-  }
-
-  try {
-    const { rows } = await db.query(`
-      SELECT SUM(p.price * ci.quantity) as total
-      FROM cart_items ci
-      LEFT JOIN products p ON ci.product_id = p.id
-      WHERE ci.user_id = $1
-    `, [user_id]);
-
-    const total = parseFloat(rows[0]?.total) || 0;
-
-    res.json({
-      success: true,
-      total: total
-    });
-  } catch (err) {
-    console.error('❌ Ошибка получения суммы корзины:', err);
-    res.status(500).json({
-      success: false,
-      error: 'Ошибка сервера'
-    });
-  }
-});
-
-// Корзина - очистка корзины
-app.delete('/api/cart', checkDatabaseConnection, async (req, res) => {
-  console.log('📨 DELETE /api/cart');
-  const { user_id } = req.body;
-  
-  if (!user_id) {
-    return res.status(400).json({
-      success: false,
-      error: 'user_id обязателен'
-    });
-  }
-
-  try {
-    await db.query('DELETE FROM cart_items WHERE user_id = $1', [user_id]);
-
-    res.json({
-      success: true,
-      message: 'Корзина очищена'
-    });
-  } catch (err) {
-    console.error('❌ Ошибка очистки корзины:', err);
-    res.status(500).json({
-      success: false,
-      error: 'Ошибка сервера'
-    });
-  }
-});
-
-// ==================== STATIC PAGES ====================
-
-// Статические страницы
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'main.html'));
-});
-
-app.get('/register', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'register.html'));
-});
-
-app.get('/cart', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'cart.html'));
-});
-
-app.get('/product', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'product.html'));
-});
-
-app.get('/categories', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'categories.html'));
-});
-
-app.get('/profile', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'profile.html'));
-});
-
-app.get('/admin', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'netuDostup.html'));
-});
-
-// ==================== HEALTH & DIAGNOSTICS ====================
-
-// Health check
+// Utility Routes
 app.get('/api/health', async (req, res) => {
-  try {
-    if (!isDatabaseConnected) {
-      return res.status(503).json({
-        status: 'ERROR',
-        timestamp: new Date().toISOString(),
-        error: 'База данных не подключена',
-        database: 'Neon.tech PostgreSQL',
-        googleOAuth: !!GOOGLE_CLIENT_ID
-      });
+    try {
+        await pool.query('SELECT 1');
+        res.json({ 
+            status: 'OK', 
+            database: 'connected',
+            google_oauth: !!GOOGLE_CLIENT_ID,
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        res.status(500).json({ 
+            status: 'ERROR', 
+            database: 'disconnected',
+            google_oauth: !!GOOGLE_CLIENT_ID,
+            timestamp: new Date().toISOString()
+        });
     }
-
-    const productsCount = await db.query('SELECT COUNT(*) as count FROM products');
-    const categoriesCount = await db.query('SELECT COUNT(*) as count FROM categories');
-    const usersCount = await db.query('SELECT COUNT(*) as count FROM users');
-    const cartCount = await db.query('SELECT COUNT(*) as count FROM cart_items');
-    
-    res.json({ 
-      status: 'OK', 
-      timestamp: new Date().toISOString(),
-      database: 'Neon.tech PostgreSQL',
-      googleOAuth: !!GOOGLE_CLIENT_ID,
-      tables: {
-        products: parseInt(productsCount.rows[0]?.count) || 0,
-        categories: parseInt(categoriesCount.rows[0]?.count) || 0,
-        users: parseInt(usersCount.rows[0]?.count) || 0,
-        cart_items: parseInt(cartCount.rows[0]?.count) || 0
-      }
-    });
-  } catch (err) {
-    res.status(500).json({ 
-      status: 'ERROR', 
-      timestamp: new Date().toISOString(),
-      error: err.message,
-      database: 'Neon.tech PostgreSQL',
-      googleOAuth: !!GOOGLE_CLIENT_ID
-    });
-  }
 });
 
-// Диагностика
-app.get('/api/diagnostic', (req, res) => {
-  res.json({
-    timestamp: new Date().toISOString(),
-    environment: {
-      node_env: process.env.NODE_ENV || 'development',
-      has_database_url: !!process.env.DATABASE_URL,
-      has_google_client_id: !!GOOGLE_CLIENT_ID
-    },
-    database: {
-      connected: isDatabaseConnected
-    },
-    googleOAuth: {
-      configured: !!GOOGLE_CLIENT_ID,
-      clientId: GOOGLE_CLIENT_ID ? 'Установлен' : 'Не установлен'
-    }
-  });
+// Error handlers
+app.use('/api/*', (req, res) => {
+    res.status(404).json({ error: 'API endpoint not found' });
 });
 
-// Обработка ошибок подключения к БД
-process.on('unhandledRejection', (err) => {
-  console.error('❌ Необработанная ошибка:', err);
+app.use((req, res) => {
+    res.status(404).send('Page not found');
 });
 
-// Инициализация базы данных при старте
-initializeDatabase().then(() => {
-  console.log('🚀 Сервер инициализирован');
-}).catch(console.error);
+// Start server
+if (process.env.NODE_ENV !== 'production') {
+    const startServer = async () => {
+        try {
+            console.log('🚀 Starting Zeeptook server...');
+            
+            // Test database connection
+            await pool.query('SELECT 1');
+            console.log('✅ Database connected');
+            
+            // Initialize database
+            await initializeDatabase();
+            
+            app.listen(PORT, () => {
+                console.log('🎉 Server running on http://localhost:' + PORT);
+                console.log('');
+                console.log('📊 Available endpoints:');
+                console.log('   GET  /api/ads               - Get ads');
+                console.log('   POST /api/ads               - Create ad');
+                console.log('   POST /api/register          - Register');
+                console.log('   POST /api/login             - Login');
+                console.log('   POST /api/auth/google       - Google OAuth');
+                console.log('   GET  /api/profile           - User profile');
+                console.log('   GET  /api/health            - Health check');
+                console.log('');
+            });
+        } catch (error) {
+            console.error('❌ Failed to start server:', error);
+            process.exit(1);
+        }
+    };
 
-// Для Vercel
+    startServer();
+}
+
+// Export for Vercel
 module.exports = app;
