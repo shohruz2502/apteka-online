@@ -2,14 +2,18 @@
   "version": 2,
   "builds": [
     {
-      "src": "server-supabase.js",
+      "src": "server.js",
       "use": "@vercel/node"
     }
   ],
   "routes": [
     {
       "src": "/(.*)",
-      "dest": "/server-supabase.js"
+      "dest": "/server.js"
     }
-  ]
+  ],
+  "env": {
+    "DATABASE_URL": "@database_url",
+    "GOOGLE_CLIENT_ID": "@google_client_id"
+  }
 }
