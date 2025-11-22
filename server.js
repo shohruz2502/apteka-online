@@ -5,7 +5,6 @@ const cors = require('cors');
 const { OAuth2Client } = require('google-auth-library');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(cors());
@@ -42,13 +41,13 @@ async function initializeDatabase() {
   } catch (err) {
     console.error('❌ Ошибка подключения к Neon.tech:', err);
     isDatabaseConnected = false;
-    throw new Error('Не удалось подключиться к базе данных');
+    // Не бросаем ошибку, чтобы сервер мог работать без БД
   }
 }
 
 // Создание таблиц
 async function createTables() {
-  if (!isDatabaseConnected) throw new Error('База данных не подключена');
+  if (!isDatabaseConnected) return;
 
   try {
     // Таблица категорий
@@ -125,7 +124,6 @@ async function createTables() {
     
   } catch (err) {
     console.error('❌ Ошибка создания таблиц:', err);
-    throw err;
   }
 }
 
@@ -1075,7 +1073,7 @@ app.get('/admin', (req, res) => {
 });
 
 // Health check
-app.get('/health', async (req, res) => {
+app.get('/api/health', async (req, res) => {
   try {
     if (!isDatabaseConnected) {
       return res.status(503).json({
@@ -1117,51 +1115,8 @@ process.on('unhandledRejection', (err) => {
   console.error('❌ Необработанная ошибка:', err);
 });
 
-// Запуск сервера
-async function startServer() {
-  try {
-    await initializeDatabase();
-    
-    app.listen(PORT, () => {
-      console.log(`\n🚀 Сервер запущен на порту ${PORT}`);
-      console.log(`📍 http://localhost:${PORT}`);
-      console.log(`🗄️ База данных: Neon.tech PostgreSQL`);
-      console.log(`🔑 Google OAuth: Включено`);
-      console.log(`\n📋 Доступные endpoints:`);
-      console.log(`   POST /api/auth/google - Google OAuth`);
-      console.log(`   POST /api/auth/google/complete - Завершение Google регистрации`);
-      console.log(`   GET  /api/categories - Категории`);
-      console.log(`   GET  /api/products - Товары`);
-      console.log(`   POST /api/admin/products - Добавление товара`);
-      console.log(`   GET  /api/auth/me - Получение пользователя`);
-      console.log(`   POST /api/cart/add - Добавление в корзину`);
-      console.log(`   GET  /api/cart - Получение корзины`);
-      console.log(`   PUT  /api/cart/:id - Обновление корзины`);
-      console.log(`   DELETE /api/cart/:id - Удаление из корзины`);
-      console.log(`   POST /api/auth/register - Регистрация`);
-      console.log(`   POST /api/auth/login - Вход`);
-      console.log(`   GET  /health - Проверка работы`);
-    });
-  } catch (err) {
-    console.error('❌ Не удалось подключиться к базе данных:', err);
-    console.error('💡 Убедитесь, что:');
-    console.error('   1. Переменная окружения DATABASE_URL установлена правильно');
-    console.error('   2. Neon.tech база данных доступна');
-    console.error('   3. Параметры подключения корректны');
-    
-    // Запускаем сервер даже без БД, но API будет возвращать ошибки
-    app.listen(PORT, () => {
-      console.log(`\n⚠️  Сервер запущен без подключения к БД на порту ${PORT}`);
-      console.log(`📍 http://localhost:${PORT}`);
-      console.log(`❌ API endpoints будут возвращать ошибки`);
-    });
-  }
-}
+// Инициализация базы данных при старте
+initializeDatabase().catch(console.error);
 
-// Для Vercel
+// Для Vercel - экспортируем app как serverless функцию
 module.exports = app;
-
-// Для локальной разработки
-if (require.main === module) {
-  startServer();
-}
