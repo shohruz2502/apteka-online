@@ -6,6 +6,7 @@
     <title>Корзина - ФармаПлюс</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
+        /* Все стили остаются без изменений */
         :root {
             --primary: #2196F3;
             --primary-dark: #1976D2;
@@ -31,7 +32,6 @@
         }
 
         body {
-            /* background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%); */
             color: var(--dark);
             line-height: 1.6;
             min-height: 100vh;
@@ -40,7 +40,6 @@
 
         .container {
             max-width: 100%;
-            
             background: white;
             border-radius: 0;
             box-shadow: none;
@@ -66,7 +65,6 @@
         }
 
         .header h1 {
-          
             font-size: 1.4rem;
             margin-bottom: 0.3rem;
             font-weight: 700;
@@ -835,6 +833,59 @@
         let cartItems = [];
         let currentUser = null;
 
+        // Улучшенная проверка авторизации
+        function checkAuth() {
+            // Пробуем разные способы получения данных пользователя
+            const userData = localStorage.getItem('user');
+            const sessionUser = sessionStorage.getItem('user');
+            const googleUser = localStorage.getItem('google_user');
+            
+            let user = null;
+            
+            // Пробуем распарсить данные из localStorage
+            if (userData) {
+                try {
+                    user = JSON.parse(userData);
+                } catch (e) {
+                    console.warn('Не удалось распарсить user из localStorage:', e);
+                }
+            }
+            
+            // Если не получилось, пробуем sessionStorage
+            if (!user && sessionUser) {
+                try {
+                    user = JSON.parse(sessionUser);
+                } catch (e) {
+                    console.warn('Не удалось распарсить user из sessionStorage:', e);
+                }
+            }
+            
+            // Если не получилось, пробуем Google user data
+            if (!user && googleUser) {
+                try {
+                    const googleData = JSON.parse(googleUser);
+                    user = {
+                        id: googleData.sub || googleData.id,
+                        email: googleData.email,
+                        first_name: googleData.given_name,
+                        last_name: googleData.family_name,
+                        username: googleData.email,
+                        avatar: googleData.picture
+                    };
+                } catch (e) {
+                    console.warn('Не удалось распарсить google_user:', e);
+                }
+            }
+            
+            // Проверяем, что у пользователя есть ID (обязательное поле для работы с API)
+            if (user && user.id) {
+                currentUser = user;
+                return true;
+            }
+            
+            return false;
+        }
+
         // Показать/скрыть элементы
         function showLoading() {
             loading.style.display = 'flex';
@@ -903,26 +954,12 @@
             }
         }
 
-        // Проверка авторизации
-        function checkAuth() {
-            const user = localStorage.getItem('user');
-            if (!user) {
-                showAuthWarning();
-                return false;
-            }
-            
-            try {
-                currentUser = JSON.parse(user);
-                return true;
-            } catch (e) {
-                showAuthWarning();
-                return false;
-            }
-        }
-
         // Загрузка корзины
         async function loadCart() {
-            if (!checkAuth()) return;
+            if (!checkAuth()) {
+                showAuthWarning();
+                return;
+            }
 
             showLoading();
             hideMessages();
@@ -1218,7 +1255,7 @@
 
         // Обработка изменения авторизации
         window.addEventListener('storage', function(e) {
-            if (e.key === 'user') {
+            if (e.key === 'user' || e.key === 'google_user') {
                 loadCart();
             }
         });
