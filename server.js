@@ -2,7 +2,7 @@ const express = require('express');
 const { Client } = require('pg');
 const path = require('path');
 const cors = require('cors');
-const bcrypt = require('bcryptjs');
+const { OAuth2Client } = require('google-auth-library');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -12,6 +12,12 @@ app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
+
+// Google OAuth client
+const googleClient = new OAuth2Client(
+  process.env.GOOGLE_CLIENT_ID,
+  process.env.GOOGLE_CLIENT_SECRET
+);
 
 // ✅ Neon.tech PostgreSQL подключение
 const client = new Client({
@@ -189,6 +195,29 @@ async function seedInitialData() {
           country: 'Великобритания',
           stock_quantity: 25,
           image: 'https://images.unsplash.com/photo-1585435557343-3b092031d5ad?w=300&h=200&fit=crop'
+        },
+        {
+          name: 'Аспирин 500мг №20',
+          description: 'Противовоспалительное средство',
+          price: 120.00,
+          old_price: 150.00,
+          category_id: 1,
+          manufacturer: 'Байер',
+          country: 'Германия',
+          stock_quantity: 40,
+          is_popular: true,
+          image: 'https://images.unsplash.com/photo-1585435557343-3b092031d5ad?w=300&h=200&fit=crop'
+        },
+        {
+          name: 'Витамин C 1000мг №60',
+          description: 'Витамин C для иммунитета',
+          price: 450.00,
+          category_id: 2,
+          manufacturer: 'Солгар',
+          country: 'США',
+          stock_quantity: 35,
+          is_new: true,
+          image: 'https://images.unsplash.com/photo-1550258987-190a2d41a8ba?w=300&h=200&fit=crop'
         }
       ];
 
@@ -222,15 +251,21 @@ function checkDatabaseConnection(req, res, next) {
   next();
 }
 
-// Вспомогательная функция для хеширования пароля
-async function hashPassword(password) {
-  const saltRounds = 10;
-  return await bcrypt.hash(password, saltRounds);
+// Вспомогательная функция для простого хеширования пароля (без bcrypt)
+function simpleHash(password) {
+  // Простая хеш-функция для демонстрации
+  let hash = 0;
+  for (let i = 0; i < password.length; i++) {
+    const char = password.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  return hash.toString();
 }
 
 // Вспомогательная функция для проверки пароля
-async function comparePassword(password, hashedPassword) {
-  return await bcrypt.compare(password, hashedPassword);
+function comparePassword(password, hashedPassword) {
+  return simpleHash(password) === hashedPassword;
 }
 
 // ==================== API ROUTES ====================
@@ -337,7 +372,7 @@ app.post('/api/user/change-password', checkDatabaseConnection, async (req, res) 
     const user = rows[0];
     
     // Проверяем текущий пароль
-    const isPasswordValid = await comparePassword(current_password, user.password);
+    const isPasswordValid = comparePassword(current_password, user.password);
     if (!isPasswordValid) {
       return res.status(400).json({
         success: false,
@@ -346,7 +381,7 @@ app.post('/api/user/change-password', checkDatabaseConnection, async (req, res) 
     }
 
     // Хешируем новый пароль
-    const hashedNewPassword = await hashPassword(new_password);
+    const hashedNewPassword = simpleHash(new_password);
     await db.query('UPDATE users SET password = $1 WHERE id = $2', [hashedNewPassword, user_id]);
 
     res.json({
@@ -553,7 +588,7 @@ app.post('/api/auth/register', checkDatabaseConnection, async (req, res) => {
     }
     
     // Хешируем пароль
-    const hashedPassword = await hashPassword(password);
+    const hashedPassword = simpleHash(password);
     
     const { rows } = await db.query(
       `INSERT INTO users (first_name, last_name, username, email, password, phone, login_count) 
@@ -607,7 +642,7 @@ app.post('/api/auth/login', checkDatabaseConnection, async (req, res) => {
     const user = rows[0];
     
     // Проверяем пароль
-    const isPasswordValid = await comparePassword(password, user.password);
+    const isPasswordValid = comparePassword(password, user.password);
     if (!isPasswordValid) {
       return res.status(401).json({ 
         success: false,
@@ -638,6 +673,91 @@ app.post('/api/auth/login', checkDatabaseConnection, async (req, res) => {
 
 // ==================== GOOGLE AUTH ====================
 
+// Верификация Google токена
+async function verifyGoogleToken(token) {
+  try {
+    const ticket = await googleClient.verifyIdToken({
+      idToken: token,
+      audience: process.env.GOOGLE_CLIENT_ID
+    });
+    return ticket.getPayload();
+  } catch (error) {
+    console.error('❌ Ошибка верификации Google токена:', error);
+    return null;
+  }
+}
+
+// Google OAuth проверка
+app.post('/api/auth/google', checkDatabaseConnection, async (req, res) => {
+  console.log('📨 POST /api/auth/google');
+  
+  const { token } = req.body;
+  
+  if (!token) {
+    return res.status(400).json({
+      success: false,
+      error: 'Токен обязателен'
+    });
+  }
+
+  try {
+    // Верифицируем Google токен
+    const payload = await verifyGoogleToken(token);
+    
+    if (!payload) {
+      return res.status(401).json({
+        success: false,
+        error: 'Неверный Google токен'
+      });
+    }
+
+    // Проверяем, есть ли пользователь
+    const { rows } = await db.query(
+      'SELECT * FROM users WHERE google_id = $1 OR email = $2',
+      [payload.sub, payload.email]
+    );
+
+    if (rows.length > 0) {
+      // Пользователь существует
+      const user = rows[0];
+      delete user.password;
+      
+      // Обновляем последний вход
+      await db.query(
+        "UPDATE users SET last_login = CURRENT_TIMESTAMP, login_count = login_count + 1 WHERE id = $1",
+        [user.id]
+      );
+      
+      res.json({
+        success: true,
+        user: user,
+        requires_additional_info: false
+      });
+    } else {
+      // Новый пользователь
+      res.json({
+        success: true,
+        user: {
+          sub: payload.sub,
+          email: payload.email,
+          email_verified: payload.email_verified,
+          name: payload.name,
+          given_name: payload.given_name,
+          family_name: payload.family_name,
+          picture: payload.picture
+        },
+        requires_additional_info: true
+      });
+    }
+  } catch (err) {
+    console.error('❌ Ошибка Google аутентификации:', err);
+    res.status(500).json({
+      success: false,
+      error: 'Ошибка Google аутентификации'
+    });
+  }
+});
+
 // Google OAuth регистрация/вход
 app.post('/api/auth/google/register', checkDatabaseConnection, async (req, res) => {
   console.log('📨 POST /api/auth/google/register');
@@ -664,19 +784,19 @@ app.post('/api/auth/google/register', checkDatabaseConnection, async (req, res) 
       // Обновляем существующего пользователя
       user = rows[0];
       await db.query(
-        'UPDATE users SET first_name = $1, last_name = $2, phone = $3, avatar = $4, email_verified = $5, google_id = $6 WHERE id = $7',
+        'UPDATE users SET first_name = $1, last_name = $2, phone = $3, avatar = $4, email_verified = $5, google_id = $6, last_login = CURRENT_TIMESTAMP, login_count = login_count + 1 WHERE id = $7',
         [first_name, last_name, phone, avatar, email_verified, google_id, user.id]
       );
     } else {
       // Создаем нового пользователя
       const username = email.split('@')[0] + '_google';
-      const tempPassword = await hashPassword(Math.random().toString(36));
+      const tempPassword = simpleHash(Math.random().toString(36));
       
       const result = await db.query(
-        `INSERT INTO users (first_name, last_name, username, email, password, phone, avatar, google_id, email_verified) 
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        `INSERT INTO users (first_name, last_name, username, email, password, phone, avatar, google_id, email_verified, login_count) 
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
          RETURNING *`,
-        [first_name, last_name, username, email, tempPassword, phone, avatar, google_id, email_verified]
+        [first_name, last_name, username, email, tempPassword, phone, avatar, google_id, email_verified, 1]
       );
       
       user = result.rows[0];
@@ -694,65 +814,6 @@ app.post('/api/auth/google/register', checkDatabaseConnection, async (req, res) 
     res.status(500).json({
       success: false,
       error: 'Ошибка Google авторизации'
-    });
-  }
-});
-
-// Google OAuth проверка (для фронтенда)
-app.post('/api/auth/google', checkDatabaseConnection, async (req, res) => {
-  console.log('📨 POST /api/auth/google');
-  
-  const { token } = req.body;
-  
-  if (!token) {
-    return res.status(400).json({
-      success: false,
-      error: 'Токен обязателен'
-    });
-  }
-
-  try {
-    // В реальном приложении здесь должна быть проверка Google токена
-    // Для демонстрации просто декодируем базовые данные
-    const userData = {
-      sub: 'google_' + Date.now(),
-      email: 'user@example.com',
-      email_verified: true,
-      name: 'Google User',
-      given_name: 'Google',
-      family_name: 'User',
-      picture: null
-    };
-
-    // Проверяем, есть ли пользователь
-    const { rows } = await db.query(
-      'SELECT * FROM users WHERE google_id = $1 OR email = $2',
-      [userData.sub, userData.email]
-    );
-
-    if (rows.length > 0) {
-      // Пользователь существует
-      const user = rows[0];
-      delete user.password;
-      
-      res.json({
-        success: true,
-        user: user,
-        requires_additional_info: false
-      });
-    } else {
-      // Новый пользователь
-      res.json({
-        success: true,
-        user: userData,
-        requires_additional_info: true
-      });
-    }
-  } catch (err) {
-    console.error('❌ Ошибка Google аутентификации:', err);
-    res.status(500).json({
-      success: false,
-      error: 'Ошибка Google аутентификации'
     });
   }
 });
@@ -1139,6 +1200,7 @@ async function startServer() {
       console.log(`\n🚀 Сервер запущен на порту ${PORT}`);
       console.log(`📍 http://localhost:${PORT}`);
       console.log(`🗄️ База данных: Neon.tech PostgreSQL`);
+      console.log(`🔐 Google OAuth: ${process.env.GOOGLE_CLIENT_ID ? 'Настроен' : 'Не настроен'}`);
       console.log(`\n📋 Доступные endpoints:`);
       console.log(`   GET  /api/categories - Категории`);
       console.log(`   GET  /api/products - Товары`);
