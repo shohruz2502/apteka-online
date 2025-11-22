@@ -5,6 +5,7 @@ const cors = require('cors');
 const { OAuth2Client } = require('google-auth-library');
 
 const app = express();
+const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(cors());
@@ -12,8 +13,15 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Google OAuth client
-const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID || '1004300515131-5tsdmr87045jn4157jcsj35sqlg9913h.apps.googleusercontent.com');
+// ✅ Google OAuth client (безопасно из переменных окружения)
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+const googleClient = GOOGLE_CLIENT_ID ? new OAuth2Client(GOOGLE_CLIENT_ID) : null;
+
+if (!GOOGLE_CLIENT_ID) {
+  console.warn('⚠️ GOOGLE_CLIENT_ID не установлен. Google OAuth будет недоступен.');
+} else {
+  console.log('✅ Google OAuth настроен');
+}
 
 // ✅ Neon.tech PostgreSQL подключение
 const client = new Client({
@@ -30,6 +38,11 @@ let isDatabaseConnected = false;
 async function initializeDatabase() {
   try {
     console.log('🔄 Подключение к Neon.tech PostgreSQL...');
+    
+    if (!process.env.DATABASE_URL) {
+      throw new Error('DATABASE_URL не установлен в переменных окружения');
+    }
+    
     await client.connect();
     db = client;
     isDatabaseConnected = true;
@@ -39,9 +52,8 @@ async function initializeDatabase() {
     console.log('✅ База данных готова к работе');
     return db;
   } catch (err) {
-    console.error('❌ Ошибка подключения к Neon.tech:', err);
+    console.error('❌ Ошибка подключения к Neon.tech:', err.message);
     isDatabaseConnected = false;
-    // Не бросаем ошибку, чтобы сервер мог работать без БД
   }
 }
 
@@ -138,6 +150,17 @@ function checkDatabaseConnection(req, res, next) {
   next();
 }
 
+// ==================== КОНФИГУРАЦИЯ ====================
+
+// Конфигурация для фронтенда
+app.get('/api/config', (req, res) => {
+  res.json({
+    googleClientId: GOOGLE_CLIENT_ID || null,
+    hasDatabase: isDatabaseConnected,
+    status: 'OK'
+  });
+});
+
 // ==================== GOOGLE AUTH ROUTES ====================
 
 // Google OAuth авторизация
@@ -154,10 +177,17 @@ app.post('/api/auth/google', checkDatabaseConnection, async (req, res) => {
       });
     }
 
+    if (!googleClient) {
+      return res.status(500).json({
+        success: false,
+        error: 'Google OAuth не настроен на сервере'
+      });
+    }
+
     // Верификация Google token
     const ticket = await googleClient.verifyIdToken({
       idToken: token,
-      audience: process.env.GOOGLE_CLIENT_ID || '1004300515131-5tsdmr87045jn4157jcsj35sqlg9913h.apps.googleusercontent.com'
+      audience: GOOGLE_CLIENT_ID
     });
 
     const payload = ticket.getPayload();
@@ -286,7 +316,7 @@ app.post('/api/auth/google/complete', checkDatabaseConnection, async (req, res) 
   }
 });
 
-// ==================== EXISTING API ROUTES ====================
+// ==================== AUTH ROUTES ====================
 
 // Получение текущего пользователя
 app.get('/api/auth/me', checkDatabaseConnection, async (req, res) => {
@@ -326,6 +356,133 @@ app.get('/api/auth/me', checkDatabaseConnection, async (req, res) => {
     });
   }
 });
+
+// Регистрация
+app.post('/api/auth/register', checkDatabaseConnection, async (req, res) => {
+  console.log('📨 POST /api/auth/register');
+  const { first_name, last_name, username, email, password, phone } = req.body;
+  
+  if (!username || !email || !password) {
+    return res.status(400).json({ 
+      success: false,
+      error: 'Логин, email и пароль обязательны' 
+    });
+  }
+  
+  try {
+    const { rows: existingUsers } = await db.query(
+      'SELECT * FROM users WHERE username = $1 OR email = $2', 
+      [username, email]
+    );
+    
+    if (existingUsers.length > 0) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'Пользователь с таким логином или email уже существует' 
+      });
+    }
+    
+    const { rows } = await db.query(
+      `INSERT INTO users (first_name, last_name, username, email, password, phone, login_count) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING *`,
+      [first_name, last_name, username, email, password, phone, 0]
+    );
+    
+    const newUser = rows[0];
+    
+    res.json({
+      success: true,
+      message: 'Регистрация успешна',
+      user: {
+        id: newUser.id,
+        first_name: newUser.first_name,
+        last_name: newUser.last_name,
+        username: newUser.username,
+        email: newUser.email,
+        phone: newUser.phone,
+        is_admin: newUser.is_admin
+      }
+    });
+  } catch (err) {
+    console.error('❌ Ошибка регистрации:', err);
+    res.status(500).json({ 
+      success: false,
+      error: 'Ошибка создания пользователя' 
+    });
+  }
+});
+
+// Вход
+app.post('/api/auth/login', checkDatabaseConnection, async (req, res) => {
+  console.log('📨 POST /api/auth/login');
+  const { username, password } = req.body;
+  
+  if (!username || !password) {
+    return res.status(400).json({ 
+      success: false,
+      error: 'Логин и пароль обязательны' 
+    });
+  }
+  
+  try {
+    const { rows } = await db.query(
+      "SELECT * FROM users WHERE username = $1 OR email = $1", 
+      [username]
+    );
+    
+    if (rows.length === 0) {
+      return res.status(401).json({ 
+        success: false,
+        error: 'Неверный логин или пароль' 
+      });
+    }
+    
+    const user = rows[0];
+    
+    // Проверяем, является ли пользователь Google пользователем без пароля
+    if (user.google_id && !user.password) {
+      return res.status(401).json({ 
+        success: false,
+        error: 'Этот аккаунт использует вход через Google. Войдите через Google или установите пароль в настройках профиля.' 
+      });
+    }
+    
+    if (user.password !== password) {
+      return res.status(401).json({ 
+        success: false,
+        error: 'Неверный пароль' 
+      });
+    }
+    
+    await db.query(
+      "UPDATE users SET last_login = CURRENT_TIMESTAMP, login_count = login_count + 1 WHERE id = $1",
+      [user.id]
+    );
+    
+    res.json({
+      success: true,
+      message: 'Вход выполнен успешно',
+      user: {
+        id: user.id,
+        first_name: user.first_name,
+        last_name: user.last_name,
+        username: user.username,
+        email: user.email,
+        phone: user.phone,
+        is_admin: user.is_admin
+      }
+    });
+  } catch (err) {
+    console.error('❌ Ошибка входа:', err);
+    res.status(500).json({ 
+      success: false,
+      error: 'Ошибка сервера' 
+    });
+  }
+});
+
+// ==================== USER PROFILE ROUTES ====================
 
 // Обновление профиля пользователя
 app.put('/api/user/update-profile', checkDatabaseConnection, async (req, res) => {
@@ -454,6 +611,8 @@ app.post('/api/user/upload-avatar', checkDatabaseConnection, async (req, res) =>
   }
 });
 
+// ==================== CATEGORIES ROUTES ====================
+
 // Категории
 app.get('/api/categories', checkDatabaseConnection, async (req, res) => {
   console.log('📨 GET /api/categories');
@@ -468,6 +627,8 @@ app.get('/api/categories', checkDatabaseConnection, async (req, res) => {
     });
   }
 });
+
+// ==================== PRODUCTS ROUTES ====================
 
 // Товары
 app.get('/api/products', checkDatabaseConnection, async (req, res) => {
@@ -688,132 +849,7 @@ app.post('/api/admin/products', checkDatabaseConnection, async (req, res) => {
   }
 });
 
-// Регистрация
-app.post('/api/auth/register', checkDatabaseConnection, async (req, res) => {
-  console.log('📨 POST /api/auth/register');
-  const { first_name, last_name, username, email, password, phone } = req.body;
-  
-  if (!username || !email || !password) {
-    return res.status(400).json({ 
-      success: false,
-      error: 'Логин, email и пароль обязательны' 
-    });
-  }
-  
-  try {
-    const { rows: existingUsers } = await db.query(
-      'SELECT * FROM users WHERE username = $1 OR email = $2', 
-      [username, email]
-    );
-    
-    if (existingUsers.length > 0) {
-      return res.status(400).json({ 
-        success: false,
-        error: 'Пользователь с таким логином или email уже существует' 
-      });
-    }
-    
-    const { rows } = await db.query(
-      `INSERT INTO users (first_name, last_name, username, email, password, phone, login_count) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
-       RETURNING *`,
-      [first_name, last_name, username, email, password, phone, 0]
-    );
-    
-    const newUser = rows[0];
-    
-    res.json({
-      success: true,
-      message: 'Регистрация успешна',
-      user: {
-        id: newUser.id,
-        first_name: newUser.first_name,
-        last_name: newUser.last_name,
-        username: newUser.username,
-        email: newUser.email,
-        phone: newUser.phone,
-        is_admin: newUser.is_admin
-      }
-    });
-  } catch (err) {
-    console.error('❌ Ошибка регистрации:', err);
-    res.status(500).json({ 
-      success: false,
-      error: 'Ошибка создания пользователя' 
-    });
-  }
-});
-
-// Вход
-app.post('/api/auth/login', checkDatabaseConnection, async (req, res) => {
-  console.log('📨 POST /api/auth/login');
-  const { username, password } = req.body;
-  
-  if (!username || !password) {
-    return res.status(400).json({ 
-      success: false,
-      error: 'Логин и пароль обязательны' 
-    });
-  }
-  
-  try {
-    const { rows } = await db.query(
-      "SELECT * FROM users WHERE username = $1 OR email = $1", 
-      [username]
-    );
-    
-    if (rows.length === 0) {
-      return res.status(401).json({ 
-        success: false,
-        error: 'Неверный логин или пароль' 
-      });
-    }
-    
-    const user = rows[0];
-    
-    // Проверяем, является ли пользователь Google пользователем без пароля
-    if (user.google_id && !user.password) {
-      return res.status(401).json({ 
-        success: false,
-        error: 'Этот аккаунт использует вход через Google. Войдите через Google или установите пароль в настройках профиля.' 
-      });
-    }
-    
-    if (user.password !== password) {
-      return res.status(401).json({ 
-        success: false,
-        error: 'Неверный пароль' 
-      });
-    }
-    
-    await db.query(
-      "UPDATE users SET last_login = CURRENT_TIMESTAMP, login_count = login_count + 1 WHERE id = $1",
-      [user.id]
-    );
-    
-    res.json({
-      success: true,
-      message: 'Вход выполнен успешно',
-      user: {
-        id: user.id,
-        first_name: user.first_name,
-        last_name: user.last_name,
-        username: user.username,
-        email: user.email,
-        phone: user.phone,
-        is_admin: user.is_admin
-      }
-    });
-  } catch (err) {
-    console.error('❌ Ошибка входа:', err);
-    res.status(500).json({ 
-      success: false,
-      error: 'Ошибка сервера' 
-    });
-  }
-});
-
-// ==================== КОРЗИНА ====================
+// ==================== CART ROUTES ====================
 
 // Корзина - добавление товара
 app.post('/api/cart/add', checkDatabaseConnection, async (req, res) => {
@@ -1043,6 +1079,8 @@ app.delete('/api/cart', checkDatabaseConnection, async (req, res) => {
   }
 });
 
+// ==================== STATIC PAGES ====================
+
 // Статические страницы
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'main.html'));
@@ -1072,6 +1110,8 @@ app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'netuDostup.html'));
 });
 
+// ==================== HEALTH & DIAGNOSTICS ====================
+
 // Health check
 app.get('/api/health', async (req, res) => {
   try {
@@ -1080,7 +1120,8 @@ app.get('/api/health', async (req, res) => {
         status: 'ERROR',
         timestamp: new Date().toISOString(),
         error: 'База данных не подключена',
-        database: 'Neon.tech PostgreSQL'
+        database: 'Neon.tech PostgreSQL',
+        googleOAuth: !!GOOGLE_CLIENT_ID
       });
     }
 
@@ -1093,6 +1134,7 @@ app.get('/api/health', async (req, res) => {
       status: 'OK', 
       timestamp: new Date().toISOString(),
       database: 'Neon.tech PostgreSQL',
+      googleOAuth: !!GOOGLE_CLIENT_ID,
       tables: {
         products: parseInt(productsCount.rows[0]?.count) || 0,
         categories: parseInt(categoriesCount.rows[0]?.count) || 0,
@@ -1105,9 +1147,29 @@ app.get('/api/health', async (req, res) => {
       status: 'ERROR', 
       timestamp: new Date().toISOString(),
       error: err.message,
-      database: 'Neon.tech PostgreSQL'
+      database: 'Neon.tech PostgreSQL',
+      googleOAuth: !!GOOGLE_CLIENT_ID
     });
   }
+});
+
+// Диагностика
+app.get('/api/diagnostic', (req, res) => {
+  res.json({
+    timestamp: new Date().toISOString(),
+    environment: {
+      node_env: process.env.NODE_ENV || 'development',
+      has_database_url: !!process.env.DATABASE_URL,
+      has_google_client_id: !!GOOGLE_CLIENT_ID
+    },
+    database: {
+      connected: isDatabaseConnected
+    },
+    googleOAuth: {
+      configured: !!GOOGLE_CLIENT_ID,
+      clientId: GOOGLE_CLIENT_ID ? 'Установлен' : 'Не установлен'
+    }
+  });
 });
 
 // Обработка ошибок подключения к БД
@@ -1116,7 +1178,9 @@ process.on('unhandledRejection', (err) => {
 });
 
 // Инициализация базы данных при старте
-initializeDatabase().catch(console.error);
+initializeDatabase().then(() => {
+  console.log('🚀 Сервер инициализирован');
+}).catch(console.error);
 
-// Для Vercel - экспортируем app как serverless функцию
+// Для Vercel
 module.exports = app;
