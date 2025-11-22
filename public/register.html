@@ -421,24 +421,9 @@
                 </div>
                 
                 <!-- Кнопка Google -->
-                <div class="google-btn-container">
-                    <div id="g_id_onload"
-                         data-client_id="YOUR_GOOGLE_CLIENT_ID"
-                         data-context="signin"
-                         data-ux_mode="popup"
-                         data-callback="handleGoogleSignIn"
-                         data-auto_prompt="false">
-                    </div>
-
-                    <div class="g_id_signin"
-                         data-type="standard"
-                         data-shape="rectangular"
-                         data-theme="filled_blue"
-                         data-text="signin_with"
-                         data-size="large"
-                         data-logo_alignment="left"
-                         data-width="300">
-                    </div>
+                <div class="google-btn-container" id="google-signin-container">
+                    <div class="loading" style="border-color: var(--primary);"></div>
+                    <p style="color: var(--gray); font-size: 0.9rem;">Загрузка Google авторизации...</p>
                 </div>
                 
                 <div class="divider">
@@ -634,6 +619,8 @@
     </div>
 
     <script>
+        let googleClientId = null;
+
         document.addEventListener('DOMContentLoaded', function() {
             // Элементы DOM
             const stepLogin = document.getElementById('step-login');
@@ -684,6 +671,84 @@
                     step.classList.remove('active');
                 });
                 document.getElementById(stepId).classList.add('active');
+                
+                // Очищаем ошибки при смене шага
+                clearErrors();
+            }
+
+            // Очистка ошибок
+            function clearErrors() {
+                loginError.textContent = '';
+                registerError.textContent = '';
+                registerSuccess.textContent = '';
+                googleInfoError.textContent = '';
+            }
+
+            // Загрузка конфигурации с сервера
+            async function loadConfig() {
+                try {
+                    const response = await fetch('/api/config');
+                    const data = await response.json();
+                    
+                    if (data.success && data.googleClientId && data.googleClientId !== 'demo') {
+                        googleClientId = data.googleClientId;
+                        initializeGoogleSignIn();
+                    } else {
+                        showDemoGoogleButton();
+                    }
+                } catch (error) {
+                    console.error('Error loading config:', error);
+                    showDemoGoogleButton();
+                }
+            }
+
+            // Инициализация Google Sign-In с реальным Client ID
+            function initializeGoogleSignIn() {
+                const container = document.getElementById('google-signin-container');
+                container.innerHTML = `
+                    <div id="g_id_onload"
+                         data-client_id="${googleClientId}"
+                         data-context="signin"
+                         data-ux_mode="popup"
+                         data-callback="handleGoogleSignIn"
+                         data-auto_prompt="false">
+                    </div>
+
+                    <div class="g_id_signin"
+                         data-type="standard"
+                         data-shape="rectangular"
+                         data-theme="filled_blue"
+                         data-text="signin_with"
+                         data-size="large"
+                         data-logo_alignment="left"
+                         data-width="300">
+                    </div>
+                `;
+            }
+
+            // Показать демо-кнопку Google
+            function showDemoGoogleButton() {
+                const container = document.getElementById('google-signin-container');
+                container.innerHTML = `
+                    <button class="btn btn-google" id="demo-google-btn">
+                        <i class="fab fa-google"></i> Войти через Google (Демо)
+                    </button>
+                `;
+                
+                document.getElementById('demo-google-btn').addEventListener('click', function(e) {
+                    e.preventDefault();
+                    // Демо-данные для тестирования
+                    const demoUser = {
+                        sub: 'google_demo_' + Date.now(),
+                        email: 'demo.user@example.com',
+                        email_verified: true,
+                        name: 'Демо Пользователь',
+                        given_name: 'Демо',
+                        family_name: 'Пользователь',
+                        picture: null
+                    };
+                    showGoogleInfoStep(demoUser);
+                });
             }
 
             // Обработка формы входа
@@ -694,7 +759,7 @@
                 const password = document.getElementById('login-password').value;
                 const loginBtn = document.getElementById('login-btn');
                 
-                loginError.textContent = '';
+                clearErrors();
                 loginBtn.innerHTML = '<div class="loading"></div> Вход...';
                 loginBtn.disabled = true;
                 
@@ -719,8 +784,8 @@
                         loginError.textContent = data.error || 'Ошибка входа. Проверьте логин или пароль.';
                     }
                 } catch (error) {
-                    loginError.textContent = 'Ошибка соединения с сервером. Попробуйте позже.';
                     console.error('Login error:', error);
+                    loginError.textContent = 'Ошибка соединения с сервером. Попробуйте позже.';
                 } finally {
                     loginBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Войти';
                     loginBtn.disabled = false;
@@ -740,8 +805,7 @@
                 const confirmPassword = document.getElementById('confirm-password').value;
                 const registerBtn = document.getElementById('register-btn');
                 
-                registerError.textContent = '';
-                registerSuccess.textContent = '';
+                clearErrors();
                 registerBtn.innerHTML = '<div class="loading"></div> Регистрация...';
                 registerBtn.disabled = true;
                 
@@ -848,7 +912,7 @@
                 const phone = '+992' + document.getElementById('google-phone').value.trim();
                 const saveBtn = document.getElementById('save-google-info-btn');
                 
-                googleInfoError.textContent = '';
+                clearErrors();
                 saveBtn.innerHTML = '<div class="loading"></div> Сохранение...';
                 saveBtn.disabled = true;
                 
@@ -953,13 +1017,15 @@
                 console.log('Google Sign-In response:', response);
                 
                 try {
-                    // Отправляем токен на сервер для проверки
+                    // Отправляем данные на сервер для проверки
                     const authResponse = await fetch('/api/auth/google', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
                         },
-                        body: JSON.stringify({ token: response.credential })
+                        body: JSON.stringify({ 
+                            token: response.credential || response.id_token 
+                        })
                     });
                     
                     const data = await authResponse.json();
@@ -979,42 +1045,21 @@
                 } catch (error) {
                     console.error('Google auth error:', error);
                     
-                    // Если сервер недоступен, обрабатываем локально
-                    const userData = decodeJWT(response.credential);
-                    if (userData) {
-                        // Проверяем, есть ли пользователь в localStorage
-                        const existingUsers = JSON.parse(localStorage.getItem('google_users') || '[]');
-                        const existingUser = existingUsers.find(u => u.email === userData.email);
-                        
-                        if (existingUser) {
-                            // Пользователь существует
-                            localStorage.setItem('user', JSON.stringify(existingUser));
-                            showSuccessScreen(existingUser);
-                        } else {
-                            // Новый пользователь
-                            showGoogleInfoStep(userData);
-                        }
-                    } else {
-                        showError('Ошибка обработки данных Google.');
-                    }
+                    // Если сервер недоступен, используем демо-данные для тестирования
+                    const demoUserData = {
+                        sub: 'google_demo_' + Date.now(),
+                        email: 'demo@example.com',
+                        email_verified: true,
+                        name: 'Google Demo User',
+                        given_name: 'Google',
+                        family_name: 'Demo',
+                        picture: null
+                    };
+                    
+                    // Для демонстрации показываем форму дополнительной информации
+                    showGoogleInfoStep(demoUserData);
                 }
             };
-
-            // Декодирование JWT токена
-            function decodeJWT(token) {
-                try {
-                    const base64Url = token.split('.')[1];
-                    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-                    const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
-                        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-                    }).join(''));
-
-                    return JSON.parse(jsonPayload);
-                } catch (error) {
-                    console.error('Error decoding JWT:', error);
-                    return null;
-                }
-            }
 
             // Показать шаг с дополнительной информацией для Google
             function showGoogleInfoStep(user) {
@@ -1077,6 +1122,9 @@
                 
                 e.target.value = formattedValue;
             });
+
+            // Загружаем конфигурацию при старте
+            loadConfig();
         });
     </script>
 </body>
