@@ -2,6 +2,7 @@ const express = require('express');
 const { Client } = require('pg');
 const path = require('path');
 const cors = require('cors');
+const bcrypt = require('bcryptjs');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -33,6 +34,7 @@ async function initializeDatabase() {
     console.log('✅ Успешное подключение к Neon.tech');
     
     await createTables();
+    await seedInitialData();
     console.log('✅ База данных готова к работе');
     return db;
   } catch (err) {
@@ -97,6 +99,8 @@ async function createTables() {
         password VARCHAR(255) NOT NULL,
         phone VARCHAR(20),
         avatar VARCHAR(500),
+        google_id VARCHAR(100) UNIQUE,
+        email_verified BOOLEAN DEFAULT false,
         is_admin BOOLEAN DEFAULT false,
         login_count INTEGER DEFAULT 0,
         last_login TIMESTAMP,
@@ -124,6 +128,89 @@ async function createTables() {
   }
 }
 
+// Заполнение начальными данными
+async function seedInitialData() {
+  try {
+    // Проверяем, есть ли уже категории
+    const { rows: existingCategories } = await db.query('SELECT COUNT(*) as count FROM categories');
+    if (parseInt(existingCategories[0].count) === 0) {
+      console.log('🌱 Заполнение начальными данными...');
+      
+      // Добавляем категории
+      const categories = [
+        { name: 'Лекарства', description: 'Медицинские препараты', image: 'https://images.unsplash.com/photo-1585435557343-3b092031d5ad?w=300&h=200&fit=crop' },
+        { name: 'Витамины', description: 'Витамины и БАДы', image: 'https://images.unsplash.com/photo-1550258987-190a2d41a8ba?w=300&h=200&fit=crop' },
+        { name: 'Красота', description: 'Средства по уходу', image: 'https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=300&h=200&fit=crop' },
+        { name: 'Гигиена', description: 'Средства личной гигиены', image: 'https://images.unsplash.com/photo-1583947215259-38e31be8751f?w=300&h=200&fit=crop' },
+        { name: 'Мама и ребенок', description: 'Товары для матери и ребенка', image: 'https://images.unsplash.com/photo-1516627145497-ae69578b5d77?w=300&h=200&fit=crop' },
+        { name: 'Медтехника', description: 'Медицинская техника', image: 'https://images.unsplash.com/photo-1559757148-5c350d0d3c56?w=300&h=200&fit=crop' },
+        { name: 'Антисептики', description: 'Дезинфицирующие средства', image: 'https://images.unsplash.com/photo-1584634731339-252c581abfc5?w=300&h=200&fit=crop' }
+      ];
+
+      for (const category of categories) {
+        await db.query(
+          'INSERT INTO categories (name, description, image) VALUES ($1, $2, $3)',
+          [category.name, category.description, category.image]
+        );
+      }
+
+      // Добавляем тестовые товары
+      const products = [
+        {
+          name: 'Нурофен таблетки 200мг №20',
+          description: 'Обезболивающее и жаропонижающее средство',
+          price: 250.50,
+          old_price: 280.00,
+          category_id: 1,
+          manufacturer: 'Рекитт Бенкизер',
+          country: 'Великобритания',
+          stock_quantity: 50,
+          is_popular: true,
+          is_new: true,
+          image: 'https://images.unsplash.com/photo-1585435557343-3b092031d5ad?w=300&h=200&fit=crop'
+        },
+        {
+          name: 'Витамин D3 2000 МЕ №60',
+          description: 'Витамин D для поддержки иммунитета',
+          price: 890.00,
+          category_id: 2,
+          manufacturer: 'Солгар',
+          country: 'США',
+          stock_quantity: 30,
+          is_popular: true,
+          image: 'https://images.unsplash.com/photo-1550258987-190a2d41a8ba?w=300&h=200&fit=crop'
+        },
+        {
+          name: 'Панадол 500мг №12',
+          description: 'Обезболивающее средство',
+          price: 180.00,
+          category_id: 1,
+          manufacturer: 'ГлаксоСмитКляйн',
+          country: 'Великобритания',
+          stock_quantity: 25,
+          image: 'https://images.unsplash.com/photo-1585435557343-3b092031d5ad?w=300&h=200&fit=crop'
+        }
+      ];
+
+      for (const product of products) {
+        await db.query(
+          `INSERT INTO products (name, description, price, old_price, category_id, manufacturer, country, stock_quantity, is_popular, is_new, image) 
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+          [
+            product.name, product.description, product.price, product.old_price,
+            product.category_id, product.manufacturer, product.country,
+            product.stock_quantity, product.is_popular, product.is_new, product.image
+          ]
+        );
+      }
+
+      console.log('✅ Начальные данные добавлены');
+    }
+  } catch (err) {
+    console.error('❌ Ошибка заполнения начальных данных:', err);
+  }
+}
+
 // Middleware для проверки подключения к БД
 function checkDatabaseConnection(req, res, next) {
   if (!isDatabaseConnected) {
@@ -133,6 +220,17 @@ function checkDatabaseConnection(req, res, next) {
     });
   }
   next();
+}
+
+// Вспомогательная функция для хеширования пароля
+async function hashPassword(password) {
+  const saltRounds = 10;
+  return await bcrypt.hash(password, saltRounds);
+}
+
+// Вспомогательная функция для проверки пароля
+async function comparePassword(password, hashedPassword) {
+  return await bcrypt.compare(password, hashedPassword);
 }
 
 // ==================== API ROUTES ====================
@@ -238,14 +336,18 @@ app.post('/api/user/change-password', checkDatabaseConnection, async (req, res) 
 
     const user = rows[0];
     
-    if (user.password !== current_password) {
+    // Проверяем текущий пароль
+    const isPasswordValid = await comparePassword(current_password, user.password);
+    if (!isPasswordValid) {
       return res.status(400).json({
         success: false,
         error: 'Текущий пароль неверен'
       });
     }
 
-    await db.query('UPDATE users SET password = $1 WHERE id = $2', [new_password, user_id]);
+    // Хешируем новый пароль
+    const hashedNewPassword = await hashPassword(new_password);
+    await db.query('UPDATE users SET password = $1 WHERE id = $2', [hashedNewPassword, user_id]);
 
     res.json({
       success: true,
@@ -274,17 +376,15 @@ app.post('/api/user/upload-avatar', checkDatabaseConnection, async (req, res) =>
   }
 
   try {
-    const avatarUrl = avatar;
-
     await db.query(
       'UPDATE users SET avatar = $1 WHERE id = $2',
-      [avatarUrl, user_id]
+      [avatar, user_id]
     );
 
     res.json({
       success: true,
       message: 'Аватар успешно загружен',
-      avatar_url: avatarUrl
+      avatar_url: avatar
     });
   } catch (err) {
     console.error('❌ Ошибка загрузки аватарки:', err);
@@ -427,108 +527,6 @@ app.get('/api/products/:id', checkDatabaseConnection, async (req, res) => {
   }
 });
 
-// Добавление товара через админку
-app.post('/api/admin/products', checkDatabaseConnection, async (req, res) => {
-  console.log('📨 POST /api/admin/products');
-  
-  const {
-    name,
-    category_id,
-    description,
-    price,
-    old_price,
-    manufacturer,
-    country,
-    stock_quantity,
-    in_stock,
-    is_popular,
-    is_new,
-    composition,
-    indications,
-    usage,
-    contraindications,
-    dosage,
-    expiry_date,
-    storage_conditions
-  } = req.body;
-
-  if (!name || !category_id || !price || stock_quantity === undefined) {
-    return res.status(400).json({
-      success: false,
-      error: 'Обязательные поля: название, категория, цена, количество'
-    });
-  }
-
-  try {
-    const { rows: categoryRows } = await db.query(
-      'SELECT * FROM categories WHERE id = $1',
-      [category_id]
-    );
-
-    if (categoryRows.length === 0) {
-      return res.status(400).json({
-        success: false,
-        error: 'Указанная категория не существует'
-      });
-    }
-
-    const demoImages = [
-      'https://images.unsplash.com/photo-1585435557343-3b092031d5ad?w=300&h=200&fit=crop',
-      'https://images.unsplash.com/photo-1550258987-190a2d41a8ba?w=300&h=200&fit=crop',
-      'https://images.unsplash.com/photo-1576671414121-d0b01c6c5f60?w=300&h=200&fit=crop',
-      'https://images.unsplash.com/photo-1559056199-641a0ac8b55e?w=300&h=200&fit=crop'
-    ];
-    const randomImage = demoImages[Math.floor(Math.random() * demoImages.length)];
-
-    const { rows } = await db.query(
-      `INSERT INTO products (
-        name, category_id, description, price, old_price, manufacturer, country,
-        stock_quantity, in_stock, is_popular, is_new, composition, indications,
-        usage, contraindications, dosage, expiry_date, storage_conditions, image
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
-      RETURNING *`,
-      [
-        name,
-        category_id,
-        description || '',
-        parseFloat(price),
-        old_price ? parseFloat(old_price) : null,
-        manufacturer || '',
-        country || '',
-        parseInt(stock_quantity),
-        Boolean(in_stock),
-        Boolean(is_popular),
-        Boolean(is_new),
-        composition || '',
-        indications || '',
-        usage || '',
-        contraindications || '',
-        dosage || '',
-        expiry_date || '',
-        storage_conditions || '',
-        randomImage
-      ]
-    );
-
-    const newProduct = rows[0];
-    
-    console.log('✅ Товар успешно добавлен:', newProduct.id);
-
-    res.json({
-      success: true,
-      message: 'Товар успешно добавлен',
-      product: newProduct
-    });
-
-  } catch (err) {
-    console.error('❌ Ошибка добавления товара:', err);
-    res.status(500).json({
-      success: false,
-      error: 'Ошибка добавления товара: ' + err.message
-    });
-  }
-});
-
 // Регистрация
 app.post('/api/auth/register', checkDatabaseConnection, async (req, res) => {
   console.log('📨 POST /api/auth/register');
@@ -554,27 +552,23 @@ app.post('/api/auth/register', checkDatabaseConnection, async (req, res) => {
       });
     }
     
+    // Хешируем пароль
+    const hashedPassword = await hashPassword(password);
+    
     const { rows } = await db.query(
       `INSERT INTO users (first_name, last_name, username, email, password, phone, login_count) 
        VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING *`,
-      [first_name, last_name, username, email, password, phone, 0]
+      [first_name, last_name, username, email, hashedPassword, phone, 0]
     );
     
     const newUser = rows[0];
+    delete newUser.password;
     
     res.json({
       success: true,
       message: 'Регистрация успешна',
-      user: {
-        id: newUser.id,
-        first_name: newUser.first_name,
-        last_name: newUser.last_name,
-        username: newUser.username,
-        email: newUser.email,
-        phone: newUser.phone,
-        is_admin: newUser.is_admin
-      }
+      user: newUser
     });
   } catch (err) {
     console.error('❌ Ошибка регистрации:', err);
@@ -612,7 +606,9 @@ app.post('/api/auth/login', checkDatabaseConnection, async (req, res) => {
     
     const user = rows[0];
     
-    if (user.password !== password) {
+    // Проверяем пароль
+    const isPasswordValid = await comparePassword(password, user.password);
+    if (!isPasswordValid) {
       return res.status(401).json({ 
         success: false,
         error: 'Неверный пароль' 
@@ -624,24 +620,139 @@ app.post('/api/auth/login', checkDatabaseConnection, async (req, res) => {
       [user.id]
     );
     
+    delete user.password;
+    
     res.json({
       success: true,
       message: 'Вход выполнен успешно',
-      user: {
-        id: user.id,
-        first_name: user.first_name,
-        last_name: user.last_name,
-        username: user.username,
-        email: user.email,
-        phone: user.phone,
-        is_admin: user.is_admin
-      }
+      user: user
     });
   } catch (err) {
     console.error('❌ Ошибка входа:', err);
     res.status(500).json({ 
       success: false,
       error: 'Ошибка сервера' 
+    });
+  }
+});
+
+// ==================== GOOGLE AUTH ====================
+
+// Google OAuth регистрация/вход
+app.post('/api/auth/google/register', checkDatabaseConnection, async (req, res) => {
+  console.log('📨 POST /api/auth/google/register');
+  
+  const { google_id, email, first_name, last_name, phone, avatar, email_verified } = req.body;
+  
+  if (!google_id || !email) {
+    return res.status(400).json({
+      success: false,
+      error: 'Google ID и email обязательны'
+    });
+  }
+
+  try {
+    // Проверяем, есть ли пользователь с таким google_id
+    let { rows } = await db.query(
+      'SELECT * FROM users WHERE google_id = $1 OR email = $2',
+      [google_id, email]
+    );
+
+    let user;
+
+    if (rows.length > 0) {
+      // Обновляем существующего пользователя
+      user = rows[0];
+      await db.query(
+        'UPDATE users SET first_name = $1, last_name = $2, phone = $3, avatar = $4, email_verified = $5, google_id = $6 WHERE id = $7',
+        [first_name, last_name, phone, avatar, email_verified, google_id, user.id]
+      );
+    } else {
+      // Создаем нового пользователя
+      const username = email.split('@')[0] + '_google';
+      const tempPassword = await hashPassword(Math.random().toString(36));
+      
+      const result = await db.query(
+        `INSERT INTO users (first_name, last_name, username, email, password, phone, avatar, google_id, email_verified) 
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+         RETURNING *`,
+        [first_name, last_name, username, email, tempPassword, phone, avatar, google_id, email_verified]
+      );
+      
+      user = result.rows[0];
+    }
+
+    delete user.password;
+
+    res.json({
+      success: true,
+      message: 'Google авторизация успешна',
+      user: user
+    });
+  } catch (err) {
+    console.error('❌ Ошибка Google авторизации:', err);
+    res.status(500).json({
+      success: false,
+      error: 'Ошибка Google авторизации'
+    });
+  }
+});
+
+// Google OAuth проверка (для фронтенда)
+app.post('/api/auth/google', checkDatabaseConnection, async (req, res) => {
+  console.log('📨 POST /api/auth/google');
+  
+  const { token } = req.body;
+  
+  if (!token) {
+    return res.status(400).json({
+      success: false,
+      error: 'Токен обязателен'
+    });
+  }
+
+  try {
+    // В реальном приложении здесь должна быть проверка Google токена
+    // Для демонстрации просто декодируем базовые данные
+    const userData = {
+      sub: 'google_' + Date.now(),
+      email: 'user@example.com',
+      email_verified: true,
+      name: 'Google User',
+      given_name: 'Google',
+      family_name: 'User',
+      picture: null
+    };
+
+    // Проверяем, есть ли пользователь
+    const { rows } = await db.query(
+      'SELECT * FROM users WHERE google_id = $1 OR email = $2',
+      [userData.sub, userData.email]
+    );
+
+    if (rows.length > 0) {
+      // Пользователь существует
+      const user = rows[0];
+      delete user.password;
+      
+      res.json({
+        success: true,
+        user: user,
+        requires_additional_info: false
+      });
+    } else {
+      // Новый пользователь
+      res.json({
+        success: true,
+        user: userData,
+        requires_additional_info: true
+      });
+    }
+  } catch (err) {
+    console.error('❌ Ошибка Google аутентификации:', err);
+    res.status(500).json({
+      success: false,
+      error: 'Ошибка Google аутентификации'
     });
   }
 });
@@ -813,41 +924,6 @@ app.delete('/api/cart/:itemId', checkDatabaseConnection, async (req, res) => {
   }
 });
 
-// Корзина - получение общей суммы
-app.get('/api/cart/total', checkDatabaseConnection, async (req, res) => {
-  console.log('📨 GET /api/cart/total');
-  const { user_id } = req.query;
-  
-  if (!user_id) {
-    return res.status(400).json({
-      success: false,
-      error: 'user_id обязателен'
-    });
-  }
-
-  try {
-    const { rows } = await db.query(`
-      SELECT SUM(p.price * ci.quantity) as total
-      FROM cart_items ci
-      LEFT JOIN products p ON ci.product_id = p.id
-      WHERE ci.user_id = $1
-    `, [user_id]);
-
-    const total = parseFloat(rows[0]?.total) || 0;
-
-    res.json({
-      success: true,
-      total: total
-    });
-  } catch (err) {
-    console.error('❌ Ошибка получения суммы корзины:', err);
-    res.status(500).json({
-      success: false,
-      error: 'Ошибка сервера'
-    });
-  }
-});
-
 // Корзина - очистка корзины
 app.delete('/api/cart', checkDatabaseConnection, async (req, res) => {
   console.log('📨 DELETE /api/cart');
@@ -875,6 +951,112 @@ app.delete('/api/cart', checkDatabaseConnection, async (req, res) => {
     });
   }
 });
+
+// ==================== ADMIN ROUTES ====================
+
+// Добавление товара через админку
+app.post('/api/admin/products', checkDatabaseConnection, async (req, res) => {
+  console.log('📨 POST /api/admin/products');
+  
+  const {
+    name,
+    category_id,
+    description,
+    price,
+    old_price,
+    manufacturer,
+    country,
+    stock_quantity,
+    in_stock,
+    is_popular,
+    is_new,
+    composition,
+    indications,
+    usage,
+    contraindications,
+    dosage,
+    expiry_date,
+    storage_conditions
+  } = req.body;
+
+  if (!name || !category_id || !price || stock_quantity === undefined) {
+    return res.status(400).json({
+      success: false,
+      error: 'Обязательные поля: название, категория, цена, количество'
+    });
+  }
+
+  try {
+    const { rows: categoryRows } = await db.query(
+      'SELECT * FROM categories WHERE id = $1',
+      [category_id]
+    );
+
+    if (categoryRows.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Указанная категория не существует'
+      });
+    }
+
+    const demoImages = [
+      'https://images.unsplash.com/photo-1585435557343-3b092031d5ad?w=300&h=200&fit=crop',
+      'https://images.unsplash.com/photo-1550258987-190a2d41a8ba?w=300&h=200&fit=crop',
+      'https://images.unsplash.com/photo-1576671414121-d0b01c6c5f60?w=300&h=200&fit=crop',
+      'https://images.unsplash.com/photo-1559056199-641a0ac8b55e?w=300&h=200&fit=crop'
+    ];
+    const randomImage = demoImages[Math.floor(Math.random() * demoImages.length)];
+
+    const { rows } = await db.query(
+      `INSERT INTO products (
+        name, category_id, description, price, old_price, manufacturer, country,
+        stock_quantity, in_stock, is_popular, is_new, composition, indications,
+        usage, contraindications, dosage, expiry_date, storage_conditions, image
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
+      RETURNING *`,
+      [
+        name,
+        category_id,
+        description || '',
+        parseFloat(price),
+        old_price ? parseFloat(old_price) : null,
+        manufacturer || '',
+        country || '',
+        parseInt(stock_quantity),
+        Boolean(in_stock),
+        Boolean(is_popular),
+        Boolean(is_new),
+        composition || '',
+        indications || '',
+        usage || '',
+        contraindications || '',
+        dosage || '',
+        expiry_date || '',
+        storage_conditions || '',
+        randomImage
+      ]
+    );
+
+    const newProduct = rows[0];
+    
+    console.log('✅ Товар успешно добавлен:', newProduct.id);
+
+    res.json({
+      success: true,
+      message: 'Товар успешно добавлен',
+      product: newProduct
+    });
+
+  } catch (err) {
+    console.error('❌ Ошибка добавления товара:', err);
+    res.status(500).json({
+      success: false,
+      error: 'Ошибка добавления товара: ' + err.message
+    });
+  }
+});
+
+// ==================== STATIC ROUTES ====================
 
 // Статические страницы
 app.get('/', (req, res) => {
@@ -968,6 +1150,8 @@ async function startServer() {
       console.log(`   DELETE /api/cart/:id - Удаление из корзины`);
       console.log(`   POST /api/auth/register - Регистрация`);
       console.log(`   POST /api/auth/login - Вход`);
+      console.log(`   POST /api/auth/google - Google OAuth`);
+      console.log(`   POST /api/auth/google/register - Google регистрация`);
       console.log(`   GET  /health - Проверка работы`);
     });
   } catch (err) {
