@@ -740,27 +740,27 @@
                 <div>Загрузка товара...</div>
             </div>
         </section>
+    </div>
 
-        <!-- Bottom Navigation -->
-        <div class="bottom-nav">
-            <a href="main.html" class="nav-item">
-                <i class="fas fa-home"></i>
-                <span>Главная</span>
-            </a>
-            <a href="categories.html" class="nav-item">
-                <i class="fas fa-th-large"></i>
-                <span>Категории</span>
-            </a>
-            <a href="cart.html" class="nav-item" style="position: relative;">
-                <i class="fas fa-shopping-cart"></i>
-                <span>Корзина</span>
-                <div class="cart-badge" id="cart-badge" style="display: none;">0</div>
-            </a>
-            <a href="profile.html" class="nav-item">
-                <i class="fas fa-user"></i>
-                <span>Профиль</span>
-            </a>
-        </div>
+    <!-- Bottom Navigation -->
+    <div class="bottom-nav">
+        <a href="main.html" class="nav-item">
+            <i class="fas fa-home"></i>
+            <span>Главная</span>
+        </a>
+        <a href="categories.html" class="nav-item">
+            <i class="fas fa-th-large"></i>
+            <span>Категории</span>
+        </a>
+        <a href="cart.html" class="nav-item" style="position: relative;">
+            <i class="fas fa-shopping-cart"></i>
+            <span>Корзина</span>
+            <div class="cart-badge" id="cart-badge" style="display: none;">0</div>
+        </a>
+        <a href="profile.html" class="nav-item">
+            <i class="fas fa-user"></i>
+            <span>Профиль</span>
+        </a>
     </div>
 
     <script>
@@ -792,6 +792,7 @@
             showLoading();
             
             try {
+                console.log('Загрузка товара с ID:', productId);
                 const response = await fetch(`/api/products/${productId}`);
                 
                 if (!response.ok) {
@@ -799,20 +800,34 @@
                 }
                 
                 const data = await response.json();
+                console.log('Полученные данные:', data);
                 
-                // Обработка различных форматов ответа
+                // УНИВЕРСАЛЬНАЯ ОБРАБОТКА ФОРМАТОВ ОТВЕТА
+                let product = null;
+                
                 if (data.success && data.product) {
                     // Формат: {success: true, product: {...}}
-                    currentProduct = data.product;
+                    product = data.product;
+                } else if (data.data && data.data.id) {
+                    // Формат: {data: {...}}
+                    product = data.data;
                 } else if (data.id) {
                     // Формат: прямой объект товара
-                    currentProduct = data;
+                    product = data;
+                } else if (Array.isArray(data) && data.length > 0) {
+                    // Формат: массив с одним товаром
+                    product = data[0];
                 } else {
+                    console.error('Неизвестный формат данных:', data);
                     throw new Error('Неверный формат данных товара');
                 }
                 
+                if (!product || !product.id) {
+                    throw new Error('Товар не найден или данные повреждены');
+                }
+                
+                currentProduct = product;
                 displayProductData(currentProduct);
-                loadRelatedProducts(currentProduct.category_id, productId);
                 
             } catch (error) {
                 console.error('Ошибка загрузки товара:', error);
@@ -824,19 +839,23 @@
         function displayProductData(product) {
             const productSection = document.getElementById('product-section');
             
-            // Проверяем наличие товара
             if (!product) {
                 showError('Товар не найден', 'error');
                 return;
             }
             
-            // Проверяем наличие обязательных полей
+            // Безопасное извлечение данных
             const productName = product.name || 'Без названия';
-            const productPrice = typeof product.price === 'number' ? product.price : 0;
+            const productPrice = parseFloat(product.price) || 0;
+            const oldPrice = product.old_price ? parseFloat(product.old_price) : null;
             const productDescription = product.description || 'Описание отсутствует';
             const productImage = product.image || 'https://via.placeholder.com/500x400?text=Нет+изображения';
-            const inStock = product.in_stock !== false && product.stock_quantity > 0;
-            const stockQuantity = product.stock_quantity || 0;
+            const stockQuantity = parseInt(product.stock_quantity) || 0;
+            const inStock = product.in_stock !== false && stockQuantity > 0;
+            const isNew = product.is_new === true || product.is_new === 'true';
+            const isPopular = product.is_popular === true || product.is_popular === 'true';
+            const hasDiscount = oldPrice && oldPrice > productPrice;
+            const discountPercent = hasDiscount ? Math.round((1 - productPrice / oldPrice) * 100) : 0;
             
             productSection.innerHTML = `
                 <div class="product-images">
@@ -849,16 +868,14 @@
                     <h1 class="product-title">${productName}</h1>
                     
                     <div class="product-badges">
-                        ${product.is_new ? '<div class="badge new">Новинка</div>' : ''}
-                        ${product.is_popular ? '<div class="badge popular">Популярный</div>' : ''}
-                        ${product.old_price && product.old_price > productPrice ? 
-                            `<div class="badge discount">-${Math.round((1 - productPrice / product.old_price) * 100)}%</div>` : ''}
+                        ${isNew ? '<div class="badge new">Новинка</div>' : ''}
+                        ${isPopular ? '<div class="badge popular">Популярный</div>' : ''}
+                        ${hasDiscount ? `<div class="badge discount">-${discountPercent}%</div>` : ''}
                         ${!inStock ? '<div class="badge out-of-stock">Нет в наличии</div>' : ''}
                     </div>
                     
                     <div class="product-price">
-                        ${product.old_price && product.old_price > productPrice ? 
-                            `<span class="product-old-price">${formatPrice(product.old_price)}</span>` : ''}
+                        ${hasDiscount ? `<span class="product-old-price">${formatPrice(oldPrice)}</span>` : ''}
                         ${formatPrice(productPrice)}
                     </div>
                     
@@ -914,6 +931,9 @@
             // Настраиваем обработчики событий
             setupEventListeners();
             setupTabs();
+            
+            // Загружаем похожие товары
+            loadRelatedProducts(product.category_id, product.id);
         }
 
         // Добавление вкладок товара
@@ -1006,6 +1026,7 @@
         // Загрузка похожих товаров
         async function loadRelatedProducts(categoryId, currentProductId) {
             try {
+                console.log('Загрузка похожих товаров для категории:', categoryId);
                 const response = await fetch(`/api/products?category_id=${categoryId}`);
                 
                 if (!response.ok) {
@@ -1013,19 +1034,21 @@
                 }
                 
                 const data = await response.json();
+                console.log('Данные похожих товаров:', data);
                 
-                // Обработка различных форматов ответа
+                // УНИВЕРСАЛЬНАЯ ОБРАБОТКА ФОРМАТОВ
                 let products = [];
                 
                 if (data.success && Array.isArray(data.products)) {
-                    // Формат: {success: true, products: [...]}
                     products = data.products;
+                } else if (data.success && Array.isArray(data.data)) {
+                    products = data.data;
                 } else if (Array.isArray(data)) {
-                    // Формат: прямой массив товаров
                     products = data;
                 } else if (data.products && Array.isArray(data.products)) {
-                    // Формат: {products: [...]}
                     products = data.products;
+                } else if (data.data && Array.isArray(data.data)) {
+                    products = data.data;
                 } else {
                     console.warn('Неизвестный формат данных похожих товаров:', data);
                     products = [];
@@ -1033,7 +1056,7 @@
                 
                 // Фильтруем текущий товар и ограничиваем количество
                 const relatedProducts = products
-                    .filter(p => p && p.id != currentProductId)
+                    .filter(p => p && p.id && p.id != currentProductId)
                     .slice(0, 6);
                 
                 displayRelatedProducts(relatedProducts);
@@ -1068,9 +1091,10 @@
                 productCard.onclick = () => window.location.href = `product.html?id=${product.id}`;
                 
                 const productName = product.name || 'Без названия';
-                const productPrice = typeof product.price === 'number' ? product.price : 0;
+                const productPrice = parseFloat(product.price) || 0;
                 const productImage = product.image || 'https://via.placeholder.com/200x150?text=Товар';
-                const inStock = product.in_stock !== false && (product.stock_quantity || 0) > 0;
+                const stockQuantity = parseInt(product.stock_quantity) || 0;
+                const inStock = product.in_stock !== false && stockQuantity > 0;
                 
                 productCard.innerHTML = `
                     <div class="product-image">
@@ -1154,7 +1178,6 @@
                     
                     const quantity = parseInt(document.getElementById('quantity').value) || 1;
                     addToCart(currentProduct, quantity);
-                    // В реальном приложении здесь переход к оформлению заказа
                     showNotification('Товар добавлен в корзину! Перейдите в корзину для оформления заказа.');
                 });
             }
@@ -1197,7 +1220,7 @@
                 cart.push({
                     id: product.id,
                     name: product.name || 'Без названия',
-                    price: typeof product.price === 'number' ? product.price : 0,
+                    price: parseFloat(product.price) || 0,
                     image: product.image || '',
                     quantity: quantity
                 });
@@ -1211,17 +1234,27 @@
         // Добавление похожего товара в корзину
         async function addRelatedToCart(productId) {
             try {
-                // Загружаем полные данные о товаре
                 const response = await fetch(`/api/products/${productId}`);
                 if (!response.ok) {
                     throw new Error('Товар не найден');
                 }
                 
                 const data = await response.json();
-                const product = data.success ? data.product : data;
+                
+                // Универсальная обработка формата
+                let product = null;
+                if (data.success && data.product) {
+                    product = data.product;
+                } else if (data.data && data.data.id) {
+                    product = data.data;
+                } else if (data.id) {
+                    product = data;
+                } else {
+                    throw new Error('Неверный формат данных товара');
+                }
                 
                 if (!product) {
-                    throw new Error('Неверный формат данных товара');
+                    throw new Error('Товар не найден');
                 }
                 
                 addToCart(product, 1);
@@ -1257,7 +1290,6 @@
 
         // Показать уведомление
         function showNotification(message, type = 'success') {
-            // Удаляем существующие уведомления
             const existingNotifications = document.querySelectorAll('.notification');
             existingNotifications.forEach(notification => notification.remove());
             
