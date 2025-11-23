@@ -619,8 +619,6 @@
     </div>
 
     <script>
-        let googleClientId = null;
-
         document.addEventListener('DOMContentLoaded', function() {
             // Элементы DOM
             const stepLogin = document.getElementById('step-login');
@@ -684,30 +682,12 @@
                 googleInfoError.textContent = '';
             }
 
-            // Загрузка конфигурации с сервера
-            async function loadConfig() {
-                try {
-                    const response = await fetch('/api/config');
-                    const data = await response.json();
-                    
-                    if (data.success && data.googleClientId && data.googleClientId !== 'demo') {
-                        googleClientId = data.googleClientId;
-                        initializeGoogleSignIn();
-                    } else {
-                        showDemoGoogleButton();
-                    }
-                } catch (error) {
-                    console.error('Error loading config:', error);
-                    showDemoGoogleButton();
-                }
-            }
-
-            // Инициализация Google Sign-In с реальным Client ID
+            // Инициализация Google Sign-In
             function initializeGoogleSignIn() {
                 const container = document.getElementById('google-signin-container');
                 container.innerHTML = `
                     <div id="g_id_onload"
-                         data-client_id="${googleClientId}"
+                         data-client_id="YOUR_GOOGLE_CLIENT_ID"
                          data-context="signin"
                          data-ux_mode="popup"
                          data-callback="handleGoogleSignIn"
@@ -724,31 +704,6 @@
                          data-width="300">
                     </div>
                 `;
-            }
-
-            // Показать демо-кнопку Google
-            function showDemoGoogleButton() {
-                const container = document.getElementById('google-signin-container');
-                container.innerHTML = `
-                    <button class="btn btn-google" id="demo-google-btn">
-                        <i class="fab fa-google"></i> Войти через Google (Демо)
-                    </button>
-                `;
-                
-                document.getElementById('demo-google-btn').addEventListener('click', function(e) {
-                    e.preventDefault();
-                    // Демо-данные для тестирования
-                    const demoUser = {
-                        sub: 'google_demo_' + Date.now(),
-                        email: 'demo.user@example.com',
-                        email_verified: true,
-                        name: 'Демо Пользователь',
-                        given_name: 'Демо',
-                        family_name: 'Пользователь',
-                        picture: null
-                    };
-                    showGoogleInfoStep(demoUser);
-                });
             }
 
             // Обработка формы входа
@@ -1123,8 +1078,8 @@
                 e.target.value = formattedValue;
             });
 
-            // Загружаем конфигурацию при старте
-            loadConfig();
+            // Инициализируем Google Sign-In
+            initializeGoogleSignIn();
         });
     </script>
 </body>
