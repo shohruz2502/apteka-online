@@ -513,13 +513,35 @@
             showLoading();
             
             try {
+                console.log('Загрузка категорий...');
                 const response = await fetch('/api/categories');
                 
                 if (!response.ok) {
-                    throw new Error('Ошибка загрузки категорий');
+                    throw new Error(`HTTP error! status: ${response.status}`);
                 }
 
-                categories = await response.json();
+                const data = await response.json();
+                console.log('Получены категории:', data);
+
+                // УНИВЕРСАЛЬНАЯ ОБРАБОТКА ФОРМАТОВ
+                if (Array.isArray(data)) {
+                    // Формат: прямой массив категорий
+                    categories = data;
+                } else if (data.success && Array.isArray(data.data)) {
+                    // Формат: {success: true, data: [...]}
+                    categories = data.data;
+                } else if (Array.isArray(data.categories)) {
+                    // Формат: {categories: [...]}
+                    categories = data.categories;
+                } else {
+                    console.warn('Неизвестный формат данных категорий:', data);
+                    categories = [];
+                }
+
+                if (categories.length === 0) {
+                    throw new Error('Категории не найдены');
+                }
+
                 displayCategories(categories);
             } catch (error) {
                 console.error('Ошибка загрузки категорий:', error);
@@ -627,14 +649,40 @@
             currentCategoryId = categoryId;
             
             try {
+                console.log(`Загрузка товаров для категории ${categoryId}...`);
                 const response = await fetch(`/api/products?category_id=${categoryId}`);
                 
                 if (!response.ok) {
-                    throw new Error('Ошибка загрузки товаров');
+                    throw new Error(`HTTP error! status: ${response.status}`);
                 }
 
                 const data = await response.json();
-                currentProducts = data.products || [];
+                console.log('Получены товары:', data);
+
+                // УНИВЕРСАЛЬНАЯ ОБРАБОТКА ФОРМАТОВ ТОВАРОВ
+                let products = [];
+                
+                if (data.success && Array.isArray(data.products)) {
+                    // Формат: {success: true, products: [...]}
+                    products = data.products;
+                } else if (data.success && Array.isArray(data.data)) {
+                    // Формат: {success: true, data: [...]}
+                    products = data.data;
+                } else if (Array.isArray(data)) {
+                    // Формат: прямой массив товаров
+                    products = data;
+                } else if (Array.isArray(data.products)) {
+                    // Формат: {products: [...]}
+                    products = data.products;
+                } else if (Array.isArray(data.data)) {
+                    // Формат: {data: [...]}
+                    products = data.data;
+                } else {
+                    console.warn('Неизвестный формат данных товаров:', data);
+                    products = [];
+                }
+                
+                currentProducts = products;
                 
                 displayProducts(currentProducts, categoryName);
                 showProductsSection();
@@ -646,41 +694,7 @@
             
             hideLoading();
         }
-
-        // Тестовые товары
-        function loadSampleProducts(categoryName) {
-            currentProducts = [
-                {
-                    id: 1,
-                    name: 'Нурофен таблетки 200мг №20',
-                    price: 250.50,
-                    old_price: 280.00,
-                    manufacturer: 'Рекитт Бенкизер',
-                    image: 'https://images.unsplash.com/photo-1585435557343-3b092031d5ad?w=300&h=200&fit=crop',
-                    is_new: true,
-                    is_popular: true
-                },
-                {
-                    id: 2,
-                    name: 'Витамин D3 2000 МЕ №60',
-                    price: 890.00,
-                    manufacturer: 'Солгар',
-                    image: 'https://images.unsplash.com/photo-1550258987-190a2d41a8ba?w=300&h=200&fit=crop',
-                    is_popular: true
-                },
-                {
-                    id: 3,
-                    name: 'Панадол 500мг №12',
-                    price: 180.00,
-                    manufacturer: 'ГлаксоСмитКляйн',
-                    image: 'https://images.unsplash.com/photo-1585435557343-3b092031d5ad?w=300&h=200&fit=crop'
-                }
-            ];
-            
-            displayProducts(currentProducts, categoryName);
-            showProductsSection();
-        }
-
+        
         // Отображение товаров
         function displayProducts(products, categoryName) {
             const grid = document.getElementById('products-grid');
@@ -689,7 +703,7 @@
             title.textContent = categoryName;
             grid.innerHTML = '';
 
-            if (products.length === 0) {
+            if (!products || products.length === 0) {
                 showNoProducts();
                 return;
             }
@@ -697,6 +711,8 @@
             hideNoProducts();
 
             products.forEach(product => {
+                if (!product || !product.id) return;
+                
                 const hasDiscount = product.old_price && product.old_price > product.price;
                 const discountPercent = hasDiscount ? 
                     Math.round((1 - product.price / product.old_price) * 100) : 0;
@@ -719,10 +735,10 @@
                         ${hasDiscount ? `<div class="product-badge" style="background: #ff4444;">-${discountPercent}%</div>` : ''}
                     </div>
                     <div class="product-info">
-                        <div class="product-name">${product.name}</div>
+                        <div class="product-name">${product.name || 'Без названия'}</div>
                         <div class="product-price">
                             ${hasDiscount ? `<span class="product-old-price">${product.old_price} ₽</span>` : ''}
-                            ${product.price} ₽
+                            ${product.price || 0} ₽
                         </div>
                         ${product.manufacturer ? `<div class="product-manufacturer">${product.manufacturer}</div>` : ''}
                     </div>
@@ -791,6 +807,8 @@
                         if (category) {
                             showCategoryProducts(currentCategoryId, category.name);
                         }
+                    } else {
+                        showCategories();
                     }
                 }, 500);
             });
@@ -806,14 +824,35 @@
             showLoading();
             
             try {
+                console.log(`Поиск товаров: ${searchTerm}`);
                 const response = await fetch(`/api/products?search=${encodeURIComponent(searchTerm)}`);
                 
                 if (!response.ok) {
-                    throw new Error('Ошибка поиска товаров');
+                    throw new Error(`HTTP error! status: ${response.status}`);
                 }
 
                 const data = await response.json();
-                currentProducts = data.products || [];
+                console.log('Результаты поиска:', data);
+
+                // УНИВЕРСАЛЬНАЯ ОБРАБОТКА ФОРМАТОВ ПОИСКА
+                let products = [];
+                
+                if (data.success && Array.isArray(data.products)) {
+                    products = data.products;
+                } else if (data.success && Array.isArray(data.data)) {
+                    products = data.data;
+                } else if (Array.isArray(data)) {
+                    products = data;
+                } else if (Array.isArray(data.products)) {
+                    products = data.products;
+                } else if (Array.isArray(data.data)) {
+                    products = data.data;
+                } else {
+                    console.warn('Неизвестный формат данных поиска:', data);
+                    products = [];
+                }
+                
+                currentProducts = products;
                 
                 displayProducts(currentProducts, `Результаты поиска: "${searchTerm}"`);
                 showProductsSection();
