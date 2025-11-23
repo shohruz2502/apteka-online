@@ -276,42 +276,6 @@
         font-weight: bold;
       }
 
-      /* Горизонтальный скролл товаров */
-      .scroll-section {
-        background: white;
-        margin: 10px 0;
-        padding: 10px 0;
-      }
-
-      .scroll-title {
-        padding: 0 15px 10px;
-        font-size: 16px;
-        font-weight: bold;
-      }
-
-      .products-scroll {
-        display: flex;
-        overflow-x: auto;
-        padding: 0 15px;
-        gap: 12px;
-        -webkit-overflow-scrolling: touch;
-      }
-
-      .products-scroll::-webkit-scrollbar {
-        display: none;
-      }
-
-      .scroll-product {
-        min-width: 140px;
-        flex-shrink: 0;
-      }
-
-      @media (max-width: 360px) {
-        .scroll-product {
-          min-width: 120px;
-        }
-      }
-
       /* Индикатор загрузки */
       .loading {
         text-align: center;
@@ -625,83 +589,66 @@
       // Инициализация при загрузке
       document.addEventListener("DOMContentLoaded", function () {
         loadInitialProducts();
-        loadPopularProducts();
         setupEventListeners();
         updateCartBadge();
       });
 
       // Загрузка начальных товаров
-async function loadInitialProducts() {
-  showLoading();
-  hideNoProducts();
-  hideError();
+      async function loadInitialProducts() {
+        showLoading();
+        hideNoProducts();
+        hideError();
 
-  try {
-    let url = "/api/products?";
-    if (currentCategory !== "all") {
-      url += `category=${encodeURIComponent(currentCategory)}&`;
-    }
-    if (currentSearch) {
-      url += `search=${encodeURIComponent(currentSearch)}&`;
-    }
-    url += `page=${currentPage}&limit=${productsPerPage}`;
+        try {
+          let url = "/api/products?";
+          if (currentCategory !== "all") {
+            url += `category=${encodeURIComponent(currentCategory)}&`;
+          }
+          if (currentSearch) {
+            url += `search=${encodeURIComponent(currentSearch)}&`;
+          }
+          url += `page=${currentPage}&limit=${productsPerPage}`;
 
-    const response = await fetch(url);
+          console.log("Загрузка товаров по URL:", url);
+          
+          const response = await fetch(url);
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
 
-    const data = await response.json();
+          const data = await response.json();
+          console.log("Получены данные:", data);
 
-    // ИСПРАВЛЕНИЕ: используем data.data вместо data.products
-    const products = data.data || data.products || [];
+          // ИСПРАВЛЕНИЕ: используем data.data вместо data.products
+          const products = data.data || data.products || [];
 
-    if (products.length > 0) {
-      if (currentPage === 1) {
-        allProducts = products;
-        displayedProducts = products;
-      } else {
-        allProducts = [...allProducts, ...products];
-        displayedProducts = [...displayedProducts, ...products];
+          console.log("Товары для отображения:", products);
+
+          if (products.length > 0) {
+            if (currentPage === 1) {
+              allProducts = products;
+              displayedProducts = products;
+            } else {
+              allProducts = [...allProducts, ...products];
+              displayedProducts = [...displayedProducts, ...products];
+            }
+            
+            renderProducts();
+            updateProductsCount();
+            hideError();
+          } else {
+            if (currentPage === 1) {
+              showNoProducts();
+            }
+          }
+        } catch (error) {
+          console.error("Ошибка загрузки товаров:", error);
+          showError();
+        }
+
+        hideLoading();
       }
-      
-      renderProducts();
-      updateProductsCount();
-    } else {
-      if (currentPage === 1) {
-        showNoProducts();
-      }
-    }
-  } catch (error) {
-    console.error("Ошибка загрузки товаров:", error);
-    showError();
-  }
-
-  hideLoading();
-}
-
-      // Загрузка популярных товаров
-async function loadPopularProducts() {
-  try {
-    const response = await fetch('/api/products?popular=true&limit=8');
-    
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const data = await response.json();
-    
-    // ИСПРАВЛЕНИЕ: используем data.data вместо data.products
-    const popularProducts = data.data || data.products || [];
-    
-    if (popularProducts.length > 0) {
-      renderPopularProducts(popularProducts);
-    }
-  } catch (error) {
-    console.error("Ошибка загрузки популярных товаров:", error);
-  }
-}
 
       // Рендер основных товаров
       function renderProducts() {
@@ -712,9 +659,13 @@ async function loadPopularProducts() {
         }
 
         displayedProducts.forEach((product) => {
-          const hasDiscount = product.old_price && product.old_price > product.price;
+          // Преобразуем цены в числа для корректного сравнения
+          const price = parseFloat(product.price);
+          const oldPrice = product.old_price ? parseFloat(product.old_price) : null;
+          
+          const hasDiscount = oldPrice && oldPrice > price;
           const discountPercent = hasDiscount
-            ? Math.round((1 - product.price / product.old_price) * 100)
+            ? Math.round((1 - price / oldPrice) * 100)
             : 0;
 
           // Формируем путь к изображению
@@ -729,6 +680,11 @@ async function loadPopularProducts() {
             }
           }
 
+          // Проверяем флаги товара
+          const isNew = product.is_new === true || product.is_new === 'true';
+          const isPopular = product.is_popular === true || product.is_popular === 'true';
+          const stockQuantity = parseInt(product.stock_quantity) || 0;
+
           container.innerHTML += `
             <div class="product-card" onclick="openProductPage(${product.id})">
               <div class="product-img">
@@ -738,70 +694,23 @@ async function loadPopularProducts() {
                 <div style="${imagePath ? 'display: none;' : ''} width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: #f8f8f8;">
                   <i class="fas fa-pills" style="font-size: 40px; color: #ccc;"></i>
                 </div>
-                ${product.is_new ? `<div class="product-badge">Новинка</div>` : ''}
-                ${product.is_popular ? `<div class="product-badge" style="background: #4CAF50;">Популярный</div>` : ''}
+                ${isNew ? `<div class="product-badge">Новинка</div>` : ''}
+                ${isPopular ? `<div class="product-badge" style="background: #4CAF50;">Популярный</div>` : ''}
                 ${hasDiscount ? `<div class="product-badge" style="background: #ff4444;">-${discountPercent}%</div>` : ''}
               </div>
               <div class="product-info">
                 <div class="product-name">${product.name}</div>
                 <div class="product-price">
-                  ${hasDiscount ? `<span class="product-old-price">${product.old_price} ₽</span>` : ''}
-                  ${product.price} ₽
+                  ${hasDiscount ? `<span class="product-old-price">${oldPrice} ₽</span>` : ''}
+                  ${price} ₽
                 </div>
                 <div class="product-details">
                   ${product.manufacturer || ''} ${product.manufacturer && product.country ? '•' : ''} ${product.country || ''}
                 </div>
-                ${product.stock_quantity <= 5 && product.stock_quantity > 0 ? 
+                ${stockQuantity <= 5 && stockQuantity > 0 ? 
                   `<div style="color: #ff6b00; font-size: 11px; margin-top: 5px;">Осталось мало!</div>` : ''}
-                ${product.stock_quantity === 0 ? 
+                ${stockQuantity === 0 ? 
                   `<div style="color: #ff4444; font-size: 11px; margin-top: 5px;">Нет в наличии</div>` : ''}
-              </div>
-            </div>
-          `;
-        });
-      }
-
-      // Рендер популярных товаров
-      function renderPopularProducts(popularProducts) {
-        const container = document.getElementById("popular-products");
-
-        if (popularProducts.length === 0) {
-          container.innerHTML = '<p style="padding: 20px; text-align: center; color: #999;">Нет популярных товаров</p>';
-          return;
-        }
-
-        container.innerHTML = "";
-        popularProducts.forEach((product) => {
-          const hasDiscount = product.old_price && product.old_price > product.price;
-
-          // Формируем путь к изображению
-          let imagePath = '';
-          if (product.image) {
-            if (product.image.startsWith('http')) {
-              imagePath = product.image;
-            } else {
-              imagePath = `pictures/${product.image}`;
-            }
-          }
-
-          container.innerHTML += `
-            <div class="product-card scroll-product" onclick="openProductPage(${product.id})">
-              <div class="product-img">
-                ${imagePath ? 
-                  `<img src="${imagePath}" alt="${product.name}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">` 
-                  : ''}
-                <div style="${imagePath ? 'display: none;' : ''} width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: #f8f8f8;">
-                  <i class="fas fa-pills" style="font-size: 30px; color: #ccc;"></i>
-                </div>
-                ${product.is_new ? `<div class="product-badge">Новинка</div>` : ''}
-                ${hasDiscount ? `<div class="product-badge" style="background: #ff4444;">Скидка</div>` : ''}
-              </div>
-              <div class="product-info">
-                <div class="product-name">${product.name}</div>
-                <div class="product-price">
-                  ${hasDiscount ? `<span class="product-old-price">${product.old_price} ₽</span>` : ''}
-                  ${product.price} ₽
-                </div>
               </div>
             </div>
           `;
@@ -829,35 +738,37 @@ async function loadPopularProducts() {
       // Утилиты отображения
       function showLoading() {
         document.getElementById("loading").style.display = "block";
+        document.getElementById("products-container").style.display = "none";
       }
 
       function hideLoading() {
         document.getElementById("loading").style.display = "none";
+        document.getElementById("products-container").style.display = "grid";
       }
 
       function showNoProducts() {
         document.getElementById("no-products").style.display = "block";
         document.getElementById("products-container").style.display = "none";
+        document.getElementById("error-message").style.display = "none";
       }
 
       function hideNoProducts() {
         document.getElementById("no-products").style.display = "none";
-        document.getElementById("products-container").style.display = "grid";
       }
 
       function showError() {
         document.getElementById("error-message").style.display = "block";
         document.getElementById("products-container").style.display = "none";
+        document.getElementById("no-products").style.display = "none";
       }
 
       function hideError() {
         document.getElementById("error-message").style.display = "none";
-        document.getElementById("products-container").style.display = "grid";
       }
 
       function updateProductsCount() {
-        document.getElementById("products-count").textContent = 
-          `${displayedProducts.length} товаров`;
+        // Функция для обновления счетчика товаров (если нужно)
+        console.log(`Загружено товаров: ${displayedProducts.length}`);
       }
 
       function setupEventListeners() {
@@ -890,7 +801,10 @@ async function loadPopularProducts() {
 
           // Фильтрация на клиенте
           const filtered = allProducts.filter(
-            (product) => product.price >= minPrice && product.price <= maxPrice
+            (product) => {
+              const price = parseFloat(product.price);
+              return price >= minPrice && price <= maxPrice;
+            }
           );
 
           displayedProducts = filtered.slice(0, productsPerPage);
