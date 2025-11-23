@@ -631,71 +631,77 @@
       });
 
       // Загрузка начальных товаров
-      async function loadInitialProducts() {
-        showLoading();
-        hideNoProducts();
-        hideError();
+async function loadInitialProducts() {
+  showLoading();
+  hideNoProducts();
+  hideError();
 
-        try {
-          let url = "/api/products?";
-          if (currentCategory !== "all") {
-            url += `category=${encodeURIComponent(currentCategory)}&`;
-          }
-          if (currentSearch) {
-            url += `search=${encodeURIComponent(currentSearch)}&`;
-          }
-          url += `page=${currentPage}&limit=${productsPerPage}`;
+  try {
+    let url = "/api/products?";
+    if (currentCategory !== "all") {
+      url += `category=${encodeURIComponent(currentCategory)}&`;
+    }
+    if (currentSearch) {
+      url += `search=${encodeURIComponent(currentSearch)}&`;
+    }
+    url += `page=${currentPage}&limit=${productsPerPage}`;
 
-          const response = await fetch(url);
+    const response = await fetch(url);
 
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-          }
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
 
-          const data = await response.json();
+    const data = await response.json();
 
-          if (data.products && data.products.length > 0) {
-            if (currentPage === 1) {
-              allProducts = data.products;
-              displayedProducts = data.products;
-            } else {
-              allProducts = [...allProducts, ...data.products];
-              displayedProducts = [...displayedProducts, ...data.products];
-            }
-            
-            renderProducts();
-            updateProductsCount();
-          } else {
-            if (currentPage === 1) {
-              showNoProducts();
-            }
-          }
-        } catch (error) {
-          console.error("Ошибка загрузки товаров:", error);
-          showError();
-        }
+    // ИСПРАВЛЕНИЕ: используем data.data вместо data.products
+    const products = data.data || data.products || [];
 
-        hideLoading();
+    if (products.length > 0) {
+      if (currentPage === 1) {
+        allProducts = products;
+        displayedProducts = products;
+      } else {
+        allProducts = [...allProducts, ...products];
+        displayedProducts = [...displayedProducts, ...products];
       }
+      
+      renderProducts();
+      updateProductsCount();
+    } else {
+      if (currentPage === 1) {
+        showNoProducts();
+      }
+    }
+  } catch (error) {
+    console.error("Ошибка загрузки товаров:", error);
+    showError();
+  }
+
+  hideLoading();
+}
 
       // Загрузка популярных товаров
-      async function loadPopularProducts() {
-        try {
-          const response = await fetch('/api/products?popular=true&limit=8');
-          
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-          }
+async function loadPopularProducts() {
+  try {
+    const response = await fetch('/api/products?popular=true&limit=8');
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
 
-          const data = await response.json();
-          
-          if (data.products && data.products.length > 0) {
-            renderPopularProducts(data.products);
-          }
-        } catch (error) {
-          console.error("Ошибка загрузки популярных товаров:", error);
-        }
-      }
+    const data = await response.json();
+    
+    // ИСПРАВЛЕНИЕ: используем data.data вместо data.products
+    const popularProducts = data.data || data.products || [];
+    
+    if (popularProducts.length > 0) {
+      renderPopularProducts(popularProducts);
+    }
+  } catch (error) {
+    console.error("Ошибка загрузки популярных товаров:", error);
+  }
+}
 
       // Рендер основных товаров
       function renderProducts() {
@@ -959,4 +965,3 @@
     </script>
   </body>
 </html>
-
