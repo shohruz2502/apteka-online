@@ -167,97 +167,6 @@ async function seedInitialData() {
         );
       }
 
-      // Add sample products
-      const products = [
-        {
-          name: 'Нурофен таблетки 200мг №20',
-          description: 'Обезболивающее и жаропонижающее средство',
-          price: 250.50,
-          old_price: 280.00,
-          category_id: 1,
-          manufacturer: 'Рекитт Бенкизер',
-          country: 'Великобритания',
-          stock_quantity: 50,
-          is_popular: true,
-          is_new: true,
-          image: 'https://images.unsplash.com/photo-1585435557343-3b092031d5ad?w=300&h=200&fit=crop'
-        },
-        {
-          name: 'Витамин D3 2000 МЕ №60',
-          description: 'Витамин D для поддержки иммунитета',
-          price: 890.00,
-          category_id: 2,
-          manufacturer: 'Солгар',
-          country: 'США',
-          stock_quantity: 30,
-          is_popular: true,
-          image: 'https://images.unsplash.com/photo-1550258987-190a2d41a8ba?w=300&h=200&fit=crop'
-        },
-        {
-          name: 'Панадол 500мг №12',
-          description: 'Обезболивающее средство',
-          price: 180.00,
-          category_id: 1,
-          manufacturer: 'ГлаксоСмитКляйн',
-          country: 'Великобритания',
-          stock_quantity: 25,
-          image: 'https://images.unsplash.com/photo-1585435557343-3b092031d5ad?w=300&h=200&fit=crop'
-        },
-        {
-          name: 'Аспирин 500мг №20',
-          description: 'Противовоспалительное средство',
-          price: 120.00,
-          old_price: 150.00,
-          category_id: 1,
-          manufacturer: 'Байер',
-          country: 'Германия',
-          stock_quantity: 40,
-          is_popular: true,
-          image: 'https://images.unsplash.com/photo-1585435557343-3b092031d5ad?w=300&h=200&fit=crop'
-        },
-        {
-          name: 'Витамин C 1000мг №60',
-          description: 'Витамин C для иммунитета',
-          price: 450.00,
-          category_id: 2,
-          manufacturer: 'Солгар',
-          country: 'США',
-          stock_quantity: 35,
-          is_new: true,
-          image: 'https://images.unsplash.com/photo-1550258987-190a2d41a8ba?w=300&h=200&fit=crop'
-        },
-        {
-          name: 'Ибупрофен 400мг №24',
-          description: 'Противовоспалительное и обезболивающее',
-          price: 190.00,
-          category_id: 1,
-          manufacturer: 'Берлин-Хеми',
-          country: 'Германия',
-          stock_quantity: 60,
-          is_popular: true,
-          image: 'https://images.unsplash.com/photo-1585435557343-3b092031d5ad?w=300&h=200&fit=crop'
-        }
-      ];
-
-      for (const product of products) {
-        await db.query(
-          `INSERT INTO products (name, description, price, old_price, category_id, manufacturer, country, stock_quantity, is_popular, is_new, image) 
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
-          [
-            product.name, product.description, product.price, product.old_price,
-            product.category_id, product.manufacturer, product.country,
-            product.stock_quantity, product.is_popular, product.is_new, product.image
-          ]
-        );
-      }
-
-      console.log('✅ Начальные данные добавлены');
-    }
-  } catch (err) {
-    console.error('❌ Ошибка заполнения начальных данных:', err);
-  }
-}
-
 // Database connection middleware
 async function databaseMiddleware(req, res, next) {
   try {
@@ -1266,3 +1175,4 @@ module.exports = app;
 if (require.main === module) {
   startServer();
 }
+
