@@ -522,8 +522,11 @@
                         <label for="register-phone">Телефон (Таджикистан) *</label>
                         <div class="phone-input-container">
                             <span class="phone-prefix">+992</span>
-                            <input type="tel" id="register-phone" class="phone-input" placeholder="XX XXX XX XX" pattern="[0-9]{9}" required>
+                            <input type="tel" id="register-phone" class="phone-input" placeholder="000 662 211" pattern="[0-9]{9}" required>
                         </div>
+                        <small style="color: var(--gray); font-size: 0.8rem; margin-top: 0.25rem; display: block;">
+                            Формат: 000 662 211 (9 цифр после +992)
+                        </small>
                     </div>
                     
                     <div class="form-group">
@@ -586,8 +589,11 @@
                         <label for="google-phone">Телефон (Таджикистан) *</label>
                         <div class="phone-input-container">
                             <span class="phone-prefix">+992</span>
-                            <input type="tel" id="google-phone" class="phone-input" placeholder="XX XXX XX XX" pattern="[0-9]{9}" required>
+                            <input type="tel" id="google-phone" class="phone-input" placeholder="000 662 211" pattern="[0-9]{9}" required>
                         </div>
+                        <small style="color: var(--gray); font-size: 0.8rem; margin-top: 0.25rem; display: block;">
+                            Формат: 000 662 211 (9 цифр после +992)
+                        </small>
                     </div>
                     
                     <div class="error-message" id="google-info-error"></div>
@@ -793,7 +799,7 @@
                 const lastName = document.getElementById('last-name').value.trim();
                 const username = document.getElementById('register-username').value.trim();
                 const email = document.getElementById('register-email').value.trim();
-                const phone = '+992' + document.getElementById('register-phone').value.trim();
+                const phone = '+992' + document.getElementById('register-phone').value.replace(/\s/g, '');
                 const password = document.getElementById('register-password').value;
                 const confirmPassword = document.getElementById('confirm-password').value;
                 const registerBtn = document.getElementById('register-btn');
@@ -824,8 +830,10 @@
                     return;
                 }
 
-                if (!/^\+992[0-9]{9}$/.test(phone)) {
-                    registerError.textContent = 'Введите корректный номер телефона Таджикистана.';
+                // Валидация номера телефона Таджикистана
+                const phoneRegex = /^\+992[0-9]{9}$/;
+                if (!phoneRegex.test(phone)) {
+                    registerError.textContent = 'Введите корректный номер телефона Таджикистана (9 цифр после +992).';
                     registerBtn.innerHTML = '<i class="fas fa-user-plus"></i> Зарегистрироваться';
                     registerBtn.disabled = false;
                     return;
@@ -902,7 +910,7 @@
                 
                 const firstName = document.getElementById('google-first-name').value.trim();
                 const lastName = document.getElementById('google-last-name').value.trim();
-                const phone = '+992' + document.getElementById('google-phone').value.trim();
+                const phone = '+992' + document.getElementById('google-phone').value.replace(/\s/g, '');
                 const saveBtn = document.getElementById('save-google-info-btn');
                 
                 clearErrors();
@@ -917,8 +925,10 @@
                     return;
                 }
 
-                if (!/^\+992[0-9]{9}$/.test(phone)) {
-                    googleInfoError.textContent = 'Введите корректный номер телефона Таджикистана.';
+                // Валидация номера телефона Таджикистана
+                const phoneRegex = /^\+992[0-9]{9}$/;
+                if (!phoneRegex.test(phone)) {
+                    googleInfoError.textContent = 'Введите корректный номер телефона Таджикистана (9 цифр после +992).';
                     saveBtn.innerHTML = '<i class="fas fa-save"></i> Сохранить и продолжить';
                     saveBtn.disabled = false;
                     return;
@@ -1082,10 +1092,9 @@
                 if (value.length > 9) value = value.substring(0, 9);
                 
                 let formattedValue = '';
-                if (value.length > 0) formattedValue = value.substring(0, 2);
-                if (value.length > 2) formattedValue += ' ' + value.substring(2, 5);
-                if (value.length > 5) formattedValue += ' ' + value.substring(5, 7);
-                if (value.length > 7) formattedValue += ' ' + value.substring(7, 9);
+                if (value.length > 0) formattedValue = value.substring(0, 3);
+                if (value.length > 3) formattedValue += ' ' + value.substring(3, 6);
+                if (value.length > 6) formattedValue += ' ' + value.substring(6, 9);
                 
                 e.target.value = formattedValue;
             });
@@ -1095,10 +1104,9 @@
                 if (value.length > 9) value = value.substring(0, 9);
                 
                 let formattedValue = '';
-                if (value.length > 0) formattedValue = value.substring(0, 2);
-                if (value.length > 2) formattedValue += ' ' + value.substring(2, 5);
-                if (value.length > 5) formattedValue += ' ' + value.substring(5, 7);
-                if (value.length > 7) formattedValue += ' ' + value.substring(7, 9);
+                if (value.length > 0) formattedValue = value.substring(0, 3);
+                if (value.length > 3) formattedValue += ' ' + value.substring(3, 6);
+                if (value.length > 6) formattedValue += ' ' + value.substring(6, 9);
                 
                 e.target.value = formattedValue;
             });
