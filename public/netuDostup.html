@@ -33,11 +33,11 @@
             text-align: center;
             margin-bottom: 30px;
             padding-bottom: 20px;
-            border-bottom: 3px solid #73a9fa;
+            border-bottom: 3px solid #2196F3;
         }
 
         .header h1 {
-            color: #73a9fa;
+            color: #2196F3;
             font-size: 28px;
             margin-bottom: 10px;
         }
@@ -52,7 +52,7 @@
             padding: 20px;
             background: #f8f9fa;
             border-radius: 8px;
-            border-left: 4px solid #73a9fa;
+            border-left: 4px solid #2196F3;
         }
 
         .section-title {
@@ -66,7 +66,7 @@
         }
 
         .section-title i {
-            color: #73a9fa;
+            color: #2196F3;
         }
 
         .form-group {
@@ -93,8 +93,8 @@
 
         input:focus, select:focus, textarea:focus {
             outline: none;
-            border-color: #FF5000;
-            box-shadow: 0 0 0 3px rgba(255, 80, 0, 0.1);
+            border-color: #2196F3;
+            box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
         }
 
         textarea {
@@ -160,14 +160,14 @@
         }
 
         .btn-primary {
-            background: linear-gradient(135deg, #73a9fa, #FF8000);
+            background: linear-gradient(135deg, #2196F3, #1976D2);
             color: white;
         }
 
         .btn-primary:hover {
-            background: linear-gradient(135deg, #73a9fa, #e07000);
+            background: linear-gradient(135deg, #2196F3, #1565C0);
             transform: translateY(-2px);
-            box-shadow: 0 4px 15px rgba(255, 80, 0, 0.3);
+            box-shadow: 0 4px 15px rgba(33, 150, 243, 0.3);
         }
 
         .btn-secondary {
@@ -211,13 +211,13 @@
 
         /* Медицинские поля */
         .medical-info {
-            background: #b5d6eb;
-            border-left: 4px solid #0751ff;
+            background: #e3f2fd;
+            border-left: 4px solid #2196F3;
         }
 
         .required::after {
             content: " *";
-            color: #73a9fa;
+            color: #f44336;
         }
 
         .character-count {
@@ -228,12 +228,12 @@
         }
 
         .error-field {
-            border-color: #73a9fa !important;
-            box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.1) !important;
+            border-color: #f44336 !important;
+            box-shadow: 0 0 0 3px rgba(244, 67, 54, 0.1) !important;
         }
 
         .error-message {
-            color: #73a9fa;
+            color: #f44336;
             font-size: 12px;
             margin-top: 5px;
             display: none;
@@ -658,7 +658,7 @@
             document.getElementById('product-form').classList.add('loading');
             
             try {
-                // Собираем данные формы - исправленная версия
+                // Собираем данные формы
                 const formData = {
                     name: document.getElementById('name').value.trim(),
                     category_id: parseInt(document.getElementById('category_id').value),
