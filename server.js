@@ -1267,6 +1267,7 @@ app.get('/profile', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'profile.html'));
 });
 
+// ДОБАВЛЕНА СТРАНИЦА АДМИНКИ
 app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'netuDostup.html'));
 });
@@ -1312,6 +1313,7 @@ async function startServer() {
       console.log(`   POST /api/auth/google - Google OAuth`);
       console.log(`   POST /api/auth/google/register - Google регистрация`);
       console.log(`   GET  /health - Проверка работы`);
+      console.log(`   GET  /admin - Страница админки`);
     });
   } catch (err) {
     console.error('❌ Не удалось подключиться к базе данных:', err);
