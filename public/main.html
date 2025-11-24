@@ -682,7 +682,7 @@
                 console.log("Получены данные:", data);
 
                 // ИСПРАВЛЕНО: используем data.data вместо data.products
-                return data.data || [];
+                return data.products || [];
             }
 
             renderProducts() {
