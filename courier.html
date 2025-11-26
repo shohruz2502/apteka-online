@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>ФармаПлюс - Панель курьера</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            line-height: 1.4;
+            min-height: 100vh;
+        }
+
+        /* Шапка */
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            color: #333;
+            padding: 15px 20px;
+            position: fixed;
+            top: 0;
+            width: 100%;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            height: 70px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .header h1 {
+            font-size: 20px;
+            font-weight: bold;
+            margin-right: 10px;
+            white-space: nowrap;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .header-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-left: auto;
+        }
+
+        .courier-status {
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            color: white;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .courier-status:active {
+            transform: scale(0.95);
+        }
+
+        .courier-status.offline {
+            background: linear-gradient(135deg, #ff6b6b, #ee5a52);
+        }
+
+        /* Основной контент */
+        .container {
+            margin-top: 70px;
+            margin-bottom: 80px;
+            padding: 0 15px;
+        }
+
+        /* Статистика */
+        .stats-container {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin: 20px 0;
+        }
+
+        .stat-item {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 15px 10px;
+            text-align: center;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: transform 0.3s ease;
+        }
+
+        .stat-item:active {
+            transform: scale(0.95);
+        }
+
+        .stat-value {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 5px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .stat-label {
+            font-size: 11px;
+            color: #666;
+            font-weight: 500;
+        }
+
+        /* Фильтры */
+        .filters-container {
+            display: flex;
+            gap: 8px;
+            margin: 15px 0;
+            overflow-x: auto;
+            padding-bottom: 5px;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .filters-container::-webkit-scrollbar {
+            display: none;
+        }
+
+        .filter-btn {
+            background: rgba(255, 255, 255, 0.9);
+            border: none;
+            padding: 12px 20px;
+            border-radius: 25px;
+            font-size: 14px;
+            cursor: pointer;
+            white-space: nowrap;
+            flex-shrink: 0;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+
+        .filter-btn.active {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .filter-btn:active {
+            transform: scale(0.95);
+        }
+
+        /* Список заказов */
+        .orders-list {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .order-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .order-card:active {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
+        }
+
+        .order-header {
+            padding: 15px 20px;
+            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+        }
+
+        .order-id {
+            font-weight: bold;
+            color: #333;
+            font-size: 16px;
+        }
+
+        .order-status {
+            padding: 6px 12px;
+            border-radius: 15px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .status-new {
+            background: linear-gradient(135deg, #ffd93d, #ff9a3d);
+            color: #333;
+        }
+
+        .status-accepted {
+            background: linear-gradient(135deg, #4cc9f0, #4361ee);
+            color: white;
+        }
+
+        .status-delivered {
+            background: linear-gradient(135deg, #4CAF50, #2e7d32);
+            color: white;
+        }
+
+        .status-cancelled {
+            background: linear-gradient(135deg, #ff6b6b, #c62828);
+            color: white;
+        }
+
+        .order-content {
+            padding: 20px;
+        }
+
+        .order-product {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+        }
+
+        .product-info {
+            flex: 1;
+        }
+
+        .product-name {
+            font-weight: bold;
+            margin-bottom: 8px;
+            font-size: 16px;
+            line-height: 1.3;
+        }
+
+        .product-quantity {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .order-address {
+            background: rgba(102, 126, 234, 0.1);
+            padding: 15px;
+            border-radius: 12px;
+            margin: 15px 0;
+            border-left: 4px solid #667eea;
+        }
+
+        .address-title {
+            font-weight: bold;
+            margin-bottom: 8px;
+            font-size: 14px;
+            color: #667eea;
+        }
+
+        .address-text {
+            font-size: 14px;
+            color: #555;
+            line-height: 1.4;
+        }
+
+        .order-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid rgba(0, 0, 0, 0.05);
+        }
+
+        .order-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .action-btn {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 12px;
+            font-size: 14px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .action-btn:active {
+            transform: scale(0.95);
+        }
+
+        .btn-accept {
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            color: white;
+        }
+
+        .btn-accept:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        .btn-complete {
+            background: linear-gradient(135deg, #2196f3, #1976d2);
+            color: white;
+        }
+
+        .btn-cancel {
+            background: linear-gradient(135deg, #ff6b6b, #f44336);
+            color: white;
+        }
+
+        .courier-info {
+            font-size: 12px;
+            color: #666;
+            margin-top: 8px;
+            font-style: italic;
+        }
+
+        /* Сообщение об отсутствии заказов */
+        .no-orders {
+            text-align: center;
+            padding: 50px 20px;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            margin-top: 30px;
+        }
+
+        .no-orders-icon {
+            font-size: 60px;
+            margin-bottom: 20px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .no-orders h3 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 20px;
+        }
+
+        .no-orders p {
+            color: #666;
+            margin-bottom: 25px;
+            font-size: 15px;
+        }
+
+        .reload-btn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 12px;
+            font-size: 16px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+            transition: all 0.3s ease;
+        }
+
+        .reload-btn:active {
+            transform: scale(0.95);
+        }
+
+        /* Индикатор загрузки */
+        .loading {
+            text-align: center;
+            padding: 40px 20px;
+            color: #666;
+            display: none;
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(102, 126, 234, 0.2);
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Нижнее меню */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            display: flex;
+            justify-content: space-around;
+            padding: 15px 0;
+            box-shadow: 0 -5px 20px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+            border-top: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-size: 12px;
+            color: #666;
+            text-decoration: none;
+            cursor: pointer;
+            padding: 5px;
+            min-width: 60px;
+            transition: all 0.3s ease;
+        }
+
+        .nav-item.active {
+            color: #667eea;
+            transform: translateY(-2px);
+        }
+
+        .nav-item i {
+            font-size: 22px;
+            margin-bottom: 5px;
+        }
+
+        /* Анимации */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .order-card {
+            animation: fadeIn 0.5s ease forwards;
+        }
+
+        /* Поддержка iPhone X и новее */
+        @supports (padding: max(0px)) {
+            .container {
+                padding-bottom: max(20px, env(safe-area-inset-bottom));
+            }
+
+            .bottom-nav {
+                padding-bottom: max(15px, env(safe-area-inset-bottom));
+            }
+        }
+
+        /* Адаптация для очень маленьких экранов */
+        @media (max-width: 360px) {
+            .stats-container {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 8px;
+            }
+            
+            .filter-btn {
+                padding: 10px 16px;
+                font-size: 13px;
+            }
+            
+            .order-content {
+                padding: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Шапка -->
+    <div class="header">
+        <h1>Панель курьера</h1>
+        <div class="header-info">
+            <div class="courier-status active" id="courier-status">
+                <i class="fas fa-circle"></i>
+                <span>Доступен</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Основной контент -->
+    <div class="container">
+        <!-- Статистика -->
+        <div class="stats-container">
+            <div class="stat-item">
+                <div class="stat-value" id="total-orders">0</div>
+                <div class="stat-label">Всего заказов</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="new-orders">0</div>
+                <div class="stat-label">Новые</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="accepted-orders">0</div>
+                <div class="stat-label">Принятые</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="delivered-orders">0</div>
+                <div class="stat-label">Доставленные</div>
+            </div>
+        </div>
+
+        <!-- Фильтры -->
+        <div class="filters-container">
+            <button class="filter-btn active" data-filter="all">Все заказы</button>
+            <button class="filter-btn" data-filter="new">Новые</button>
+            <button class="filter-btn" data-filter="accepted">Принятые</button>
+            <button class="filter-btn" data-filter="delivered">Доставленные</button>
+        </div>
+
+        <!-- Список заказов -->
+        <div class="orders-list" id="orders-list">
+            <!-- Заказы будут добавляться через JavaScript -->
+        </div>
+
+        <!-- Сообщение об отсутствии заказов -->
+        <div class="no-orders" id="no-orders" style="display: none">
+            <div class="no-orders-icon">
+                <i class="fas fa-box-open"></i>
+            </div>
+            <h3>Нет доступных заказов</h3>
+            <p>Новые заказы появятся здесь автоматически</p>
+            <button class="reload-btn" id="reload-orders">
+                <i class="fas fa-redo"></i>
+                Обновить
+            </button>
+        </div>
+
+        <!-- Индикатор загрузки -->
+        <div class="loading" id="loading">
+            <div class="loading-spinner"></div>
+            <div>Загрузка заказов...</div>
+        </div>
+    </div>
+
+    <!-- Нижнее меню -->
+    <div class="bottom-nav">
+        <a href="courier.html" class="nav-item active">
+            <i class="fas fa-motorcycle"></i>
+            <span>Заказы</span>
+        </a>
+        <a href="profile for courier.html" class="nav-item">
+            <i class="fas fa-user"></i>
+            <span>Профиль</span>
+        </a>
+    </div>
+
+    <script>
+        class CourierManager {
+            constructor() {
+                this.orders = [];
+                this.filteredOrders = [];
+                this.currentFilter = 'all';
+                this.courierName = 'Иван Курьеров';
+                this.isAvailable = true;
+                
+                this.initialize();
+            }
+
+            initialize() {
+                this.loadOrders();
+                this.setupEventListeners();
+                this.setupAutoRefresh();
+            }
+
+            async loadOrders() {
+                this.showLoading();
+                this.hideNoOrders();
+
+                try {
+                    const response = await fetch('/api/courier/orders');
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        this.orders = data.orders || [];
+                        this.applyFilter();
+                        this.updateStats();
+                        this.renderOrders();
+                        this.hideNoOrders();
+                        
+                        if (this.orders.length === 0) {
+                            this.showNoOrders();
+                        }
+                    } else {
+                        throw new Error(data.error || 'Ошибка загрузки заказов');
+                    }
+                } catch (error) {
+                    console.error('Ошибка загрузки заказов:', error);
+                    this.showNoOrders();
+                }
+
+                this.hideLoading();
+            }
+
+            applyFilter() {
+                switch (this.currentFilter) {
+                    case 'new':
+                        this.filteredOrders = this.orders.filter(order => order.status === 'new');
+                        break;
+                    case 'accepted':
+                        this.filteredOrders = this.orders.filter(order => order.status === 'accepted');
+                        break;
+                    case 'delivered':
+                        this.filteredOrders = this.orders.filter(order => order.status === 'delivered');
+                        break;
+                    default:
+                        this.filteredOrders = this.orders;
+                }
+            }
+
+            updateStats() {
+                const total = this.orders.length;
+                const newOrders = this.orders.filter(order => order.status === 'new').length;
+                const accepted = this.orders.filter(order => order.status === 'accepted').length;
+                const delivered = this.orders.filter(order => order.status === 'delivered').length;
+
+                document.getElementById('total-orders').textContent = total;
+                document.getElementById('new-orders').textContent = newOrders;
+                document.getElementById('accepted-orders').textContent = accepted;
+                document.getElementById('delivered-orders').textContent = delivered;
+            }
+
+            renderOrders() {
+                const container = document.getElementById('orders-list');
+                container.innerHTML = '';
+
+                this.filteredOrders.forEach(order => {
+                    const orderElement = this.createOrderElement(order);
+                    container.appendChild(orderElement);
+                });
+            }
+
+            createOrderElement(order) {
+                const orderDiv = document.createElement('div');
+                orderDiv.className = 'order-card';
+                
+                let statusClass = 'status-new';
+                let statusText = 'Новый';
+                
+                switch (order.status) {
+                    case 'accepted':
+                        statusClass = 'status-accepted';
+                        statusText = 'Принят';
+                        break;
+                    case 'delivered':
+                        statusClass = 'status-delivered';
+                        statusText = 'Доставлен';
+                        break;
+                    case 'cancelled':
+                        statusClass = 'status-cancelled';
+                        statusText = 'Отменен';
+                        break;
+                }
+
+                let actionButton = '';
+                if (order.status === 'new') {
+                    actionButton = `<button class="action-btn btn-accept" onclick="courierManager.acceptOrder(${order.id})">Принять заказ</button>`;
+                } else if (order.status === 'accepted' && order.courier_name === this.courierName) {
+                    actionButton = `<button class="action-btn btn-complete" onclick="courierManager.completeOrder(${order.id})">Завершить</button>`;
+                } else if (order.status === 'accepted') {
+                    actionButton = `<button class="action-btn btn-accept" disabled>Принят ${order.courier_name}</button>`;
+                }
+
+                const productsHtml = order.products.map(product => `
+                    <div class="order-product">
+                        <div class="product-info">
+                            <div class="product-name">${product.name}</div>
+                            <div class="product-quantity">Количество: ${product.quantity}</div>
+                        </div>
+                    </div>
+                `).join('');
+
+                orderDiv.innerHTML = `
+                    <div class="order-header">
+                        <div class="order-id">Заказ #${order.id}</div>
+                        <div class="order-status ${statusClass}">${statusText}</div>
+                    </div>
+                    <div class="order-content">
+                        ${productsHtml}
+                        <div class="order-address">
+                            <div class="address-title">Адрес доставки:</div>
+                            <div class="address-text">${order.address}</div>
+                        </div>
+                        <div class="order-footer">
+                            <div class="order-actions">
+                                ${actionButton}
+                            </div>
+                        </div>
+                        ${order.courier_name && order.status !== 'new' ? 
+                            `<div class="courier-info">Курьер: ${order.courier_name}</div>` : ''}
+                    </div>
+                `;
+
+                return orderDiv;
+            }
+
+            async acceptOrder(orderId) {
+                if (!this.isAvailable) {
+                    alert('Сначала переведите себя в статус "Доступен"');
+                    return;
+                }
+
+                try {
+                    const response = await fetch('/api/courier/orders/accept', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            order_id: orderId,
+                            courier_name: this.courierName
+                        })
+                    });
+
+                    const data = await response.json();
+
+                    if (data.success) {
+                        this.loadOrders();
+                    } else {
+                        alert(data.error || 'Ошибка принятия заказа');
+                    }
+                } catch (error) {
+                    console.error('Ошибка принятия заказа:', error);
+                    alert('Ошибка принятия заказа');
+                }
+            }
+
+            async completeOrder(orderId) {
+                try {
+                    const response = await fetch('/api/courier/orders/complete', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            order_id: orderId
+                        })
+                    });
+
+                    const data = await response.json();
+
+                    if (data.success) {
+                        this.loadOrders();
+                    } else {
+                        alert(data.error || 'Ошибка завершения заказа');
+                    }
+                } catch (error) {
+                    console.error('Ошибка завершения заказа:', error);
+                    alert('Ошибка завершения заказа');
+                }
+            }
+
+            setupEventListeners() {
+                // Фильтры
+                document.querySelectorAll('.filter-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                        e.target.classList.add('active');
+                        this.currentFilter = e.target.dataset.filter;
+                        this.applyFilter();
+                        this.renderOrders();
+                    });
+                });
+
+                // Статус курьера
+                document.getElementById('courier-status').addEventListener('click', () => {
+                    this.isAvailable = !this.isAvailable;
+                    const statusElement = document.getElementById('courier-status');
+                    
+                    if (this.isAvailable) {
+                        statusElement.classList.add('active');
+                        statusElement.classList.remove('offline');
+                        statusElement.innerHTML = '<i class="fas fa-circle"></i><span>Доступен</span>';
+                    } else {
+                        statusElement.classList.remove('active');
+                        statusElement.classList.add('offline');
+                        statusElement.innerHTML = '<i class="fas fa-circle"></i><span>Не доступен</span>';
+                    }
+                });
+
+                // Кнопка обновления
+                document.getElementById('reload-orders').addEventListener('click', () => {
+                    this.loadOrders();
+                });
+            }
+
+            setupAutoRefresh() {
+                // Автообновление каждые 30 секунд
+                setInterval(() => {
+                    this.loadOrders();
+                }, 30000);
+            }
+
+            showLoading() {
+                document.getElementById('loading').style.display = 'block';
+                document.getElementById('orders-list').style.display = 'none';
+            }
+
+            hideLoading() {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('orders-list').style.display = 'flex';
+            }
+
+            showNoOrders() {
+                document.getElementById('no-orders').style.display = 'block';
+                document.getElementById('orders-list').style.display = 'none';
+            }
+
+            hideNoOrders() {
+                document.getElementById('no-orders').style.display = 'none';
+                document.getElementById('orders-list').style.display = 'flex';
+            }
+        }
+
+        // Инициализация при загрузке страницы
+        let courierManager;
+        document.addEventListener('DOMContentLoaded', function() {
+            courierManager = new CourierManager();
+        });
+    </script>
+</body>
+</html>
