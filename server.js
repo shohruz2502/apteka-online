@@ -437,6 +437,164 @@ function comparePassword(password, hashedPassword) {
 
 // ==================== API ROUTES ====================
 
+// ==================== COURIER PROFILE ROUTES ====================
+
+// Courier - Get profile
+app.get('/api/courier/profile', databaseMiddleware, async (req, res) => {
+  console.log('📨 GET /api/courier/profile');
+  
+  try {
+    // В реальном приложении здесь был бы ID курьера из сессии/токена
+    const courierId = 1; // Демо ID
+    
+    const { rows } = await req.db.query(
+      'SELECT * FROM couriers WHERE id = $1',
+      [courierId]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Курьер не найден'
+      });
+    }
+
+    res.json({
+      success: true,
+      courier: rows[0]
+    });
+  } catch (err) {
+    console.error('❌ Ошибка получения профиля курьера:', err);
+    res.status(500).json({
+      success: false,
+      error: 'Ошибка получения профиля курьера: ' + err.message
+    });
+  }
+});
+
+// Courier - Get messages
+app.get('/api/courier/messages', databaseMiddleware, async (req, res) => {
+  console.log('📨 GET /api/courier/messages');
+  
+  try {
+    const courierId = 1; // Демо ID
+    
+    const { rows } = await req.db.query(
+      'SELECT * FROM courier_messages WHERE courier_id = $1 ORDER BY created_at DESC',
+      [courierId]
+    );
+
+    res.json({
+      success: true,
+      messages: rows
+    });
+  } catch (err) {
+    console.error('❌ Ошибка получения сообщений:', err);
+    res.status(500).json({
+      success: false,
+      error: 'Ошибка получения сообщений: ' + err.message
+    });
+  }
+});
+
+// Courier - Get chats
+app.get('/api/courier/chats', databaseMiddleware, async (req, res) => {
+  console.log('📨 GET /api/courier/chats');
+  
+  try {
+    const courierId = 1; // Демо ID
+    
+    const { rows } = await req.db.query(
+      'SELECT * FROM courier_chats WHERE courier_id = $1 AND is_active = true ORDER BY last_message_at DESC',
+      [courierId]
+    );
+
+    res.json({
+      success: true,
+      chats: rows
+    });
+  } catch (err) {
+    console.error('❌ Ошибка получения чатов:', err);
+    res.status(500).json({
+      success: false,
+      error: 'Ошибка получения чатов: ' + err.message
+    });
+  }
+});
+
+// Courier - Get chat messages
+app.get('/api/courier/chats/:chatId/messages', databaseMiddleware, async (req, res) => {
+  console.log('📨 GET /api/courier/chats/' + req.params.chatId + '/messages');
+  
+  try {
+    const { rows } = await req.db.query(
+      'SELECT * FROM courier_chat_messages WHERE chat_id = $1 ORDER BY created_at ASC',
+      [req.params.chatId]
+    );
+
+    res.json({
+      success: true,
+      messages: rows
+    });
+  } catch (err) {
+    console.error('❌ Ошибка получения сообщений чата:', err);
+    res.status(500).json({
+      success: false,
+      error: 'Ошибка получения сообщений чата: ' + err.message
+    });
+  }
+});
+
+// Courier - Send message
+app.post('/api/courier/chats/:chatId/messages', databaseMiddleware, async (req, res) => {
+  console.log('📨 POST /api/courier/chats/' + req.params.chatId + '/messages');
+  
+  const { message } = req.body;
+  
+  if (!message) {
+    return res.status(400).json({
+      success: false,
+      error: 'Сообщение обязательно'
+    });
+  }
+
+  try {
+    const courierId = 1; // Демо ID
+    
+    // Получаем данные курьера для имени
+    const { rows: courierRows } = await req.db.query(
+      'SELECT first_name FROM couriers WHERE id = $1',
+      [courierId]
+    );
+
+    const courierName = courierRows[0]?.first_name || 'Курьер';
+
+    // Добавляем сообщение
+    const { rows } = await req.db.query(
+      `INSERT INTO courier_chat_messages (chat_id, sender_type, sender_name, message) 
+       VALUES ($1, $2, $3, $4) RETURNING *`,
+      [req.params.chatId, 'courier', courierName, message]
+    );
+
+    // Обновляем последнее сообщение в чате
+    await req.db.query(
+      'UPDATE courier_chats SET last_message = $1, last_message_at = CURRENT_TIMESTAMP WHERE id = $2',
+      [message, req.params.chatId]
+    );
+
+    res.json({
+      success: true,
+      message: rows[0]
+    });
+  } catch (err) {
+    console.error('❌ Ошибка отправки сообщения:', err);
+    res.status(500).json({
+      success: false,
+      error: 'Ошибка отправки сообщения: ' + err.message
+    });
+  }
+});
+
 // Health check
 app.get('/health', async (req, res) => {
   try {
