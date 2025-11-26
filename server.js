@@ -49,6 +49,7 @@ async function initializeDatabase() {
     
     // Create tables and seed data
     await createTables();
+    await createCourierTables();
     await seedInitialData();
     
     return db;
@@ -137,6 +138,114 @@ async function createTables() {
     console.log('✅ Таблицы созданы/проверены');
   } catch (err) {
     console.error('❌ Ошибка создания таблиц:', err);
+    throw err;
+  }
+}
+
+// Create courier tables
+async function createCourierTables() {
+  try {
+    // Couriers table
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS couriers (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        courier_code VARCHAR(20) UNIQUE NOT NULL,
+        first_name VARCHAR(50) NOT NULL,
+        last_name VARCHAR(50) NOT NULL,
+        phone VARCHAR(20) NOT NULL,
+        email VARCHAR(100),
+        vehicle_type VARCHAR(50) DEFAULT 'bicycle',
+        vehicle_number VARCHAR(20),
+        status VARCHAR(20) DEFAULT 'active',
+        rating DECIMAL(3,2) DEFAULT 5.0,
+        total_orders INTEGER DEFAULT 0,
+        completed_orders INTEGER DEFAULT 0,
+        daily_goal INTEGER DEFAULT 10,
+        current_daily_orders INTEGER DEFAULT 0,
+        total_earnings DECIMAL(10,2) DEFAULT 0,
+        today_earnings DECIMAL(10,2) DEFAULT 0,
+        last_activity TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Delivery orders table
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS delivery_orders (
+        id SERIAL PRIMARY KEY,
+        order_code VARCHAR(20) UNIQUE NOT NULL,
+        user_id INTEGER REFERENCES users(id),
+        total_amount DECIMAL(10,2) NOT NULL,
+        delivery_address TEXT NOT NULL,
+        customer_name VARCHAR(100) NOT NULL,
+        customer_phone VARCHAR(20) NOT NULL,
+        customer_notes TEXT,
+        status VARCHAR(20) DEFAULT 'pending',
+        courier_id INTEGER REFERENCES couriers(id),
+        assigned_at TIMESTAMP,
+        picked_up_at TIMESTAMP,
+        delivered_at TIMESTAMP,
+        estimated_delivery_time INTEGER,
+        actual_delivery_time INTEGER,
+        delivery_fee DECIMAL(8,2) DEFAULT 0,
+        payment_method VARCHAR(20) DEFAULT 'card',
+        is_paid BOOLEAN DEFAULT false,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Delivery order items table
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS delivery_order_items (
+        id SERIAL PRIMARY KEY,
+        delivery_order_id INTEGER REFERENCES delivery_orders(id) ON DELETE CASCADE,
+        product_id INTEGER REFERENCES products(id),
+        product_name VARCHAR(255) NOT NULL,
+        quantity INTEGER NOT NULL,
+        unit_price DECIMAL(10,2) NOT NULL,
+        total_price DECIMAL(10,2) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Courier messages table
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS courier_messages (
+        id SERIAL PRIMARY KEY,
+        courier_id INTEGER REFERENCES couriers(id) ON DELETE CASCADE,
+        sender_type VARCHAR(20) DEFAULT 'support',
+        sender_name VARCHAR(100) NOT NULL,
+        subject VARCHAR(200),
+        message TEXT NOT NULL,
+        is_read BOOLEAN DEFAULT false,
+        message_type VARCHAR(20) DEFAULT 'info',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        read_at TIMESTAMP
+      )
+    `);
+
+    // Courier chats table
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS courier_chats (
+        id SERIAL PRIMARY KEY,
+        courier_id INTEGER REFERENCES couriers(id) ON DELETE CASCADE,
+        participant_type VARCHAR(20) DEFAULT 'support',
+        participant_name VARCHAR(100) NOT NULL,
+        last_message TEXT,
+        last_message_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        unread_count INTEGER DEFAULT 0,
+        is_active BOOLEAN DEFAULT true,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    console.log('✅ Таблицы курьеров созданы/проверены');
+  } catch (err) {
+    console.error('❌ Ошибка создания таблиц курьеров:', err);
     throw err;
   }
 }
@@ -252,6 +361,42 @@ async function seedInitialData() {
       }
 
       console.log('✅ Начальные данные добавлены');
+    }
+
+    // Seed courier data
+    const { rows: existingCouriers } = await db.query('SELECT COUNT(*) as count FROM couriers');
+    if (parseInt(existingCouriers[0].count) === 0) {
+      console.log('🌱 Добавление тестового курьера...');
+      
+      await db.query(`
+        INSERT INTO couriers (user_id, courier_code, first_name, last_name, phone, email, vehicle_type, status, rating, total_orders, completed_orders, daily_goal) 
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+      `, [1, 'C-7842', 'Иван', 'Курьеров', '+7 (999) 123-45-67', 'courier@pharmaplus.ru', 'bicycle', 'active', 4.8, 47, 45, 10]);
+
+      // Add test messages
+      await db.query(`
+        INSERT INTO courier_messages (courier_id, sender_name, subject, message, message_type) 
+        VALUES 
+        (1, 'Поддержка', 'Добро пожаловать!', 'Добро пожаловать в команду ФармаПлюс! Мы рады видеть вас в нашей команде.', 'info'),
+        (1, 'Администратор', 'Обновление правил', 'Обратите внимание на обновленные правила доставки в приложении.', 'warning'),
+        (1, 'Система', 'Новый заказ', 'Вам назначен новый заказ #D-7842', 'urgent')
+      `);
+
+      // Add test chat
+      await db.query(`
+        INSERT INTO courier_chats (courier_id, participant_name, last_message, unread_count) 
+        VALUES (1, 'Поддержка', 'Чем могу помочь?', 0)
+      `);
+
+      // Add chat messages
+      await db.query(`
+        INSERT INTO courier_chat_messages (chat_id, sender_type, sender_name, message) 
+        VALUES 
+        (1, 'support', 'Поддержка', 'Здравствуйте! Чем могу помочь?'),
+        (1, 'courier', 'Иван Курьеров', 'Добрый день! У меня вопрос по поводу нового заказа.')
+      `);
+
+      console.log('✅ Тестовый курьер добавлен');
     }
   } catch (err) {
     console.error('❌ Ошибка заполнения начальных данных:', err);
@@ -930,6 +1075,274 @@ app.delete('/api/cart', databaseMiddleware, async (req, res) => {
   }
 });
 
+// ==================== ORDER ROUTES ====================
+
+// Create order
+app.post('/api/orders/create', databaseMiddleware, async (req, res) => {
+  console.log('📨 POST /api/orders/create');
+  
+  const {
+    product_id,
+    quantity,
+    total_amount,
+    customer_name,
+    customer_phone,
+    delivery_address,
+    customer_notes,
+    payment_method
+  } = req.body;
+
+  if (!product_id || !quantity || !total_amount || !customer_name || !customer_phone || !delivery_address) {
+    return res.status(400).json({
+      success: false,
+      error: 'Все обязательные поля должны быть заполнены'
+    });
+  }
+
+  try {
+    // Генерируем уникальный код заказа
+    const orderCode = 'D-' + Date.now().toString().slice(-8);
+    
+    // Создаем заказ
+    const { rows: orderRows } = await req.db.query(
+      `INSERT INTO delivery_orders (
+        order_code, user_id, total_amount, delivery_address, 
+        customer_name, customer_phone, customer_notes, payment_method
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+      [orderCode, 1, total_amount, delivery_address, customer_name, customer_phone, customer_notes, payment_method]
+    );
+
+    const order = orderRows[0];
+
+    // Получаем информацию о товаре
+    const { rows: productRows } = await req.db.query(
+      'SELECT * FROM products WHERE id = $1',
+      [product_id]
+    );
+
+    if (productRows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Товар не найден'
+      });
+    }
+
+    const product = productRows[0];
+
+    // Добавляем товар в заказ
+    await req.db.query(
+      `INSERT INTO delivery_order_items (
+        delivery_order_id, product_id, product_name, quantity, unit_price, total_price
+      ) VALUES ($1, $2, $3, $4, $5, $6)`,
+      [order.id, product.id, product.name, quantity, product.price, total_amount]
+    );
+
+    console.log('✅ Заказ успешно создан:', order.id);
+
+    res.json({
+      success: true,
+      message: 'Заказ успешно создан',
+      order: order
+    });
+
+  } catch (err) {
+    console.error('❌ Ошибка создания заказа:', err);
+    res.status(500).json({
+      success: false,
+      error: 'Ошибка создания заказа: ' + err.message
+    });
+  }
+});
+
+// ==================== COURIER ROUTES ====================
+
+// Courier - Get orders
+app.get('/api/courier/orders', databaseMiddleware, async (req, res) => {
+  console.log('📨 GET /api/courier/orders');
+  
+  try {
+    // Получаем заказы с товарами
+    const { rows: orders } = await req.db.query(`
+      SELECT o.*, 
+             json_agg(
+               json_build_object(
+                 'id', p.id,
+                 'name', p.name,
+                 'quantity', oi.quantity,
+                 'price', oi.price
+               )
+             ) as products
+      FROM delivery_orders o
+      LEFT JOIN delivery_order_items oi ON o.id = oi.delivery_order_id
+      LEFT JOIN products p ON oi.product_id = p.id
+      WHERE o.status IN ('pending', 'assigned', 'delivered')
+      GROUP BY o.id
+      ORDER BY o.created_at DESC
+    `);
+
+    // Если заказов нет, создадим демо-данные
+    if (orders.length === 0 || !orders[0].products[0].id) {
+      console.log('Создаем демо-заказы...');
+      
+      // Создаем демо-заказы
+      const demoOrders = [
+        {
+          user_id: 1,
+          total_amount: 1250.50,
+          address: 'г. Москва, ул. Тверская, д. 25, кв. 12',
+          status: 'pending'
+        },
+        {
+          user_id: 1,
+          total_amount: 890.00,
+          address: 'г. Москва, пр-т Мира, д. 15, кв. 45',
+          status: 'assigned',
+          courier_name: 'Петр Доставкин'
+        },
+        {
+          user_id: 1,
+          total_amount: 450.00,
+          address: 'г. Москва, ул. Ленина, д. 8, кв. 33',
+          status: 'pending'
+        }
+      ];
+
+      for (const demoOrder of demoOrders) {
+        const { rows: newOrder } = await req.db.query(
+          `INSERT INTO delivery_orders (user_id, total_amount, delivery_address, status) 
+           VALUES ($1, $2, $3, $4) RETURNING *`,
+          [demoOrder.user_id, demoOrder.total_amount, demoOrder.address, demoOrder.status]
+        );
+
+        // Добавляем товары в заказ
+        const { rows: products } = await req.db.query('SELECT id, price FROM products LIMIT 2');
+        
+        for (const product of products) {
+          await req.db.query(
+            'INSERT INTO delivery_order_items (delivery_order_id, product_id, product_name, quantity, unit_price, total_price) VALUES ($1, $2, $3, $4, $5, $6)',
+            [newOrder[0].id, product.id, 'Тестовый товар', Math.floor(Math.random() * 3) + 1, product.price, product.price]
+          );
+        }
+      }
+
+      // Повторно получаем заказы
+      const { rows: newOrders } = await req.db.query(`
+        SELECT o.*, 
+               json_agg(
+                 json_build_object(
+                   'id', p.id,
+                   'name', p.name,
+                   'quantity', oi.quantity,
+                   'price', oi.price
+                 )
+               ) as products
+        FROM delivery_orders o
+        LEFT JOIN delivery_order_items oi ON o.id = oi.delivery_order_id
+        LEFT JOIN products p ON oi.product_id = p.id
+        WHERE o.status IN ('pending', 'assigned', 'delivered')
+        GROUP BY o.id
+        ORDER BY o.created_at DESC
+      `);
+
+      res.json({
+        success: true,
+        orders: newOrders
+      });
+    } else {
+      res.json({
+        success: true,
+        orders: orders
+      });
+    }
+  } catch (err) {
+    console.error('❌ Ошибка получения заказов:', err);
+    res.status(500).json({
+      success: false,
+      error: 'Ошибка получения заказов: ' + err.message
+    });
+  }
+});
+
+// Courier - Accept order
+app.post('/api/courier/orders/accept', databaseMiddleware, async (req, res) => {
+  console.log('📨 POST /api/courier/orders/accept');
+  
+  const { order_id, courier_name } = req.body;
+  
+  if (!order_id || !courier_name) {
+    return res.status(400).json({
+      success: false,
+      error: 'order_id и courier_name обязательны'
+    });
+  }
+
+  try {
+    const { rows } = await req.db.query(
+      'UPDATE delivery_orders SET status = $1, courier_id = $2, assigned_at = CURRENT_TIMESTAMP WHERE id = $3 AND status = $4 RETURNING *',
+      ['assigned', 1, order_id, 'pending']
+    );
+
+    if (rows.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Заказ не найден или уже принят'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Заказ принят',
+      order: rows[0]
+    });
+  } catch (err) {
+    console.error('❌ Ошибка принятия заказа:', err);
+    res.status(500).json({
+      success: false,
+      error: 'Ошибка принятия заказа: ' + err.message
+    });
+  }
+});
+
+// Courier - Complete order
+app.post('/api/courier/orders/complete', databaseMiddleware, async (req, res) => {
+  console.log('📨 POST /api/courier/orders/complete');
+  
+  const { order_id } = req.body;
+  
+  if (!order_id) {
+    return res.status(400).json({
+      success: false,
+      error: 'order_id обязателен'
+    });
+  }
+
+  try {
+    const { rows } = await req.db.query(
+      'UPDATE delivery_orders SET status = $1, delivered_at = CURRENT_TIMESTAMP WHERE id = $2 AND status = $3 RETURNING *',
+      ['delivered', order_id, 'assigned']
+    );
+
+    if (rows.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Заказ не найден или не был принят'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Заказ доставлен',
+      order: rows[0]
+    });
+  } catch (err) {
+    console.error('❌ Ошибка завершения заказа:', err);
+    res.status(500).json({
+      success: false,
+      error: 'Ошибка завершения заказа: ' + err.message
+    });
+  }
+});
+
 // ==================== GOOGLE AUTH ====================
 
 // Verify Google token
@@ -1199,6 +1612,14 @@ app.get('/profile', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'profile.html'));
 });
 
+app.get('/courier', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'courier.html'));
+});
+
+app.get('/courier-profile', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'courier-profile.html'));
+});
+
 app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'netuDostup.html'));
 });
@@ -1233,6 +1654,10 @@ async function startServer() {
       console.log(`\n📋 Доступные endpoints:`);
       console.log(`   GET  /api/categories - Категории`);
       console.log(`   GET  /api/products - Товары`);
+      console.log(`   POST /api/orders/create - Создание заказа`);
+      console.log(`   GET  /api/courier/orders - Заказы для курьера`);
+      console.log(`   POST /api/courier/orders/accept - Принять заказ`);
+      console.log(`   POST /api/courier/orders/complete - Завершить заказ`);
       console.log(`   POST /api/admin/products - Добавление товара`);
       console.log(`   GET  /api/auth/me - Получение пользователя`);
       console.log(`   POST /api/cart/add - Добавление в корзину`);
