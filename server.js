@@ -47,10 +47,9 @@ async function initializeDatabase() {
     
     console.log('✅ Успешное подключение к Neon.tech');
     
-    // Create tables and seed data
+    // Create tables
     await createTables();
     await createCourierTables();
-    await seedInitialData();
     
     return db;
   } catch (err) {
@@ -64,6 +63,27 @@ async function initializeDatabase() {
 // Create tables
 async function createTables() {
   try {
+    // Users table
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        first_name VARCHAR(50),
+        last_name VARCHAR(50),
+        middle_name VARCHAR(50),
+        username VARCHAR(50) UNIQUE NOT NULL,
+        email VARCHAR(100) UNIQUE NOT NULL,
+        password VARCHAR(255) NOT NULL,
+        phone VARCHAR(20),
+        avatar VARCHAR(500),
+        google_id VARCHAR(100) UNIQUE,
+        email_verified BOOLEAN DEFAULT false,
+        is_admin BOOLEAN DEFAULT false,
+        login_count INTEGER DEFAULT 0,
+        last_login TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
     // Categories table
     await db.query(`
       CREATE TABLE IF NOT EXISTS categories (
@@ -98,27 +118,6 @@ async function createTables() {
         dosage VARCHAR(100),
         expiry_date VARCHAR(50),
         storage_conditions VARCHAR(200),
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-
-    // Users table
-    await db.query(`
-      CREATE TABLE IF NOT EXISTS users (
-        id SERIAL PRIMARY KEY,
-        first_name VARCHAR(50),
-        last_name VARCHAR(50),
-        middle_name VARCHAR(50),
-        username VARCHAR(50) UNIQUE NOT NULL,
-        email VARCHAR(100) UNIQUE NOT NULL,
-        password VARCHAR(255) NOT NULL,
-        phone VARCHAR(20),
-        avatar VARCHAR(500),
-        google_id VARCHAR(100) UNIQUE,
-        email_verified BOOLEAN DEFAULT false,
-        is_admin BOOLEAN DEFAULT false,
-        login_count INTEGER DEFAULT 0,
-        last_login TIMESTAMP,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
@@ -250,159 +249,6 @@ async function createCourierTables() {
   }
 }
 
-// Seed initial data
-async function seedInitialData() {
-  try {
-    // Check if categories already exist
-    const { rows: existingCategories } = await db.query('SELECT COUNT(*) as count FROM categories');
-    if (parseInt(existingCategories[0].count) === 0) {
-      console.log('🌱 Заполнение начальными данными...');
-      
-      // Add categories
-      const categories = [
-        { name: 'Лекарства', description: 'Медицинские препараты', image: 'https://images.unsplash.com/photo-1585435557343-3b092031d5ad?w=300&h=200&fit=crop' },
-        { name: 'Витамины', description: 'Витамины и БАДы', image: 'https://images.unsplash.com/photo-1550258987-190a2d41a8ba?w=300&h=200&fit=crop' },
-        { name: 'Красота', description: 'Средства по уходу', image: 'https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=300&h=200&fit=crop' },
-        { name: 'Гигиена', description: 'Средства личной гигиены', image: 'https://images.unsplash.com/photo-1583947215259-38e31be8751f?w=300&h=200&fit=crop' },
-        { name: 'Мама и ребенок', description: 'Товары для матери и ребенка', image: 'https://images.unsplash.com/photo-1516627145497-ae69578b5d77?w=300&h=200&fit=crop' },
-        { name: 'Медтехника', description: 'Медицинская техника', image: 'https://images.unsplash.com/photo-1559757148-5c350d0d3c56?w=300&h=200&fit=crop' },
-        { name: 'Антисептики', description: 'Дезинфицирующие средства', image: 'https://images.unsplash.com/photo-1584634731339-252c581abfc5?w=300&h=200&fit=crop' }
-      ];
-
-      for (const category of categories) {
-        await db.query(
-          'INSERT INTO categories (name, description, image) VALUES ($1, $2, $3)',
-          [category.name, category.description, category.image]
-        );
-      }
-
-      // Add sample products
-      const products = [
-        {
-          name: 'Нурофен таблетки 200мг №20',
-          description: 'Обезболивающее и жаропонижающее средство',
-          price: 250.50,
-          old_price: 280.00,
-          category_id: 1,
-          manufacturer: 'Рекитт Бенкизер',
-          country: 'Великобритания',
-          stock_quantity: 50,
-          is_popular: true,
-          is_new: true,
-          image: 'https://images.unsplash.com/photo-1585435557343-3b092031d5ad?w=300&h=200&fit=crop'
-        },
-        {
-          name: 'Витамин D3 2000 МЕ №60',
-          description: 'Витамин D для поддержки иммунитета',
-          price: 890.00,
-          category_id: 2,
-          manufacturer: 'Солгар',
-          country: 'США',
-          stock_quantity: 30,
-          is_popular: true,
-          image: 'https://images.unsplash.com/photo-1550258987-190a2d41a8ba?w=300&h=200&fit=crop'
-        },
-        {
-          name: 'Панадол 500мг №12',
-          description: 'Обезболивающее средство',
-          price: 180.00,
-          category_id: 1,
-          manufacturer: 'ГлаксоСмитКляйн',
-          country: 'Великобритания',
-          stock_quantity: 25,
-          image: 'https://images.unsplash.com/photo-1585435557343-3b092031d5ad?w=300&h=200&fit=crop'
-        },
-        {
-          name: 'Аспирин 500мг №20',
-          description: 'Противовоспалительное средство',
-          price: 120.00,
-          old_price: 150.00,
-          category_id: 1,
-          manufacturer: 'Байер',
-          country: 'Германия',
-          stock_quantity: 40,
-          is_popular: true,
-          image: 'https://images.unsplash.com/photo-1585435557343-3b092031d5ad?w=300&h=200&fit=crop'
-        },
-        {
-          name: 'Витамин C 1000мг №60',
-          description: 'Витамин C для иммунитета',
-          price: 450.00,
-          category_id: 2,
-          manufacturer: 'Солгар',
-          country: 'США',
-          stock_quantity: 35,
-          is_new: true,
-          image: 'https://images.unsplash.com/photo-1550258987-190a2d41a8ba?w=300&h=200&fit=crop'
-        },
-        {
-          name: 'Ибупрофен 400мг №24',
-          description: 'Противовоспалительное и обезболивающее',
-          price: 190.00,
-          category_id: 1,
-          manufacturer: 'Берлин-Хеми',
-          country: 'Германия',
-          stock_quantity: 60,
-          is_popular: true,
-          image: 'https://images.unsplash.com/photo-1585435557343-3b092031d5ad?w=300&h=200&fit=crop'
-        }
-      ];
-
-      for (const product of products) {
-        await db.query(
-          `INSERT INTO products (name, description, price, old_price, category_id, manufacturer, country, stock_quantity, is_popular, is_new, image) 
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
-          [
-            product.name, product.description, product.price, product.old_price,
-            product.category_id, product.manufacturer, product.country,
-            product.stock_quantity, product.is_popular, product.is_new, product.image
-          ]
-        );
-      }
-
-      console.log('✅ Начальные данные добавлены');
-    }
-
-    // Seed courier data
-    const { rows: existingCouriers } = await db.query('SELECT COUNT(*) as count FROM couriers');
-    if (parseInt(existingCouriers[0].count) === 0) {
-      console.log('🌱 Добавление тестового курьера...');
-      
-      await db.query(`
-        INSERT INTO couriers (user_id, courier_code, first_name, last_name, phone, email, vehicle_type, status, rating, total_orders, completed_orders, daily_goal) 
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-      `, [1, 'C-7842', 'Иван', 'Курьеров', '+7 (999) 123-45-67', 'courier@pharmaplus.ru', 'bicycle', 'active', 4.8, 47, 45, 10]);
-
-      // Add test messages
-      await db.query(`
-        INSERT INTO courier_messages (courier_id, sender_name, subject, message, message_type) 
-        VALUES 
-        (1, 'Поддержка', 'Добро пожаловать!', 'Добро пожаловать в команду ФармаПлюс! Мы рады видеть вас в нашей команде.', 'info'),
-        (1, 'Администратор', 'Обновление правил', 'Обратите внимание на обновленные правила доставки в приложении.', 'warning'),
-        (1, 'Система', 'Новый заказ', 'Вам назначен новый заказ #D-7842', 'urgent')
-      `);
-
-      // Add test chat
-      await db.query(`
-        INSERT INTO courier_chats (courier_id, participant_name, last_message, unread_count) 
-        VALUES (1, 'Поддержка', 'Чем могу помочь?', 0)
-      `);
-
-      // Add chat messages
-      await db.query(`
-        INSERT INTO courier_chat_messages (chat_id, sender_type, sender_name, message) 
-        VALUES 
-        (1, 'support', 'Поддержка', 'Здравствуйте! Чем могу помочь?'),
-        (1, 'courier', 'Иван Курьеров', 'Добрый день! У меня вопрос по поводу нового заказа.')
-      `);
-
-      console.log('✅ Тестовый курьер добавлен');
-    }
-  } catch (err) {
-    console.error('❌ Ошибка заполнения начальных данных:', err);
-  }
-}
-
 // Database connection middleware
 async function databaseMiddleware(req, res, next) {
   try {
@@ -435,6 +281,38 @@ function comparePassword(password, hashedPassword) {
   return simpleHash(password) === hashedPassword;
 }
 
+// User validation middleware
+async function validateUser(req, res, next) {
+  const { user_id } = req.body;
+  
+  if (!user_id) {
+    return res.status(400).json({
+      success: false,
+      error: 'user_id обязателен'
+    });
+  }
+
+  try {
+    const { rows } = await req.db.query('SELECT id FROM users WHERE id = $1', [user_id]);
+    
+    if (rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Пользователь не найден'
+      });
+    }
+
+    req.userId = user_id;
+    next();
+  } catch (err) {
+    console.error('❌ Ошибка валидации пользователя:', err);
+    res.status(500).json({
+      success: false,
+      error: 'Ошибка сервера'
+    });
+  }
+}
+
 // ==================== API ROUTES ====================
 
 // ==================== COURIER PROFILE ROUTES ====================
@@ -444,12 +322,18 @@ app.get('/api/courier/profile', databaseMiddleware, async (req, res) => {
   console.log('📨 GET /api/courier/profile');
   
   try {
-    // В реальном приложении здесь был бы ID курьера из сессии/токена
-    const courierId = 1; // Демо ID
+    const { user_id } = req.query;
     
+    if (!user_id) {
+      return res.status(400).json({
+        success: false,
+        error: 'user_id обязателен'
+      });
+    }
+
     const { rows } = await req.db.query(
-      'SELECT * FROM couriers WHERE id = $1',
-      [courierId]
+      'SELECT * FROM couriers WHERE user_id = $1',
+      [user_id]
     );
 
     if (rows.length === 0) {
@@ -477,11 +361,21 @@ app.get('/api/courier/messages', databaseMiddleware, async (req, res) => {
   console.log('📨 GET /api/courier/messages');
   
   try {
-    const courierId = 1; // Демо ID
+    const { user_id } = req.query;
     
+    if (!user_id) {
+      return res.status(400).json({
+        success: false,
+        error: 'user_id обязателен'
+      });
+    }
+
     const { rows } = await req.db.query(
-      'SELECT * FROM courier_messages WHERE courier_id = $1 ORDER BY created_at DESC',
-      [courierId]
+      `SELECT cm.* FROM courier_messages cm 
+       JOIN couriers c ON cm.courier_id = c.id 
+       WHERE c.user_id = $1 
+       ORDER BY cm.created_at DESC`,
+      [user_id]
     );
 
     res.json({
@@ -502,11 +396,21 @@ app.get('/api/courier/chats', databaseMiddleware, async (req, res) => {
   console.log('📨 GET /api/courier/chats');
   
   try {
-    const courierId = 1; // Демо ID
+    const { user_id } = req.query;
     
+    if (!user_id) {
+      return res.status(400).json({
+        success: false,
+        error: 'user_id обязателен'
+      });
+    }
+
     const { rows } = await req.db.query(
-      'SELECT * FROM courier_chats WHERE courier_id = $1 AND is_active = true ORDER BY last_message_at DESC',
-      [courierId]
+      `SELECT cc.* FROM courier_chats cc 
+       JOIN couriers c ON cc.courier_id = c.id 
+       WHERE c.user_id = $1 AND cc.is_active = true 
+       ORDER BY cc.last_message_at DESC`,
+      [user_id]
     );
 
     res.json({
@@ -549,7 +453,7 @@ app.get('/api/courier/chats/:chatId/messages', databaseMiddleware, async (req, r
 app.post('/api/courier/chats/:chatId/messages', databaseMiddleware, async (req, res) => {
   console.log('📨 POST /api/courier/chats/' + req.params.chatId + '/messages');
   
-  const { message } = req.body;
+  const { message, user_id } = req.body;
   
   if (!message) {
     return res.status(400).json({
@@ -558,14 +462,26 @@ app.post('/api/courier/chats/:chatId/messages', databaseMiddleware, async (req, 
     });
   }
 
+  if (!user_id) {
+    return res.status(400).json({
+      success: false,
+      error: 'user_id обязателен'
+    });
+  }
+
   try {
-    const courierId = 1; // Демо ID
-    
     // Получаем данные курьера для имени
     const { rows: courierRows } = await req.db.query(
-      'SELECT first_name FROM couriers WHERE id = $1',
-      [courierId]
+      'SELECT first_name FROM couriers WHERE user_id = $1',
+      [user_id]
     );
+
+    if (courierRows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Курьер не найден'
+      });
+    }
 
     const courierName = courierRows[0]?.first_name || 'Курьер';
 
@@ -920,25 +836,18 @@ app.post('/api/auth/login', databaseMiddleware, async (req, res) => {
 });
 
 // User - Update profile
-app.put('/api/user/update-profile', databaseMiddleware, async (req, res) => {
+app.put('/api/user/update-profile', databaseMiddleware, validateUser, async (req, res) => {
   console.log('📨 PUT /api/user/update-profile');
   
-  const { user_id, first_name, last_name, middle_name, phone } = req.body;
+  const { first_name, last_name, middle_name, phone } = req.body;
   
-  if (!user_id) {
-    return res.status(400).json({
-      success: false,
-      error: 'ID пользователя обязателен'
-    });
-  }
-
   try {
     await req.db.query(
       'UPDATE users SET first_name = $1, last_name = $2, middle_name = $3, phone = $4 WHERE id = $5',
-      [first_name, last_name, middle_name, phone, user_id]
+      [first_name, last_name, middle_name, phone, req.userId]
     );
 
-    const { rows } = await req.db.query('SELECT * FROM users WHERE id = $1', [user_id]);
+    const { rows } = await req.db.query('SELECT * FROM users WHERE id = $1', [req.userId]);
     const user = rows[0];
     delete user.password;
 
@@ -957,12 +866,12 @@ app.put('/api/user/update-profile', databaseMiddleware, async (req, res) => {
 });
 
 // User - Change password
-app.post('/api/user/change-password', databaseMiddleware, async (req, res) => {
+app.post('/api/user/change-password', databaseMiddleware, validateUser, async (req, res) => {
   console.log('📨 POST /api/user/change-password');
   
-  const { user_id, current_password, new_password } = req.body;
+  const { current_password, new_password } = req.body;
   
-  if (!user_id || !current_password || !new_password) {
+  if (!current_password || !new_password) {
     return res.status(400).json({
       success: false,
       error: 'Все поля обязательны'
@@ -970,7 +879,7 @@ app.post('/api/user/change-password', databaseMiddleware, async (req, res) => {
   }
 
   try {
-    const { rows } = await req.db.query('SELECT * FROM users WHERE id = $1', [user_id]);
+    const { rows } = await req.db.query('SELECT * FROM users WHERE id = $1', [req.userId]);
     
     if (rows.length === 0) {
       return res.status(404).json({
@@ -990,7 +899,7 @@ app.post('/api/user/change-password', databaseMiddleware, async (req, res) => {
     }
 
     const hashedNewPassword = simpleHash(new_password);
-    await req.db.query('UPDATE users SET password = $1 WHERE id = $2', [hashedNewPassword, user_id]);
+    await req.db.query('UPDATE users SET password = $1 WHERE id = $2', [hashedNewPassword, req.userId]);
 
     res.json({
       success: true,
@@ -1006,22 +915,15 @@ app.post('/api/user/change-password', databaseMiddleware, async (req, res) => {
 });
 
 // User - Upload avatar
-app.post('/api/user/upload-avatar', databaseMiddleware, async (req, res) => {
+app.post('/api/user/upload-avatar', databaseMiddleware, validateUser, async (req, res) => {
   console.log('📨 POST /api/user/upload-avatar');
   
-  const { user_id, avatar } = req.body;
+  const { avatar } = req.body;
   
-  if (!user_id) {
-    return res.status(400).json({ 
-      success: false, 
-      error: 'ID пользователя обязателен' 
-    });
-  }
-
   try {
     await req.db.query(
       'UPDATE users SET avatar = $1 WHERE id = $2',
-      [avatar, user_id]
+      [avatar, req.userId]
     );
 
     res.json({
@@ -1041,16 +943,9 @@ app.post('/api/user/upload-avatar', databaseMiddleware, async (req, res) => {
 // ==================== CART ROUTES ====================
 
 // Cart - Add item
-app.post('/api/cart/add', databaseMiddleware, async (req, res) => {
+app.post('/api/cart/add', databaseMiddleware, validateUser, async (req, res) => {
   console.log('📨 POST /api/cart/add');
-  const { user_id, product_id, quantity = 1 } = req.body;
-
-  if (!user_id) {
-    return res.status(400).json({
-      success: false,
-      error: 'user_id обязателен'
-    });
-  }
+  const { product_id, quantity = 1 } = req.body;
 
   if (!product_id) {
     return res.status(400).json({
@@ -1069,15 +964,6 @@ app.post('/api/cart/add', databaseMiddleware, async (req, res) => {
       });
     }
 
-    // Check if user exists
-    const { rows: users } = await req.db.query('SELECT * FROM users WHERE id = $1', [user_id]);
-    if (users.length === 0) {
-      return res.status(404).json({
-        success: false,
-        error: 'Пользователь не найден'
-      });
-    }
-
     // Add or update item in cart
     const { rows } = await req.db.query(`
       INSERT INTO cart_items (user_id, product_id, quantity) 
@@ -1085,7 +971,7 @@ app.post('/api/cart/add', databaseMiddleware, async (req, res) => {
       ON CONFLICT (user_id, product_id) 
       DO UPDATE SET quantity = cart_items.quantity + $3
       RETURNING *
-    `, [user_id, product_id, quantity]);
+    `, [req.userId, product_id, quantity]);
 
     res.json({
       success: true,
@@ -1137,17 +1023,10 @@ app.get('/api/cart', databaseMiddleware, async (req, res) => {
 });
 
 // Cart - Update quantity
-app.put('/api/cart/:itemId', databaseMiddleware, async (req, res) => {
+app.put('/api/cart/:itemId', databaseMiddleware, validateUser, async (req, res) => {
   console.log('📨 PUT /api/cart/' + req.params.itemId);
-  const { user_id, quantity } = req.body;
+  const { quantity } = req.body;
   
-  if (!user_id) {
-    return res.status(400).json({
-      success: false,
-      error: 'user_id обязателен'
-    });
-  }
-
   if (!quantity || quantity < 1) {
     return res.status(400).json({
       success: false,
@@ -1158,7 +1037,7 @@ app.put('/api/cart/:itemId', databaseMiddleware, async (req, res) => {
   try {
     await req.db.query(
       'UPDATE cart_items SET quantity = $1 WHERE id = $2 AND user_id = $3',
-      [quantity, req.params.itemId, user_id]
+      [quantity, req.params.itemId, req.userId]
     );
 
     res.json({
@@ -1175,21 +1054,13 @@ app.put('/api/cart/:itemId', databaseMiddleware, async (req, res) => {
 });
 
 // Cart - Remove item
-app.delete('/api/cart/:itemId', databaseMiddleware, async (req, res) => {
+app.delete('/api/cart/:itemId', databaseMiddleware, validateUser, async (req, res) => {
   console.log('📨 DELETE /api/cart/' + req.params.itemId);
-  const { user_id } = req.body;
   
-  if (!user_id) {
-    return res.status(400).json({
-      success: false,
-      error: 'user_id обязателен'
-    });
-  }
-
   try {
     await req.db.query(
       'DELETE FROM cart_items WHERE id = $1 AND user_id = $2',
-      [req.params.itemId, user_id]
+      [req.params.itemId, req.userId]
     );
 
     res.json({
@@ -1206,19 +1077,11 @@ app.delete('/api/cart/:itemId', databaseMiddleware, async (req, res) => {
 });
 
 // Cart - Clear cart
-app.delete('/api/cart', databaseMiddleware, async (req, res) => {
+app.delete('/api/cart', databaseMiddleware, validateUser, async (req, res) => {
   console.log('📨 DELETE /api/cart');
-  const { user_id } = req.body;
   
-  if (!user_id) {
-    return res.status(400).json({
-      success: false,
-      error: 'user_id обязателен'
-    });
-  }
-
   try {
-    await req.db.query('DELETE FROM cart_items WHERE user_id = $1', [user_id]);
+    await req.db.query('DELETE FROM cart_items WHERE user_id = $1', [req.userId]);
 
     res.json({
       success: true,
@@ -1236,7 +1099,7 @@ app.delete('/api/cart', databaseMiddleware, async (req, res) => {
 // ==================== ORDER ROUTES ====================
 
 // Create order
-app.post('/api/orders/create', databaseMiddleware, async (req, res) => {
+app.post('/api/orders/create', databaseMiddleware, validateUser, async (req, res) => {
   console.log('📨 POST /api/orders/create');
   
   const {
@@ -1267,7 +1130,7 @@ app.post('/api/orders/create', databaseMiddleware, async (req, res) => {
         order_code, user_id, total_amount, delivery_address, 
         customer_name, customer_phone, customer_notes, payment_method
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
-      [orderCode, 1, total_amount, delivery_address, customer_name, customer_phone, customer_notes, payment_method]
+      [orderCode, req.userId, total_amount, delivery_address, customer_name, customer_phone, customer_notes, payment_method]
     );
 
     const order = orderRows[0];
@@ -1338,80 +1201,10 @@ app.get('/api/courier/orders', databaseMiddleware, async (req, res) => {
       ORDER BY o.created_at DESC
     `);
 
-    // Если заказов нет, создадим демо-данные
-    if (orders.length === 0 || !orders[0].products[0].id) {
-      console.log('Создаем демо-заказы...');
-      
-      // Создаем демо-заказы
-      const demoOrders = [
-        {
-          user_id: 1,
-          total_amount: 1250.50,
-          address: 'г. Москва, ул. Тверская, д. 25, кв. 12',
-          status: 'pending'
-        },
-        {
-          user_id: 1,
-          total_amount: 890.00,
-          address: 'г. Москва, пр-т Мира, д. 15, кв. 45',
-          status: 'assigned',
-          courier_name: 'Петр Доставкин'
-        },
-        {
-          user_id: 1,
-          total_amount: 450.00,
-          address: 'г. Москва, ул. Ленина, д. 8, кв. 33',
-          status: 'pending'
-        }
-      ];
-
-      for (const demoOrder of demoOrders) {
-        const { rows: newOrder } = await req.db.query(
-          `INSERT INTO delivery_orders (user_id, total_amount, delivery_address, status) 
-           VALUES ($1, $2, $3, $4) RETURNING *`,
-          [demoOrder.user_id, demoOrder.total_amount, demoOrder.address, demoOrder.status]
-        );
-
-        // Добавляем товары в заказ
-        const { rows: products } = await req.db.query('SELECT id, price FROM products LIMIT 2');
-        
-        for (const product of products) {
-          await req.db.query(
-            'INSERT INTO delivery_order_items (delivery_order_id, product_id, product_name, quantity, unit_price, total_price) VALUES ($1, $2, $3, $4, $5, $6)',
-            [newOrder[0].id, product.id, 'Тестовый товар', Math.floor(Math.random() * 3) + 1, product.price, product.price]
-          );
-        }
-      }
-
-      // Повторно получаем заказы
-      const { rows: newOrders } = await req.db.query(`
-        SELECT o.*, 
-               json_agg(
-                 json_build_object(
-                   'id', p.id,
-                   'name', p.name,
-                   'quantity', oi.quantity,
-                   'price', oi.price
-                 )
-               ) as products
-        FROM delivery_orders o
-        LEFT JOIN delivery_order_items oi ON o.id = oi.delivery_order_id
-        LEFT JOIN products p ON oi.product_id = p.id
-        WHERE o.status IN ('pending', 'assigned', 'delivered')
-        GROUP BY o.id
-        ORDER BY o.created_at DESC
-      `);
-
-      res.json({
-        success: true,
-        orders: newOrders
-      });
-    } else {
-      res.json({
-        success: true,
-        orders: orders
-      });
-    }
+    res.json({
+      success: true,
+      orders: orders
+    });
   } catch (err) {
     console.error('❌ Ошибка получения заказов:', err);
     res.status(500).json({
@@ -1425,19 +1218,34 @@ app.get('/api/courier/orders', databaseMiddleware, async (req, res) => {
 app.post('/api/courier/orders/accept', databaseMiddleware, async (req, res) => {
   console.log('📨 POST /api/courier/orders/accept');
   
-  const { order_id, courier_name } = req.body;
+  const { order_id, user_id } = req.body;
   
-  if (!order_id || !courier_name) {
+  if (!order_id || !user_id) {
     return res.status(400).json({
       success: false,
-      error: 'order_id и courier_name обязательны'
+      error: 'order_id и user_id обязательны'
     });
   }
 
   try {
+    // Получаем courier_id по user_id
+    const { rows: courierRows } = await req.db.query(
+      'SELECT id FROM couriers WHERE user_id = $1',
+      [user_id]
+    );
+
+    if (courierRows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Курьер не найден'
+      });
+    }
+
+    const courierId = courierRows[0].id;
+
     const { rows } = await req.db.query(
       'UPDATE delivery_orders SET status = $1, courier_id = $2, assigned_at = CURRENT_TIMESTAMP WHERE id = $3 AND status = $4 RETURNING *',
-      ['assigned', 1, order_id, 'pending']
+      ['assigned', courierId, order_id, 'pending']
     );
 
     if (rows.length === 0) {
@@ -1465,19 +1273,34 @@ app.post('/api/courier/orders/accept', databaseMiddleware, async (req, res) => {
 app.post('/api/courier/orders/complete', databaseMiddleware, async (req, res) => {
   console.log('📨 POST /api/courier/orders/complete');
   
-  const { order_id } = req.body;
+  const { order_id, user_id } = req.body;
   
-  if (!order_id) {
+  if (!order_id || !user_id) {
     return res.status(400).json({
       success: false,
-      error: 'order_id обязателен'
+      error: 'order_id и user_id обязательны'
     });
   }
 
   try {
+    // Получаем courier_id по user_id
+    const { rows: courierRows } = await req.db.query(
+      'SELECT id FROM couriers WHERE user_id = $1',
+      [user_id]
+    );
+
+    if (courierRows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Курьер не найден'
+      });
+    }
+
+    const courierId = courierRows[0].id;
+
     const { rows } = await req.db.query(
-      'UPDATE delivery_orders SET status = $1, delivered_at = CURRENT_TIMESTAMP WHERE id = $2 AND status = $3 RETURNING *',
-      ['delivered', order_id, 'assigned']
+      'UPDATE delivery_orders SET status = $1, delivered_at = CURRENT_TIMESTAMP WHERE id = $2 AND status = $3 AND courier_id = $4 RETURNING *',
+      ['delivered', order_id, 'assigned', courierId]
     );
 
     if (rows.length === 0) {
@@ -1643,7 +1466,7 @@ app.post('/api/auth/google/register', databaseMiddleware, async (req, res) => {
 // ==================== ADMIN ROUTES ====================
 
 // Admin - Add product
-app.post('/api/admin/products', databaseMiddleware, async (req, res) => {
+app.post('/api/admin/products', databaseMiddleware, validateUser, async (req, res) => {
   console.log('📨 POST /api/admin/products');
   
   const {
@@ -1675,6 +1498,19 @@ app.post('/api/admin/products', databaseMiddleware, async (req, res) => {
   }
 
   try {
+    // Проверяем права администратора
+    const { rows: userRows } = await req.db.query(
+      'SELECT is_admin FROM users WHERE id = $1',
+      [req.userId]
+    );
+
+    if (userRows.length === 0 || !userRows[0].is_admin) {
+      return res.status(403).json({
+        success: false,
+        error: 'Недостаточно прав'
+      });
+    }
+
     const { rows: categoryRows } = await req.db.query(
       'SELECT * FROM categories WHERE id = $1',
       [category_id]
