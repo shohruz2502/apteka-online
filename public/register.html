@@ -522,11 +522,8 @@
                         <label for="register-phone">Телефон (Таджикистан) *</label>
                         <div class="phone-input-container">
                             <span class="phone-prefix">+992</span>
-                            <input type="tel" id="register-phone" class="phone-input" placeholder="000 662 211" pattern="[0-9]{9}" required>
+                            <input type="tel" id="register-phone" class="phone-input" placeholder="XX XXX XX XX" pattern="[0-9]{9}" required>
                         </div>
-                        <small style="color: var(--gray); font-size: 0.8rem; margin-top: 0.25rem; display: block;">
-                            Формат: 000 662 211 (9 цифр после +992)
-                        </small>
                     </div>
                     
                     <div class="form-group">
@@ -589,11 +586,8 @@
                         <label for="google-phone">Телефон (Таджикистан) *</label>
                         <div class="phone-input-container">
                             <span class="phone-prefix">+992</span>
-                            <input type="tel" id="google-phone" class="phone-input" placeholder="000 662 211" pattern="[0-9]{9}" required>
+                            <input type="tel" id="google-phone" class="phone-input" placeholder="XX XXX XX XX" pattern="[0-9]{9}" required>
                         </div>
-                        <small style="color: var(--gray); font-size: 0.8rem; margin-top: 0.25rem; display: block;">
-                            Формат: 000 662 211 (9 цифр после +992)
-                        </small>
                     </div>
                     
                     <div class="error-message" id="google-info-error"></div>
@@ -631,489 +625,493 @@
     </div>
 
     <script>
-        let googleClientId = null;
+    let googleClientId = null;
+    let googleUserData = null;
 
-        document.addEventListener('DOMContentLoaded', function() {
-            // Элементы DOM
-            const stepLogin = document.getElementById('step-login');
-            const stepRegister = document.getElementById('step-register');
-            const stepGoogleInfo = document.getElementById('step-google-info');
-            const stepSuccess = document.getElementById('step-success');
-            
-            // Формы
-            const loginForm = document.getElementById('login-form');
-            const registerForm = document.getElementById('register-form');
-            const googleInfoForm = document.getElementById('google-info-form');
-            
-            // Кнопки навигации
-            const showRegisterBtn = document.getElementById('show-register');
-            const showLoginBtn = document.getElementById('show-login');
-            const backToLoginFromRegister = document.getElementById('back-to-login-from-register');
-            const goToMainBtn = document.getElementById('go-to-main');
-            const goToProfileBtn = document.getElementById('go-to-profile');
-            
-            // Сообщения об ошибках
-            const loginError = document.getElementById('login-error');
-            const registerError = document.getElementById('register-error');
-            const registerSuccess = document.getElementById('register-success');
-            const googleInfoError = document.getElementById('google-info-error');
-            
-            // Данные пользователя Google
-            let googleUserData = null;
+    document.addEventListener('DOMContentLoaded', function() {
+        // Элементы DOM
+        const stepLogin = document.getElementById('step-login');
+        const stepRegister = document.getElementById('step-register');
+        const stepGoogleInfo = document.getElementById('step-google-info');
+        const stepSuccess = document.getElementById('step-success');
+        
+        // Формы
+        const loginForm = document.getElementById('login-form');
+        const registerForm = document.getElementById('register-form');
+        const googleInfoForm = document.getElementById('google-info-form');
+        
+        // Кнопки навигации
+        const showRegisterBtn = document.getElementById('show-register');
+        const showLoginBtn = document.getElementById('show-login');
+        const backToLoginFromRegister = document.getElementById('back-to-login-from-register');
+        const goToMainBtn = document.getElementById('go-to-main');
+        const goToProfileBtn = document.getElementById('go-to-profile');
+        
+        // Сообщения об ошибках
+        const loginError = document.getElementById('login-error');
+        const registerError = document.getElementById('register-error');
+        const registerSuccess = document.getElementById('register-success');
+        const googleInfoError = document.getElementById('google-info-error');
 
-            // Навигация между шагами
-            showRegisterBtn.addEventListener('click', function(e) {
-                e.preventDefault();
-                showStep('step-register');
+        // Навигация между шагами
+        showRegisterBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            showStep('step-register');
+        });
+
+        showLoginBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            showStep('step-login');
+        });
+
+        backToLoginFromRegister.addEventListener('click', function(e) {
+            e.preventDefault();
+            showStep('step-login');
+        });
+
+        // Функция показа шага
+        function showStep(stepId) {
+            document.querySelectorAll('.step').forEach(step => {
+                step.classList.remove('active');
             });
+            document.getElementById(stepId).classList.add('active');
+            
+            // Очищаем ошибки при смене шага
+            clearErrors();
+        }
 
-            showLoginBtn.addEventListener('click', function(e) {
-                e.preventDefault();
-                showStep('step-login');
-            });
+        // Очистка ошибок
+        function clearErrors() {
+            loginError.textContent = '';
+            registerError.textContent = '';
+            registerSuccess.textContent = '';
+            googleInfoError.textContent = '';
+        }
 
-            backToLoginFromRegister.addEventListener('click', function(e) {
-                e.preventDefault();
-                showStep('step-login');
-            });
-
-            // Функция показа шага
-            function showStep(stepId) {
-                document.querySelectorAll('.step').forEach(step => {
-                    step.classList.remove('active');
-                });
-                document.getElementById(stepId).classList.add('active');
+        // Получение конфигурации с сервера
+        async function loadConfig() {
+            try {
+                const response = await fetch('/api/config');
+                const data = await response.json();
                 
-                // Очищаем ошибки при смене шага
-                clearErrors();
-            }
-
-            // Очистка ошибок
-            function clearErrors() {
-                loginError.textContent = '';
-                registerError.textContent = '';
-                registerSuccess.textContent = '';
-                googleInfoError.textContent = '';
-            }
-
-            // Получение конфигурации с сервера
-            async function loadConfig() {
-                try {
-                    const response = await fetch('/api/config');
-                    const data = await response.json();
-                    
-                    if (data.success && data.googleClientId) {
-                        googleClientId = data.googleClientId;
-                        initializeGoogleSignIn();
-                    } else {
-                        console.error('Google Client ID не настроен на сервере');
-                        showErrorGoogleButton();
-                    }
-                } catch (error) {
-                    console.error('Error loading config:', error);
+                if (data.success && data.googleClientId) {
+                    googleClientId = data.googleClientId;
+                    initializeGoogleSignIn();
+                } else {
+                    console.error('Google Client ID не настроен на сервере');
                     showErrorGoogleButton();
                 }
+            } catch (error) {
+                console.error('Error loading config:', error);
+                showErrorGoogleButton();
+            }
+        }
+
+        // Инициализация Google Sign-In
+        function initializeGoogleSignIn() {
+            const container = document.getElementById('google-signin-container');
+            container.innerHTML = `
+                <div id="g_id_onload"
+                     data-client_id="${googleClientId}"
+                     data-context="signin"
+                     data-ux_mode="popup"
+                     data-callback="handleGoogleSignIn"
+                     data-auto_prompt="false">
+                </div>
+
+                <div class="g_id_signin"
+                     data-type="standard"
+                     data-shape="rectangular"
+                     data-theme="filled_blue"
+                     data-text="signin_with"
+                     data-size="large"
+                     data-logo_alignment="left"
+                     data-width="300">
+                </div>
+            `;
+        }
+
+        // Показать сообщение об ошибке Google
+        function showErrorGoogleButton() {
+            const container = document.getElementById('google-signin-container');
+            container.innerHTML = `
+                <div style="text-align: center; color: var(--error);">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <p>Google авторизация временно недоступна</p>
+                </div>
+            `;
+        }
+
+        // Обработка формы входа
+        loginForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const username = document.getElementById('login-username').value.trim();
+            const password = document.getElementById('login-password').value;
+            const loginBtn = document.getElementById('login-btn');
+            
+            clearErrors();
+            loginBtn.innerHTML = '<div class="loading"></div> Вход...';
+            loginBtn.disabled = true;
+            
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        username: username,
+                        password: password
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    localStorage.setItem('user', JSON.stringify(data.user));
+                    showSuccessScreen(data.user);
+                } else {
+                    loginError.textContent = data.error || 'Ошибка входа. Проверьте логин или пароль.';
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                loginError.textContent = 'Ошибка соединения с сервером. Попробуйте позже.';
+            } finally {
+                loginBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Войти';
+                loginBtn.disabled = false;
+            }
+        });
+
+        // Обработка формы регистрации
+        registerForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const firstName = document.getElementById('first-name').value.trim();
+            const lastName = document.getElementById('last-name').value.trim();
+            const username = document.getElementById('register-username').value.trim();
+            const email = document.getElementById('register-email').value.trim();
+            const phoneInput = document.getElementById('register-phone').value.trim();
+            const password = document.getElementById('register-password').value;
+            const confirmPassword = document.getElementById('confirm-password').value;
+            const registerBtn = document.getElementById('register-btn');
+            
+            clearErrors();
+            registerBtn.innerHTML = '<div class="loading"></div> Регистрация...';
+            registerBtn.disabled = true;
+            
+            // Валидация
+            if (!firstName || !lastName || !username || !email || !phoneInput || !password) {
+                registerError.textContent = 'Заполните все обязательные поля.';
+                registerBtn.innerHTML = '<i class="fas fa-user-plus"></i> Зарегистрироваться';
+                registerBtn.disabled = false;
+                return;
             }
 
-            // Инициализация Google Sign-In
-            function initializeGoogleSignIn() {
-                const container = document.getElementById('google-signin-container');
-                container.innerHTML = `
-                    <div id="g_id_onload"
-                         data-client_id="${googleClientId}"
-                         data-context="signin"
-                         data-ux_mode="popup"
-                         data-callback="handleGoogleSignIn"
-                         data-auto_prompt="false">
-                    </div>
-
-                    <div class="g_id_signin"
-                         data-type="standard"
-                         data-shape="rectangular"
-                         data-theme="filled_blue"
-                         data-text="signin_with"
-                         data-size="large"
-                         data-logo_alignment="left"
-                         data-width="300">
-                    </div>
-                `;
+            if (password !== confirmPassword) {
+                registerError.textContent = 'Пароли не совпадают.';
+                registerBtn.innerHTML = '<i class="fas fa-user-plus"></i> Зарегистрироваться';
+                registerBtn.disabled = false;
+                return;
+            }
+            
+            if (password.length < 6) {
+                registerError.textContent = 'Пароль должен содержать минимум 6 символов.';
+                registerBtn.innerHTML = '<i class="fas fa-user-plus"></i> Зарегистрироваться';
+                registerBtn.disabled = false;
+                return;
             }
 
-            // Показать сообщение об ошибке Google
-            function showErrorGoogleButton() {
-                const container = document.getElementById('google-signin-container');
-                container.innerHTML = `
-                    <div style="text-align: center; color: var(--error);">
-                        <i class="fas fa-exclamation-triangle"></i>
-                        <p>Google авторизация временно недоступна</p>
-                    </div>
-                `;
+            // Валидация телефона (разрешаем форматирование с пробелами)
+            const cleanPhone = phoneInput.replace(/\s/g, '');
+            if (!/^[0-9]{9}$/.test(cleanPhone)) {
+                registerError.textContent = 'Введите корректный номер телефона Таджикистана (9 цифр).';
+                registerBtn.innerHTML = '<i class="fas fa-user-plus"></i> Зарегистрироваться';
+                registerBtn.disabled = false;
+                return;
             }
 
-            // Обработка формы входа
-            loginForm.addEventListener('submit', async function(e) {
-                e.preventDefault();
+            const phone = '+992' + cleanPhone;
+            
+            try {
+                const response = await fetch('/api/auth/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        first_name: firstName,
+                        last_name: lastName,
+                        username: username,
+                        email: email,
+                        phone: phone,
+                        password: password
+                    })
+                });
                 
-                const username = document.getElementById('login-username').value.trim();
-                const password = document.getElementById('login-password').value;
-                const loginBtn = document.getElementById('login-btn');
+                const data = await response.json();
                 
-                clearErrors();
-                loginBtn.innerHTML = '<div class="loading"></div> Вход...';
-                loginBtn.disabled = true;
-                
-                try {
-                    const response = await fetch('/api/auth/login', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            username: username,
-                            password: password
-                        })
-                    });
+                if (response.ok && data.success) {
+                    registerSuccess.textContent = 'Регистрация успешна! Выполняется вход...';
                     
-                    const data = await response.json();
-                    
-                    if (response.ok && data.success) {
-                        localStorage.setItem('user', JSON.stringify(data.user));
-                        showSuccessScreen(data.user);
-                    } else {
-                        loginError.textContent = data.error || 'Ошибка входа. Проверьте логин или пароль.';
-                    }
-                } catch (error) {
-                    console.error('Login error:', error);
-                    loginError.textContent = 'Ошибка соединения с сервером. Попробуйте позже.';
-                } finally {
-                    loginBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Войти';
-                    loginBtn.disabled = false;
-                }
-            });
-
-            // Обработка формы регистрации
-            registerForm.addEventListener('submit', async function(e) {
-                e.preventDefault();
-                
-                const firstName = document.getElementById('first-name').value.trim();
-                const lastName = document.getElementById('last-name').value.trim();
-                const username = document.getElementById('register-username').value.trim();
-                const email = document.getElementById('register-email').value.trim();
-                const phone = '+992' + document.getElementById('register-phone').value.replace(/\s/g, '');
-                const password = document.getElementById('register-password').value;
-                const confirmPassword = document.getElementById('confirm-password').value;
-                const registerBtn = document.getElementById('register-btn');
-                
-                clearErrors();
-                registerBtn.innerHTML = '<div class="loading"></div> Регистрация...';
-                registerBtn.disabled = true;
-                
-                // Валидация
-                if (!firstName || !lastName || !username || !email || !phone || !password) {
-                    registerError.textContent = 'Заполните все обязательные поля.';
-                    registerBtn.innerHTML = '<i class="fas fa-user-plus"></i> Зарегистрироваться';
-                    registerBtn.disabled = false;
-                    return;
-                }
-
-                if (password !== confirmPassword) {
-                    registerError.textContent = 'Пароли не совпадают.';
-                    registerBtn.innerHTML = '<i class="fas fa-user-plus"></i> Зарегистрироваться';
-                    registerBtn.disabled = false;
-                    return;
-                }
-                
-                if (password.length < 6) {
-                    registerError.textContent = 'Пароль должен содержать минимум 6 символов.';
-                    registerBtn.innerHTML = '<i class="fas fa-user-plus"></i> Зарегистрироваться';
-                    registerBtn.disabled = false;
-                    return;
-                }
-
-                // Валидация номера телефона Таджикистана
-                const phoneRegex = /^\+992[0-9]{9}$/;
-                if (!phoneRegex.test(phone)) {
-                    registerError.textContent = 'Введите корректный номер телефона Таджикистана (9 цифр после +992).';
-                    registerBtn.innerHTML = '<i class="fas fa-user-plus"></i> Зарегистрироваться';
-                    registerBtn.disabled = false;
-                    return;
-                }
-                
-                try {
-                    const response = await fetch('/api/auth/register', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            first_name: firstName,
-                            last_name: lastName,
-                            username: username,
-                            email: email,
-                            phone: phone,
-                            password: password
-                        })
-                    });
-                    
-                    const data = await response.json();
-                    
-                    if (response.ok && data.success) {
-                        registerSuccess.textContent = 'Регистрация успешна! Выполняется вход...';
-                        
-                        // Автоматический вход после регистрации
-                        setTimeout(async () => {
-                            try {
-                                const loginResponse = await fetch('/api/auth/login', {
-                                    method: 'POST',
-                                    headers: {
-                                        'Content-Type': 'application/json'
-                                    },
-                                    body: JSON.stringify({
-                                        username: username,
-                                        password: password
-                                    })
-                                });
-                                
-                                const loginData = await loginResponse.json();
-                                
-                                if (loginResponse.ok && loginData.success) {
-                                    localStorage.setItem('user', JSON.stringify(loginData.user));
-                                    showSuccessScreen(loginData.user);
-                                } else {
-                                    registerError.textContent = loginData.error || 'Ошибка автоматического входа.';
-                                    registerBtn.innerHTML = '<i class="fas fa-user-plus"></i> Зарегистрироваться';
-                                    registerBtn.disabled = false;
-                                }
-                            } catch (error) {
-                                registerError.textContent = 'Ошибка соединения с сервером при входе.';
-                                console.error('Auto-login error:', error);
+                    // Автоматический вход после регистрации
+                    setTimeout(async () => {
+                        try {
+                            const loginResponse = await fetch('/api/auth/login', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({
+                                    username: username,
+                                    password: password
+                                })
+                            });
+                            
+                            const loginData = await loginResponse.json();
+                            
+                            if (loginResponse.ok && loginData.success) {
+                                localStorage.setItem('user', JSON.stringify(loginData.user));
+                                showSuccessScreen(loginData.user);
+                            } else {
+                                registerError.textContent = loginData.error || 'Ошибка автоматического входа.';
                                 registerBtn.innerHTML = '<i class="fas fa-user-plus"></i> Зарегистрироваться';
                                 registerBtn.disabled = false;
                             }
-                        }, 1000);
-                    } else {
-                        registerError.textContent = data.error || 'Ошибка регистрации. Проверьте данные.';
-                        registerBtn.innerHTML = '<i class="fas fa-user-plus"></i> Зарегистрироваться';
-                        registerBtn.disabled = false;
-                    }
-                } catch (error) {
-                    registerError.textContent = 'Ошибка соединения с сервером. Попробуйте позже.';
-                    console.error('Register error:', error);
+                        } catch (error) {
+                            registerError.textContent = 'Ошибка соединения с сервером при входе.';
+                            console.error('Auto-login error:', error);
+                            registerBtn.innerHTML = '<i class="fas fa-user-plus"></i> Зарегистрироваться';
+                            registerBtn.disabled = false;
+                        }
+                    }, 1000);
+                } else {
+                    registerError.textContent = data.error || 'Ошибка регистрации. Проверьте данные.';
                     registerBtn.innerHTML = '<i class="fas fa-user-plus"></i> Зарегистрироваться';
                     registerBtn.disabled = false;
                 }
-            });
+            } catch (error) {
+                registerError.textContent = 'Ошибка соединения с сервером. Попробуйте позже.';
+                console.error('Register error:', error);
+                registerBtn.innerHTML = '<i class="fas fa-user-plus"></i> Зарегистрироваться';
+                registerBtn.disabled = false;
+            }
+        });
 
-            // Обработка дополнительной информации для Google
-            googleInfoForm.addEventListener('submit', async function(e) {
-                e.preventDefault();
+        // Обработка дополнительной информации для Google
+        googleInfoForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const firstName = document.getElementById('google-first-name').value.trim();
+            const lastName = document.getElementById('google-last-name').value.trim();
+            const phoneInput = document.getElementById('google-phone').value.trim();
+            const saveBtn = document.getElementById('save-google-info-btn');
+            
+            clearErrors();
+            saveBtn.innerHTML = '<div class="loading"></div> Сохранение...';
+            saveBtn.disabled = true;
+            
+            // Валидация
+            if (!firstName || !lastName || !phoneInput) {
+                googleInfoError.textContent = 'Заполните все обязательные поля.';
+                saveBtn.innerHTML = '<i class="fas fa-save"></i> Сохранить и продолжить';
+                saveBtn.disabled = false;
+                return;
+            }
+
+            // Валидация телефона (разрешаем форматирование с пробелами)
+            const cleanPhone = phoneInput.replace(/\s/g, '');
+            if (!/^[0-9]{9}$/.test(cleanPhone)) {
+                googleInfoError.textContent = 'Введите корректный номер телефона Таджикистана (9 цифр).';
+                saveBtn.innerHTML = '<i class="fas fa-save"></i> Сохранить и продолжить';
+                saveBtn.disabled = false;
+                return;
+            }
+
+            const phone = '+992' + cleanPhone;
+            
+            try {
+                // Создаем пользователя с данными от Google
+                const response = await fetch('/api/auth/google/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        google_id: googleUserData.sub,
+                        email: googleUserData.email,
+                        first_name: firstName,
+                        last_name: lastName,
+                        phone: phone,
+                        avatar: googleUserData.picture,
+                        email_verified: googleUserData.email_verified
+                    })
+                });
                 
-                const firstName = document.getElementById('google-first-name').value.trim();
-                const lastName = document.getElementById('google-last-name').value.trim();
-                const phone = '+992' + document.getElementById('google-phone').value.replace(/\s/g, '');
-                const saveBtn = document.getElementById('save-google-info-btn');
+                const data = await response.json();
                 
-                clearErrors();
-                saveBtn.innerHTML = '<div class="loading"></div> Сохранение...';
-                saveBtn.disabled = true;
-                
-                // Валидация
-                if (!firstName || !lastName || !phone) {
-                    googleInfoError.textContent = 'Заполните все обязательные поля.';
+                if (response.ok && data.success) {
+                    localStorage.setItem('user', JSON.stringify(data.user));
+                    showSuccessScreen(data.user);
+                } else {
+                    googleInfoError.textContent = data.error || 'Ошибка сохранения данных.';
                     saveBtn.innerHTML = '<i class="fas fa-save"></i> Сохранить и продолжить';
                     saveBtn.disabled = false;
-                    return;
                 }
+            } catch (error) {
+                googleInfoError.textContent = 'Ошибка соединения с сервером. Попробуйте позже.';
+                console.error('Google info error:', error);
+                saveBtn.innerHTML = '<i class="fas fa-save"></i> Сохранить и продолжить';
+                saveBtn.disabled = false;
+            }
+        });
 
-                // Валидация номера телефона Таджикистана
-                const phoneRegex = /^\+992[0-9]{9}$/;
-                if (!phoneRegex.test(phone)) {
-                    googleInfoError.textContent = 'Введите корректный номер телефона Таджикистана (9 цифр после +992).';
-                    saveBtn.innerHTML = '<i class="fas fa-save"></i> Сохранить и продолжить';
-                    saveBtn.disabled = false;
-                    return;
-                }
+        // Переход на главную
+        goToMainBtn.addEventListener('click', function() {
+            window.location.href = 'main.html';
+        });
+
+        // Переход в профиль
+        goToProfileBtn.addEventListener('click', function() {
+            window.location.href = 'profile.html';
+        });
+
+        // Показать экран успеха
+        function showSuccessScreen(user) {
+            const userAvatar = document.getElementById('user-avatar');
+            const userName = document.getElementById('user-name');
+            const userEmail = document.getElementById('user-email');
+            
+            if (user.avatar) {
+                userAvatar.src = user.avatar;
+                userAvatar.style.display = 'block';
+            } else {
+                userAvatar.style.display = 'none';
+            }
+            
+            const displayName = user.first_name && user.last_name 
+                ? `${user.first_name} ${user.last_name}`
+                : (user.username || 'Пользователь');
                 
-                try {
-                    // Создаем пользователя с данными от Google
-                    const response = await fetch('/api/auth/google/register', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            google_id: googleUserData.sub,
-                            email: googleUserData.email,
-                            first_name: firstName,
-                            last_name: lastName,
-                            phone: phone,
-                            avatar: googleUserData.picture,
-                            email_verified: googleUserData.email_verified
-                        })
-                    });
-                    
-                    const data = await response.json();
-                    
-                    if (response.ok && data.success) {
+            userName.textContent = displayName;
+            userEmail.textContent = user.email || '';
+            
+            showStep('step-success');
+        }
+
+        // Проверяем, авторизован ли пользователь
+        const userData = localStorage.getItem('user');
+        if (userData) {
+            try {
+                const user = JSON.parse(userData);
+                showSuccessScreen(user);
+            } catch (e) {
+                console.error('Error parsing user data:', e);
+                localStorage.removeItem('user');
+            }
+        }
+
+        // Обработчик Google Sign-In
+        window.handleGoogleSignIn = async function(response) {
+            console.log('Google Sign-In response:', response);
+            
+            try {
+                // Отправляем токен на сервер для проверки
+                const authResponse = await fetch('/api/auth/google', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ 
+                        token: response.credential 
+                    })
+                });
+                
+                const data = await authResponse.json();
+                
+                if (authResponse.ok && data.success) {
+                    if (data.requires_additional_info) {
+                        // Если пользователь новый, запрашиваем дополнительную информацию
+                        showGoogleInfoStep(data.user);
+                    } else {
+                        // Если пользователь существует, сразу входим
                         localStorage.setItem('user', JSON.stringify(data.user));
                         showSuccessScreen(data.user);
-                    } else {
-                        googleInfoError.textContent = data.error || 'Ошибка сохранения данных.';
-                        saveBtn.innerHTML = '<i class="fas fa-save"></i> Сохранить и продолжить';
-                        saveBtn.disabled = false;
                     }
-                } catch (error) {
-                    googleInfoError.textContent = 'Ошибка соединения с сервером. Попробуйте позже.';
-                    console.error('Google info error:', error);
-                    saveBtn.innerHTML = '<i class="fas fa-save"></i> Сохранить и продолжить';
-                    saveBtn.disabled = false;
-                }
-            });
-
-            // Переход на главную
-            goToMainBtn.addEventListener('click', function() {
-                window.location.href = 'main.html';
-            });
-
-            // Переход в профиль
-            goToProfileBtn.addEventListener('click', function() {
-                window.location.href = 'profile.html';
-            });
-
-            // Показать экран успеха
-            function showSuccessScreen(user) {
-                const userAvatar = document.getElementById('user-avatar');
-                const userName = document.getElementById('user-name');
-                const userEmail = document.getElementById('user-email');
-                
-                if (user.avatar) {
-                    userAvatar.src = user.avatar;
-                    userAvatar.style.display = 'block';
                 } else {
-                    userAvatar.style.display = 'none';
+                    showError(data.error || 'Ошибка авторизации через Google.');
                 }
-                
-                const displayName = user.first_name && user.last_name 
-                    ? `${user.first_name} ${user.last_name}`
-                    : (user.username || 'Пользователь');
-                    
-                userName.textContent = displayName;
-                userEmail.textContent = user.email || '';
-                
-                showStep('step-success');
+            } catch (error) {
+                console.error('Google auth error:', error);
+                showError('Ошибка соединения с сервером. Попробуйте позже.');
             }
+        };
 
-            // Проверяем, авторизован ли пользователь
-            const userData = localStorage.getItem('user');
-            if (userData) {
-                try {
-                    const user = JSON.parse(userData);
-                    showSuccessScreen(user);
-                } catch (e) {
-                    console.error('Error parsing user data:', e);
-                    localStorage.removeItem('user');
-                }
+        // Показать шаг с дополнительной информацией для Google
+        function showGoogleInfoStep(user) {
+            showStep('step-google-info');
+            
+            // Заполняем поля данными от Google
+            document.getElementById('google-user-email').textContent = user.email || '';
+            document.getElementById('google-user-name').textContent = user.name || '';
+            
+            if (user.picture) {
+                document.getElementById('google-user-avatar').src = user.picture;
+                document.getElementById('google-user-avatar').style.display = 'block';
             }
-
-            // Обработчик Google Sign-In
-            window.handleGoogleSignIn = async function(response) {
-                console.log('Google Sign-In response:', response);
-                
-                try {
-                    // Отправляем токен на сервер для проверки
-                    const authResponse = await fetch('/api/auth/google', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({ 
-                            token: response.credential 
-                        })
-                    });
-                    
-                    const data = await authResponse.json();
-                    
-                    if (authResponse.ok && data.success) {
-                        if (data.requires_additional_info) {
-                            // Если пользователь новый, запрашиваем дополнительную информацию
-                            showGoogleInfoStep(data.user);
-                        } else {
-                            // Если пользователь существует, сразу входим
-                            localStorage.setItem('user', JSON.stringify(data.user));
-                            showSuccessScreen(data.user);
-                        }
-                    } else {
-                        showError(data.error || 'Ошибка авторизации через Google.');
-                    }
-                } catch (error) {
-                    console.error('Google auth error:', error);
-                    showError('Ошибка соединения с сервером. Попробуйте позже.');
-                }
-            };
-
-            // Показать шаг с дополнительной информацией для Google
-            function showGoogleInfoStep(user) {
-                showStep('step-google-info');
-                
-                // Заполняем поля данными от Google
-                document.getElementById('google-user-email').textContent = user.email || '';
-                document.getElementById('google-user-name').textContent = user.name || '';
-                
-                if (user.picture) {
-                    document.getElementById('google-user-avatar').src = user.picture;
-                    document.getElementById('google-user-avatar').style.display = 'block';
-                }
-                
-                // Предзаполняем имя и фамилию, если есть
-                if (user.given_name) {
-                    document.getElementById('google-first-name').value = user.given_name;
-                }
-                
-                if (user.family_name) {
-                    document.getElementById('google-last-name').value = user.family_name;
-                }
-                
-                googleUserData = user;
+            
+            // Предзаполняем имя и фамилию, если есть
+            if (user.given_name) {
+                document.getElementById('google-first-name').value = user.given_name;
             }
-
-            // Функция показа ошибки
-            function showError(message) {
-                const errorDiv = document.querySelector('.step.active .error-message');
-                if (errorDiv) {
-                    errorDiv.textContent = message;
-                } else {
-                    alert(message);
-                }
+            
+            if (user.family_name) {
+                document.getElementById('google-last-name').value = user.family_name;
             }
+            
+            googleUserData = user;
+        }
 
-            // Форматирование номера телефона
-            document.getElementById('register-phone').addEventListener('input', function(e) {
-                let value = e.target.value.replace(/\D/g, '');
-                if (value.length > 9) value = value.substring(0, 9);
-                
-                let formattedValue = '';
-                if (value.length > 0) formattedValue = value.substring(0, 3);
-                if (value.length > 3) formattedValue += ' ' + value.substring(3, 6);
-                if (value.length > 6) formattedValue += ' ' + value.substring(6, 9);
-                
-                e.target.value = formattedValue;
-            });
+        // Функция показа ошибки
+        function showError(message) {
+            const errorDiv = document.querySelector('.step.active .error-message');
+            if (errorDiv) {
+                errorDiv.textContent = message;
+            } else {
+                alert(message);
+            }
+        }
 
-            document.getElementById('google-phone').addEventListener('input', function(e) {
-                let value = e.target.value.replace(/\D/g, '');
-                if (value.length > 9) value = value.substring(0, 9);
-                
-                let formattedValue = '';
-                if (value.length > 0) formattedValue = value.substring(0, 3);
-                if (value.length > 3) formattedValue += ' ' + value.substring(3, 6);
-                if (value.length > 6) formattedValue += ' ' + value.substring(6, 9);
-                
-                e.target.value = formattedValue;
-            });
-
-            // Загружаем конфигурацию при старте
-            loadConfig();
+        // Форматирование номера телефона (старая функция без изменений)
+        document.getElementById('register-phone').addEventListener('input', function(e) {
+            let value = e.target.value.replace(/\D/g, '');
+            if (value.length > 9) value = value.substring(0, 9);
+            
+            let formattedValue = '';
+            if (value.length > 0) formattedValue = value.substring(0, 2);
+            if (value.length > 2) formattedValue += ' ' + value.substring(2, 5);
+            if (value.length > 5) formattedValue += ' ' + value.substring(5, 7);
+            if (value.length > 7) formattedValue += ' ' + value.substring(7, 9);
+            
+            e.target.value = formattedValue;
         });
-    </script>
+
+        document.getElementById('google-phone').addEventListener('input', function(e) {
+            let value = e.target.value.replace(/\D/g, '');
+            if (value.length > 9) value = value.substring(0, 9);
+            
+            let formattedValue = '';
+            if (value.length > 0) formattedValue = value.substring(0, 2);
+            if (value.length > 2) formattedValue += ' ' + value.substring(2, 5);
+            if (value.length > 5) formattedValue += ' ' + value.substring(5, 7);
+            if (value.length > 7) formattedValue += ' ' + value.substring(7, 9);
+            
+            e.target.value = formattedValue;
+        });
+
+        // Загружаем конфигурацию при старте
+        loadConfig();
+    });
+</script>
 </body>
 </html>
