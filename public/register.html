@@ -823,15 +823,15 @@
             }
 
             // Валидация телефона (разрешаем форматирование с пробелами)
-            const cleanPhone = phoneInput.replace(/\s/g, '');
-            if (!/^[0-9]{9}$/.test(cleanPhone)) {
-                registerError.textContent = 'Введите корректный номер телефона Таджикистана (9 цифр).';
-                registerBtn.innerHTML = '<i class="fas fa-user-plus"></i> Зарегистрироваться';
-                registerBtn.disabled = false;
-                return;
-            }
+const cleanPhone = phoneInput.replace(/\s/g, '');
+if (!/^[0-9]{9}$/.test(cleanPhone)) {
+    registerError.textContent = 'Введите корректный номер телефона Таджикистана (9 цифр после +992).';
+    registerBtn.innerHTML = '<i class="fas fa-user-plus"></i> Зарегистрироваться';
+    registerBtn.disabled = false;
+    return;
+}
 
-            const phone = '+992' + cleanPhone;
+const phone = '+992' + cleanPhone;
             
             try {
                 const response = await fetch('/api/auth/register', {
@@ -920,15 +920,15 @@
             }
 
             // Валидация телефона (разрешаем форматирование с пробелами)
-            const cleanPhone = phoneInput.replace(/\s/g, '');
-            if (!/^[0-9]{9}$/.test(cleanPhone)) {
-                googleInfoError.textContent = 'Введите корректный номер телефона Таджикистана (9 цифр).';
-                saveBtn.innerHTML = '<i class="fas fa-save"></i> Сохранить и продолжить';
-                saveBtn.disabled = false;
-                return;
-            }
+const cleanPhone = phoneInput.replace(/\s/g, '');
+if (!/^[0-9]{9}$/.test(cleanPhone)) {
+    googleInfoError.textContent = 'Введите корректный номер телефона Таджикистана (9 цифр после +992).';
+    saveBtn.innerHTML = '<i class="fas fa-save"></i> Сохранить и продолжить';
+    saveBtn.disabled = false;
+    return;
+}
 
-            const phone = '+992' + cleanPhone;
+const phone = '+992' + cleanPhone;
             
             try {
                 // Создаем пользователя с данными от Google
