@@ -822,16 +822,16 @@
                 return;
             }
 
-            // Валидация телефона (разрешаем форматирование с пробелами)
-const cleanPhone = phoneInput.replace(/\s/g, '');
-if (!/^[0-9]{9}$/.test(cleanPhone)) {
-    registerError.textContent = 'Введите корректный номер телефона Таджикистана (9 цифр после +992).';
-    registerBtn.innerHTML = '<i class="fas fa-user-plus"></i> Зарегистрироваться';
-    registerBtn.disabled = false;
-    return;
-}
+            // Валидация телефона - убираем пробелы и проверяем что осталось 9 цифр
+            const cleanPhone = phoneInput.replace(/\s/g, '');
+            if (cleanPhone.length !== 9 || !/^\d{9}$/.test(cleanPhone)) {
+                registerError.textContent = 'Введите корректный номер телефона Таджикистана (9 цифр после +992).';
+                registerBtn.innerHTML = '<i class="fas fa-user-plus"></i> Зарегистрироваться';
+                registerBtn.disabled = false;
+                return;
+            }
 
-const phone = '+992' + cleanPhone;
+            const phone = '+992' + cleanPhone;
             
             try {
                 const response = await fetch('/api/auth/register', {
@@ -919,16 +919,16 @@ const phone = '+992' + cleanPhone;
                 return;
             }
 
-            // Валидация телефона (разрешаем форматирование с пробелами)
-const cleanPhone = phoneInput.replace(/\s/g, '');
-if (!/^[0-9]{9}$/.test(cleanPhone)) {
-    googleInfoError.textContent = 'Введите корректный номер телефона Таджикистана (9 цифр после +992).';
-    saveBtn.innerHTML = '<i class="fas fa-save"></i> Сохранить и продолжить';
-    saveBtn.disabled = false;
-    return;
-}
+            // Валидация телефона - убираем пробелы и проверяем что осталось 9 цифр
+            const cleanPhone = phoneInput.replace(/\s/g, '');
+            if (cleanPhone.length !== 9 || !/^\d{9}$/.test(cleanPhone)) {
+                googleInfoError.textContent = 'Введите корректный номер телефона Таджикистана (9 цифр после +992).';
+                saveBtn.innerHTML = '<i class="fas fa-save"></i> Сохранить и продолжить';
+                saveBtn.disabled = false;
+                return;
+            }
 
-const phone = '+992' + cleanPhone;
+            const phone = '+992' + cleanPhone;
             
             try {
                 // Создаем пользователя с данными от Google
@@ -1082,7 +1082,7 @@ const phone = '+992' + cleanPhone;
             }
         }
 
-        // Форматирование номера телефона (старая функция без изменений)
+        // Форматирование номера телефона
         document.getElementById('register-phone').addEventListener('input', function(e) {
             let value = e.target.value.replace(/\D/g, '');
             if (value.length > 9) value = value.substring(0, 9);
