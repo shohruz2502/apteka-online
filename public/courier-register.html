@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Регистрация курьера - ФармаПлюс</title>
+    <title>Вход курьера - ФармаПлюс</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         :root {
@@ -136,6 +136,13 @@
             border: 2px solid var(--border);
         }
         
+        .btn-google {
+            background: white;
+            color: #333;
+            border: 2px solid var(--border);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
         .form-group {
             margin-bottom: 1.25rem;
         }
@@ -164,12 +171,6 @@
             box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
         }
         
-        .name-fields {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
-        }
-        
         .error-message {
             color: var(--error);
             font-size: 0.85rem;
@@ -190,6 +191,32 @@
             background: rgba(76, 175, 80, 0.1);
             border-radius: 8px;
             border-left: 3px solid var(--success);
+        }
+        
+        .divider {
+            text-align: center;
+            margin: 1.5rem 0;
+            position: relative;
+            color: var(--gray);
+            font-size: 0.9rem;
+        }
+        
+        .divider::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: var(--border);
+            z-index: 1;
+        }
+        
+        .divider span {
+            background: white;
+            padding: 0 1rem;
+            position: relative;
+            z-index: 2;
         }
         
         .benefits {
@@ -289,10 +316,6 @@
             .header h1 {
                 font-size: 1.4rem;
             }
-
-            .name-fields {
-                grid-template-columns: 1fr;
-            }
             
             .btn {
                 padding: 12px 16px;
@@ -319,60 +342,45 @@
     <div class="container">
         <div class="header">
             <h1>ФармаПлюс</h1>
-            <p>Станьте нашим курьером</p>
+            <p>Вход для курьеров</p>
         </div>
         
         <div class="form-container">
             <div class="welcome-text">
-                <h2>Регистрация курьера</h2>
-                <p>Заполните информацию для работы курьером</p>
+                <h2>Войдите как курьер</h2>
+                <p>Используйте логин/пароль или Google для входа</p>
             </div>
             
-            <form id="courier-register-form">
-                <div class="form-group name-fields">
-                    <div>
-                        <label for="first-name">Имя *</label>
-                        <input type="text" id="first-name" placeholder="Введите имя" required>
-                    </div>
-                    <div>
-                        <label for="last-name">Фамилия *</label>
-                        <input type="text" id="last-name" placeholder="Введите фамилию" required>
-                    </div>
+            <!-- Форма логина -->
+            <form id="login-form">
+                <div class="form-group">
+                    <label for="username">Логин или Email</label>
+                    <input type="text" id="username" placeholder="Введите логин или email" required>
                 </div>
                 
                 <div class="form-group">
-                    <label for="phone">Телефон *</label>
-                    <input type="tel" id="phone" placeholder="+7 (999) 123-45-67" required>
+                    <label for="password">Пароль</label>
+                    <input type="password" id="password" placeholder="Введите пароль" required>
                 </div>
                 
-                <div class="form-group">
-                    <label for="email">Email *</label>
-                    <input type="email" id="email" placeholder="Введите ваш email" required>
-                </div>
+                <div class="error-message" id="login-error"></div>
+                <div class="success-message" id="login-success"></div>
                 
-                <div class="form-group">
-                    <label for="vehicle-type">Тип транспорта</label>
-                    <select id="vehicle-type">
-                        <option value="bicycle">Велосипед</option>
-                        <option value="scooter">Самокат</option>
-                        <option value="motorcycle">Мотоцикл</option>
-                        <option value="car">Автомобиль</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label for="vehicle-number">Номер транспорта (если есть)</label>
-                    <input type="text" id="vehicle-number" placeholder="A123BC 777">
-                </div>
-                
-                <div class="error-message" id="register-error"></div>
-                <div class="success-message" id="register-success"></div>
-                
-                <button type="submit" class="btn btn-primary" id="register-btn">
-                    <i class="fas fa-motorcycle"></i>
-                    Стать курьером
+                <button type="submit" class="btn btn-primary" id="login-btn">
+                    <i class="fas fa-sign-in-alt"></i>
+                    Войти
                 </button>
             </form>
+            
+            <div class="divider">
+                <span>или войдите через</span>
+            </div>
+            
+            <!-- Google вход -->
+            <button class="btn btn-google" id="google-login-btn">
+                <i class="fab fa-google"></i>
+                Войти через Google
+            </button>
             
             <div class="benefits">
                 <h3>Преимущества работы курьером</h3>
@@ -397,7 +405,7 @@
             </div>
             
             <div class="form-footer">
-                Уже работаете курьером? <a href="courier.html">Войти в систему</a>
+                Нет аккаунта? <a href="register.html">Зарегистрироваться</a>
             </div>
             
             <div class="back-link">
@@ -411,124 +419,205 @@
 
     <script>
     document.addEventListener('DOMContentLoaded', function() {
-        const registerForm = document.getElementById('courier-register-form');
-        const registerError = document.getElementById('register-error');
-        const registerSuccess = document.getElementById('register-success');
-        const registerBtn = document.getElementById('register-btn');
+        const loginForm = document.getElementById('login-form');
+        const loginError = document.getElementById('login-error');
+        const loginSuccess = document.getElementById('login-success');
+        const loginBtn = document.getElementById('login-btn');
+        const googleLoginBtn = document.getElementById('google-login-btn');
 
-        registerForm.addEventListener('submit', async function(e) {
+        // Обычный логин
+        loginForm.addEventListener('submit', async function(e) {
             e.preventDefault();
             
-            const firstName = document.getElementById('first-name').value.trim();
-            const lastName = document.getElementById('last-name').value.trim();
-            const phone = document.getElementById('phone').value.trim();
-            const email = document.getElementById('email').value.trim();
-            const vehicleType = document.getElementById('vehicle-type').value;
-            const vehicleNumber = document.getElementById('vehicle-number').value.trim();
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value.trim();
             
-            // Получаем текущего пользователя
-            const userData = localStorage.getItem('user');
-            if (!userData) {
-                registerError.textContent = 'Сначала войдите в систему';
-                return;
-            }
-
-            let user;
-            try {
-                user = JSON.parse(userData);
-            } catch (e) {
-                registerError.textContent = 'Ошибка данных пользователя';
-                return;
-            }
-
-            const userId = user.id || user.sub;
-            if (!userId) {
-                registerError.textContent = 'Пользователь не идентифицирован';
-                return;
-            }
-
             clearErrors();
-            registerBtn.innerHTML = '<div class="loading"></div> Регистрация...';
-            registerBtn.disabled = true;
+            loginBtn.innerHTML = '<div class="loading"></div> Вход...';
+            loginBtn.disabled = true;
             
             // Валидация
-            if (!firstName || !lastName || !phone || !email) {
-                registerError.textContent = 'Заполните все обязательные поля.';
-                registerBtn.innerHTML = '<i class="fas fa-motorcycle"></i> Стать курьером';
-                registerBtn.disabled = false;
+            if (!username || !password) {
+                loginError.textContent = 'Заполните все поля.';
+                loginBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Войти';
+                loginBtn.disabled = false;
                 return;
             }
             
             try {
-                const response = await fetch('/api/courier/register', {
+                const response = await fetch('/api/auth/login', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        user_id: userId,
-                        first_name: firstName,
-                        last_name: lastName,
-                        phone: phone,
-                        email: email,
-                        vehicle_type: vehicleType,
-                        vehicle_number: vehicleNumber
+                        username: username,
+                        password: password
                     })
                 });
                 
                 const data = await response.json();
                 
                 if (response.ok && data.success) {
-                    registerSuccess.textContent = 'Регистрация успешна! Переход в панель курьера...';
+                    loginSuccess.textContent = 'Вход выполнен успешно!';
                     
-                    // Сохраняем данные курьера
-                    localStorage.setItem('courier', JSON.stringify(data.courier));
+                    // Сохраняем данные пользователя
+                    localStorage.setItem('user', JSON.stringify(data.user));
                     
-                    // Переход в панель курьера
-                    setTimeout(() => {
-                        window.location.href = 'courier.html';
-                    }, 2000);
+                    // Проверяем, зарегистрирован ли пользователь как курьер
+                    await checkCourierStatus(data.user);
+                    
                 } else {
-                    registerError.textContent = data.error || 'Ошибка регистрации. Проверьте данные.';
-                    registerBtn.innerHTML = '<i class="fas fa-motorcycle"></i> Стать курьером';
-                    registerBtn.disabled = false;
+                    loginError.textContent = data.error || 'Ошибка входа. Проверьте данные.';
+                    loginBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Войти';
+                    loginBtn.disabled = false;
                 }
             } catch (error) {
-                registerError.textContent = 'Ошибка соединения с сервером. Попробуйте позже.';
-                console.error('Register error:', error);
-                registerBtn.innerHTML = '<i class="fas fa-motorcycle"></i> Стать курьером';
-                registerBtn.disabled = false;
+                loginError.textContent = 'Ошибка соединения с сервером. Попробуйте позже.';
+                console.error('Login error:', error);
+                loginBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Войти';
+                loginBtn.disabled = false;
             }
         });
 
-        function clearErrors() {
-            registerError.textContent = '';
-            registerSuccess.textContent = '';
-        }
+        // Google вход
+        googleLoginBtn.addEventListener('click', function() {
+            // Загружаем конфиг Google
+            loadGoogleAuth();
+        });
 
-        // Проверяем, не зарегистрирован ли уже пользователь как курьер
-        async function checkCourierStatus() {
-            const userData = localStorage.getItem('user');
-            if (!userData) return;
-
+        async function loadGoogleAuth() {
             try {
-                const user = JSON.parse(userData);
-                const userId = user.id || user.sub;
+                const response = await fetch('/api/config');
+                const config = await response.json();
                 
-                const response = await fetch(`/api/courier/profile?user_id=${userId}`);
-                if (response.ok) {
-                    const data = await response.json();
-                    if (data.success && data.courier) {
-                        // Пользователь уже курьер - перенаправляем
-                        window.location.href = 'courier.html';
-                    }
+                if (config.googleClientId && config.googleClientId !== 'demo') {
+                    initGoogleAuth(config.googleClientId);
+                } else {
+                    // Демо-режим Google авторизации
+                    demoGoogleAuth();
                 }
             } catch (error) {
-                console.log('Пользователь не зарегистрирован как курьер');
+                console.error('Error loading Google config:', error);
+                demoGoogleAuth();
             }
         }
 
-        checkCourierStatus();
+        function initGoogleAuth(clientId) {
+            // Инициализация Google Sign-In
+            const googleAuthScript = document.createElement('script');
+            googleAuthScript.src = 'https://accounts.google.com/gsi/client';
+            googleAuthScript.async = true;
+            googleAuthScript.defer = true;
+            document.head.appendChild(googleAuthScript);
+
+            googleAuthScript.onload = function() {
+                google.accounts.id.initialize({
+                    client_id: clientId,
+                    callback: handleGoogleAuth
+                });
+                google.accounts.id.prompt();
+            };
+        }
+
+        async function handleGoogleAuth(response) {
+            try {
+                const authResponse = await fetch('/api/auth/google', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        token: response.credential
+                    })
+                });
+
+                const data = await authResponse.json();
+                
+                if (data.success) {
+                    if (data.user) {
+                        // Пользователь уже существует
+                        localStorage.setItem('user', JSON.stringify(data.user));
+                        await checkCourierStatus(data.user);
+                    } else {
+                        // Новый пользователь - показываем форму регистрации
+                        showGoogleRegistration(data.user);
+                    }
+                } else {
+                    loginError.textContent = 'Ошибка Google авторизации';
+                }
+            } catch (error) {
+                console.error('Google auth error:', error);
+                loginError.textContent = 'Ошибка Google авторизации';
+            }
+        }
+
+        function demoGoogleAuth() {
+            // Демо-режим - создаем тестового пользователя
+            const demoUser = {
+                id: 'google_' + Date.now(),
+                email: 'demo@example.com',
+                first_name: 'Демо',
+                last_name: 'Курьер',
+                avatar: 'https://via.placeholder.com/100'
+            };
+            
+            localStorage.setItem('user', JSON.stringify(demoUser));
+            checkCourierStatus(demoUser);
+        }
+
+        function showGoogleRegistration(userData) {
+            // Сохраняем данные Google для регистрации
+            localStorage.setItem('google_user', JSON.stringify(userData));
+            
+            // Перенаправляем на страницу доп. информации
+            window.location.href = 'courier-register.html?google=true';
+        }
+
+        async function checkCourierStatus(user) {
+            try {
+                const userId = user.id || user.sub;
+                const response = await fetch(`/api/courier/profile?user_id=${userId}`);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success && data.courier) {
+                        // Пользователь уже курьер - перенаправляем в панель
+                        localStorage.setItem('courier', JSON.stringify(data.courier));
+                        window.location.href = 'courier.html';
+                    } else {
+                        // Пользователь не курьер - перенаправляем на регистрацию
+                        window.location.href = 'courier-register.html';
+                    }
+                } else {
+                    // Ошибка - все равно перенаправляем на регистрацию
+                    window.location.href = 'courier-register.html';
+                }
+            } catch (error) {
+                console.error('Error checking courier status:', error);
+                window.location.href = 'courier-register.html';
+            }
+        }
+
+        function clearErrors() {
+            loginError.textContent = '';
+            loginSuccess.textContent = '';
+        }
+
+        // Проверяем, если пользователь уже авторизован
+        async function checkExistingAuth() {
+            const userData = localStorage.getItem('user');
+            if (userData) {
+                try {
+                    const user = JSON.parse(userData);
+                    await checkCourierStatus(user);
+                } catch (e) {
+                    console.log('No valid user session');
+                }
+            }
+        }
+
+        checkExistingAuth();
     });
     </script>
 </body>
