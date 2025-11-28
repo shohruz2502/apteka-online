@@ -12,7 +12,6 @@
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
     />
     <style>
-      /* Все стили остаются без изменений */
       :root {
         --primary: #2196f3;
         --primary-dark: #1976d2;
@@ -42,6 +41,7 @@
         line-height: 1.6;
         min-height: 100vh;
         padding: 0;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       }
 
       .container {
@@ -72,6 +72,7 @@
         top: 0;
         z-index: 100;
         box-shadow: var(--shadow);
+        margin: 10px 10px 0 10px;
       }
 
       .header h1 {
@@ -92,7 +93,7 @@
       .main-content {
         flex: 1;
         overflow-y: auto;
-        padding-bottom: 80px; /* Space for bottom nav */
+        padding-bottom: 80px;
       }
 
       /* Cart Items */
@@ -351,34 +352,39 @@
         line-height: 1.5;
       }
 
-      /* Auth Warning */
+      /* Auth Warning - УЛУЧШЕННЫЙ ДИЗАЙН */
       .auth-warning {
         text-align: center;
-        padding: 2rem 1.5rem;
-        background: #fff3e0;
-        border-radius: 12px;
+        padding: 2.5rem 1.5rem;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 20px;
         margin: 1rem;
         display: flex;
         flex-direction: column;
         align-items: center;
+        color: white;
+        box-shadow: var(--shadow);
       }
 
       .auth-warning i {
-        font-size: 3rem;
-        color: #ff9800;
-        margin-bottom: 1rem;
+        font-size: 4rem;
+        color: white;
+        margin-bottom: 1.5rem;
+        opacity: 0.9;
       }
 
       .auth-warning h3 {
-        font-size: 1.3rem;
-        margin-bottom: 0.8rem;
-        color: var(--dark);
+        font-size: 1.5rem;
+        margin-bottom: 1rem;
+        color: white;
+        font-weight: 600;
       }
 
       .auth-warning p {
-        margin-bottom: 1.5rem;
+        margin-bottom: 2rem;
         font-size: 1rem;
         line-height: 1.5;
+        opacity: 0.9;
       }
 
       .nav-buttons {
@@ -386,11 +392,38 @@
         flex-direction: column;
         gap: 0.8rem;
         width: 100%;
-        max-width: 300px;
+        max-width: 280px;
       }
 
       .nav-buttons .btn {
         margin-top: 0;
+        border-radius: 12px;
+        padding: 1rem 1.5rem;
+        font-weight: 600;
+        transition: all 0.3s ease;
+      }
+
+      .nav-buttons .btn-primary {
+        background: rgba(255, 255, 255, 0.2);
+        backdrop-filter: blur(10px);
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        color: white;
+      }
+
+      .nav-buttons .btn-primary:active {
+        background: rgba(255, 255, 255, 0.3);
+        transform: scale(0.95);
+      }
+
+      .nav-buttons .btn-secondary {
+        background: white;
+        color: var(--primary);
+        border: 2px solid white;
+      }
+
+      .nav-buttons .btn-secondary:active {
+        background: var(--light-gray);
+        transform: scale(0.95);
       }
 
       /* Messages */
@@ -454,13 +487,15 @@
         bottom: 10px;
         left: 0;
         right: 0;
-        background: rgba(198, 195, 195, 0.418);
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(10px);
         display: flex;
         justify-content: space-around;
         padding: 0.8rem 0;
-        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.237);
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
         z-index: 1000;
         border-top: 1px solid var(--border);
+        margin: 0 10px;
       }
 
       .nav-item {
@@ -502,18 +537,9 @@
       }
 
       /* Tablet Styles */
-      @media (max-width: 912px),(min-width: 820px) {
-        .container {
-          max-width: 833px;
-          box-shadow: 0 8px 26px darkblue;
-          background-color: #1976d2;
-        }
-
-      }
       @media (min-width: 768px) {
         body {
           padding: 1rem;
-          background: linear-gradient(135deg, #2196f3 0%, #1976d2 100%);
           display: flex;
           align-items: center;
           justify-content: center;
@@ -532,6 +558,7 @@
         .header {
           padding: 1.5rem 2rem;
           border-radius: 20px 20px 0 0;
+          margin: 0;
         }
 
         .header h1 {
@@ -622,9 +649,19 @@
           font-size: 1.6rem;
         }
 
+        .auth-warning {
+          margin: 2rem;
+          padding: 3rem 2rem;
+        }
+
         .nav-buttons {
           flex-direction: row;
           max-width: 400px;
+          gap: 1rem;
+        }
+
+        .nav-buttons .btn {
+          flex: 1;
         }
 
         .bottom-nav {
@@ -635,9 +672,7 @@
       /* Desktop Styles */
       @media (min-width: 1024px) {
         .container {
-          max-width: 833px;
-          box-shadow: 0 8px 26px darkblue;
-          background-color: #1976d2;
+          max-width: 800px;
         }
 
         .cart-item {
@@ -651,50 +686,6 @@
 
         .item-details h3 {
           font-size: 1.2rem;
-        }
-
-        .quantity-btn:hover {
-          background: var(--primary-dark);
-        }
-
-        .remove-btn:hover {
-          opacity: 0.9;
-        }
-
-        .btn-primary:hover {
-          box-shadow: 0 6px 16px rgba(33, 150, 243, 0.4);
-        }
-
-        .btn-secondary:hover {
-          background: var(--light-gray);
-        }
-      }
-
-      /* Large Mobile Devices */
-      @media (min-width: 425px) {
-        .container {
-          max-width: 833px;
-          /* box-shadow: 0 8px 26px darkblue; */
-          background-color: #1976d2;
-        }
-      }
-      @media (max-width: 768px)  {
-        .container {
-          max-width: 833px;
-          box-shadow: 0 8px 26px darkblue;
-          background-color: #1976d2;
-        }
-        .cart-item-header {
-          gap: 1rem;
-        }
-
-        .item-image {
-          width: 80px;
-          height: 80px;
-        }
-
-        .item-details h3 {
-          font-size: 1.1rem;
         }
       }
 
@@ -751,6 +742,18 @@
           padding: 0.9rem;
           font-size: 0.9rem;
         }
+
+        .auth-warning {
+          padding: 2rem 1rem;
+        }
+
+        .auth-warning i {
+          font-size: 3rem;
+        }
+
+        .auth-warning h3 {
+          font-size: 1.3rem;
+        }
       }
 
       /* Safe area support for notch devices */
@@ -778,12 +781,12 @@
         <div class="success-message" id="success-message"></div>
 
         <div id="auth-warning" class="auth-warning" style="display: none">
-          <i class="fas fa-exclamation-triangle"></i>
+          <i class="fas fa-user-lock"></i>
           <h3>Требуется авторизация</h3>
           <p>Для просмотра корзины необходимо войти в систему</p>
           <div class="nav-buttons">
             <a href="register.html" class="btn btn-primary">
-              <i class="fas fa-user-plus"></i> Регистрация
+              <i class="fas fa-user-plus"></i> Войти / Регистрация
             </a>
             <a href="main.html" class="btn btn-secondary">
               <i class="fas fa-home"></i> На главную
@@ -875,54 +878,20 @@
 
       // Улучшенная проверка авторизации
       function checkAuth() {
-        // Пробуем разные способы получения данных пользователя
         const userData = localStorage.getItem("user");
-        const sessionUser = sessionStorage.getItem("user");
-        const googleUser = localStorage.getItem("google_user");
-
-        let user = null;
-
-        // Пробуем распарсить данные из localStorage
+        
         if (userData) {
           try {
-            user = JSON.parse(userData);
+            const user = JSON.parse(userData);
+            if (user && user.id) {
+              currentUser = user;
+              return true;
+            }
           } catch (e) {
             console.warn("Не удалось распарсить user из localStorage:", e);
           }
         }
-
-        // Если не получилось, пробуем sessionStorage
-        if (!user && sessionUser) {
-          try {
-            user = JSON.parse(sessionUser);
-          } catch (e) {
-            console.warn("Не удалось распарсить user из sessionStorage:", e);
-          }
-        }
-
-        // Если не получилось, пробуем Google user data
-        if (!user && googleUser) {
-          try {
-            const googleData = JSON.parse(googleUser);
-            user = {
-              id: googleData.sub || googleData.id,
-              email: googleData.email,
-              first_name: googleData.given_name,
-              last_name: googleData.family_name,
-              username: googleData.email,
-              avatar: googleData.picture,
-            };
-          } catch (e) {
-            console.warn("Не удалось распарсить google_user:", e);
-          }
-        }
-
-        // Проверяем, что у пользователя есть ID (обязательное поле для работы с API)
-        if (user && user.id) {
-          currentUser = user;
-          return true;
-        }
-
+        
         return false;
       }
 
@@ -965,8 +934,6 @@
         errorMessage.textContent = message;
         errorMessage.style.display = "block";
         successMessage.style.display = "none";
-
-        // Автоскрытие ошибки через 5 секунд
         setTimeout(hideMessages, 5000);
       }
 
@@ -974,8 +941,6 @@
         successMessage.textContent = message;
         successMessage.style.display = "block";
         errorMessage.style.display = "none";
-
-        // Автоскрытие успеха через 3 секунды
         setTimeout(hideMessages, 3000);
       }
 
@@ -1041,107 +1006,40 @@
 
         cartItems.forEach((item) => {
           const itemTotal = (item.price * item.quantity).toFixed(2);
-          const imageUrl =
-            item.image ||
-            "https://images.unsplash.com/photo-1585435557343-3b092031d5ad?w=150&h=150&fit=crop";
-          const isMobile = window.innerWidth < 768;
+          const imageUrl = item.image || "https://images.unsplash.com/photo-1585435557343-3b092031d5ad?w=150&h=150&fit=crop";
 
           const cartItem = document.createElement("div");
           cartItem.className = "cart-item";
 
-          if (isMobile) {
-            cartItem.innerHTML = `
-                        <div class="cart-item-header">
-                            <img src="${imageUrl}" alt="${
-              item.name
-            }" class="item-image" 
-                                 onerror="this.src='https://images.unsplash.com/photo-1585435557343-3b092031d5ad?w=150&h=150&fit=crop'">
-                            <div class="item-details">
-                                <h3>${item.name}</h3>
-                                ${
-                                  item.manufacturer
-                                    ? `<p class="item-manufacturer">${item.manufacturer}</p>`
-                                    : ""
-                                }
-                                <div class="item-price">${item.price} ₽/шт</div>
-                            </div>
-                        </div>
-                        <div class="cart-item-controls">
-                            <div class="item-quantity">
-                                <button class="quantity-btn" onclick="updateQuantity(${
-                                  item.id
-                                }, ${item.quantity - 1})">
-                                    <i class="fas fa-minus"></i>
-                                </button>
-                                <input type="number" class="quantity-input" value="${
-                                  item.quantity
-                                }" min="1" 
-                                       onchange="updateQuantity(${
-                                         item.id
-                                       }, parseInt(this.value))">
-                                <button class="quantity-btn" onclick="updateQuantity(${
-                                  item.id
-                                }, ${item.quantity + 1})">
-                                    <i class="fas fa-plus"></i>
-                                </button>
-                            </div>
-                            <div class="item-total-section">
-                                <div class="item-total">${itemTotal} ₽</div>
-                                <button class="remove-btn" onclick="removeItem(${
-                                  item.id
-                                })">
-                                    <i class="fas fa-trash"></i> Удалить
-                                </button>
-                            </div>
-                        </div>
-                    `;
-          } else {
-            cartItem.innerHTML = `
-                        <div class="cart-item-header">
-                            <img src="${imageUrl}" alt="${
-              item.name
-            }" class="item-image" 
-                                 onerror="this.src='https://images.unsplash.com/photo-1585435557343-3b092031d5ad?w=150&h=150&fit=crop'">
-                            <div class="item-details">
-                                <h3>${item.name}</h3>
-                                ${
-                                  item.manufacturer
-                                    ? `<p class="item-manufacturer">${item.manufacturer}</p>`
-                                    : ""
-                                }
-                                <div class="item-price">${item.price} ₽/шт</div>
-                            </div>
-                        </div>
-                        <div class="cart-item-controls">
-                            <div class="item-quantity">
-                                <button class="quantity-btn" onclick="updateQuantity(${
-                                  item.id
-                                }, ${item.quantity - 1})">
-                                    <i class="fas fa-minus"></i>
-                                </button>
-                                <input type="number" class="quantity-input" value="${
-                                  item.quantity
-                                }" min="1" 
-                                       onchange="updateQuantity(${
-                                         item.id
-                                       }, parseInt(this.value))">
-                                <button class="quantity-btn" onclick="updateQuantity(${
-                                  item.id
-                                }, ${item.quantity + 1})">
-                                    <i class="fas fa-plus"></i>
-                                </button>
-                            </div>
-                            <div class="item-total-section">
-                                <div class="item-total">${itemTotal} ₽</div>
-                                <button class="remove-btn" onclick="removeItem(${
-                                  item.id
-                                })">
-                                    <i class="fas fa-trash"></i> Удалить
-                                </button>
-                            </div>
-                        </div>
-                    `;
-          }
+          cartItem.innerHTML = `
+            <div class="cart-item-header">
+              <img src="${imageUrl}" alt="${item.name}" class="item-image" 
+                   onerror="this.src='https://images.unsplash.com/photo-1585435557343-3b092031d5ad?w=150&h=150&fit=crop'">
+              <div class="item-details">
+                <h3>${item.name}</h3>
+                ${item.manufacturer ? `<p class="item-manufacturer">${item.manufacturer}</p>` : ""}
+                <div class="item-price">${item.price} ₽/шт</div>
+              </div>
+            </div>
+            <div class="cart-item-controls">
+              <div class="item-quantity">
+                <button class="quantity-btn" onclick="updateQuantity(${item.id}, ${item.quantity - 1})">
+                  <i class="fas fa-minus"></i>
+                </button>
+                <input type="number" class="quantity-input" value="${item.quantity}" min="1" 
+                       onchange="updateQuantity(${item.id}, parseInt(this.value))">
+                <button class="quantity-btn" onclick="updateQuantity(${item.id}, ${item.quantity + 1})">
+                  <i class="fas fa-plus"></i>
+                </button>
+              </div>
+              <div class="item-total-section">
+                <div class="item-total">${itemTotal} ₽</div>
+                <button class="remove-btn" onclick="removeItem(${item.id})">
+                  <i class="fas fa-trash"></i> Удалить
+                </button>
+              </div>
+            </div>
+          `;
 
           cartItemsDiv.appendChild(cartItem);
         });
@@ -1160,8 +1058,6 @@
 
         totalAmountDiv.textContent = `${total.toFixed(2)} ₽`;
         itemsCountDiv.textContent = itemsCount;
-
-        // Обновляем бейдж
         updateCartBadge(itemsCount);
       }
 
@@ -1190,7 +1086,6 @@
           const data = await response.json();
 
           if (data.success) {
-            // Обновляем локальные данные
             const itemIndex = cartItems.findIndex((item) => item.id === itemId);
             if (itemIndex !== -1) {
               cartItems[itemIndex].quantity = newQuantity;
@@ -1204,7 +1099,6 @@
         } catch (error) {
           console.error("Ошибка обновления количества:", error);
           showError(error.message);
-          // Перезагружаем корзину для синхронизации
           loadCart();
         }
       }
@@ -1235,7 +1129,6 @@
           const data = await response.json();
 
           if (data.success) {
-            // Удаляем из локальных данных
             cartItems = cartItems.filter((item) => item.id !== itemId);
 
             if (cartItems.length === 0) {
@@ -1252,7 +1145,6 @@
         } catch (error) {
           console.error("Ошибка удаления товара:", error);
           showError(error.message);
-          // Перезагружаем корзину для синхронизации
           loadCart();
         }
       }
@@ -1302,23 +1194,16 @@
           return;
         }
 
-        // Проверяем наличие товаров
         const outOfStockItems = cartItems.filter((item) => !item.in_stock);
         if (outOfStockItems.length > 0) {
           showError("Некоторые товары отсутствуют в наличии");
           return;
         }
 
-        // Здесь можно добавить логику оформления заказа
-        showSuccess(
-          "Функция оформления заказа будет реализована в ближайшее время"
-        );
+        showSuccess("Функция оформления заказа будет реализована в ближайшее время");
 
-        // Временное сообщение
         setTimeout(() => {
-          alert(
-            "Функция оформления заказа находится в разработке. Спасибо за ваш заказ!"
-          );
+          alert("Функция оформления заказа находится в разработке. Спасибо за ваш заказ!");
         }, 500);
       }
 
@@ -1328,7 +1213,6 @@
 
       // Обработка изменения ориентации экрана
       window.addEventListener("resize", function () {
-        // Перерисовываем корзину при изменении размера для адаптации
         if (cartItems.length > 0) {
           renderCart();
         }
@@ -1339,34 +1223,10 @@
 
       // Обработка изменения авторизации
       window.addEventListener("storage", function (e) {
-        if (e.key === "user" || e.key === "google_user") {
+        if (e.key === "user") {
           loadCart();
         }
       });
-
-      // Предотвращение масштабирования на iOS
-      document.addEventListener(
-        "touchstart",
-        function (e) {
-          if (e.touches.length > 1) {
-            e.preventDefault();
-          }
-        },
-        { passive: false }
-      );
-
-      let lastTouchEnd = 0;
-      document.addEventListener(
-        "touchend",
-        function (e) {
-          const now = new Date().getTime();
-          if (now - lastTouchEnd <= 300) {
-            e.preventDefault();
-          }
-          lastTouchEnd = now;
-        },
-        false
-      );
     </script>
   </body>
 </html>
