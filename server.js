@@ -122,9 +122,103 @@ async function validateUser(req, res, next) {
 
 // ==================== API ROUTES ====================
 
-// ==================== COURIER PROFILE ROUTES ====================
+// ==================== COURIER ROUTES ====================
 
-// Courier - Get profile
+// Courier - Register
+app.post('/api/courier/register', databaseMiddleware, async (req, res) => {
+  console.log('📨 POST /api/courier/register');
+  
+  const { 
+    user_id, 
+    first_name, 
+    last_name, 
+    phone, 
+    email, 
+    vehicle_type = 'bicycle',
+    vehicle_number = ''
+  } = req.body;
+
+  if (!user_id || !first_name || !last_name || !phone || !email) {
+    return res.status(400).json({
+      success: false,
+      error: 'Все обязательные поля должны быть заполнены'
+    });
+  }
+
+  try {
+    // Проверяем существование пользователя
+    const { rows: userRows } = await req.db.query(
+      'SELECT * FROM users WHERE id = $1',
+      [user_id]
+    );
+
+    if (userRows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Пользователь не найден'
+      });
+    }
+
+    // Проверяем, не зарегистрирован ли уже курьер
+    const { rows: existingCourier } = await req.db.query(
+      'SELECT * FROM couriers WHERE user_id = $1 OR email = $2',
+      [user_id, email]
+    );
+
+    if (existingCourier.length > 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Курьер уже зарегистрирован'
+      });
+    }
+
+    // Генерируем уникальный код курьера
+    const courierCode = 'C-' + Date.now().toString().slice(-6);
+
+    // Создаем запись курьера
+    const { rows } = await req.db.query(
+      `INSERT INTO couriers (
+        user_id, courier_code, first_name, last_name, phone, email,
+        vehicle_type, vehicle_number, status
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+      [user_id, courierCode, first_name, last_name, phone, email,
+       vehicle_type, vehicle_number, 'active']
+    );
+
+    const newCourier = rows[0];
+
+    // Создаем чат с поддержкой для курьера
+    await req.db.query(
+      `INSERT INTO courier_chats (courier_id, participant_type, participant_name, last_message) 
+       VALUES ($1, $2, $3, $4)`,
+      [newCourier.id, 'support', 'Поддержка ФармаПлюс', 'Добро пожаловать в команду курьеров!']
+    );
+
+    // Создаем приветственное сообщение
+    await req.db.query(
+      `INSERT INTO courier_messages (courier_id, subject, message, message_type) 
+       VALUES ($1, $2, $3, $4)`,
+      [newCourier.id, 'Добро пожаловать!', 'Добро пожаловать в команду курьеров ФармаПлюс! Мы рады видеть вас в нашей команде.', 'info']
+    );
+
+    console.log('✅ Курьер успешно зарегистрирован:', newCourier.id);
+
+    res.json({
+      success: true,
+      message: 'Регистрация курьера успешна',
+      courier: newCourier
+    });
+
+  } catch (err) {
+    console.error('❌ Ошибка регистрации курьера:', err);
+    res.status(500).json({
+      success: false,
+      error: 'Ошибка регистрации курьера: ' + err.message
+    });
+  }
+});
+
+// Courier - Get profile by user_id
 app.get('/api/courier/profile', databaseMiddleware, async (req, res) => {
   console.log('📨 GET /api/courier/profile');
   
@@ -139,7 +233,10 @@ app.get('/api/courier/profile', databaseMiddleware, async (req, res) => {
     }
 
     const { rows } = await req.db.query(
-      'SELECT * FROM couriers WHERE user_id = $1',
+      `SELECT c.*, u.username, u.avatar 
+       FROM couriers c 
+       LEFT JOIN users u ON c.user_id = u.id 
+       WHERE c.user_id = $1`,
       [user_id]
     );
 
@@ -163,6 +260,94 @@ app.get('/api/courier/profile', databaseMiddleware, async (req, res) => {
   }
 });
 
+// Courier - Update profile
+app.put('/api/courier/profile', databaseMiddleware, async (req, res) => {
+  console.log('📨 PUT /api/courier/profile');
+  
+  const { user_id, first_name, last_name, phone, vehicle_type, vehicle_number } = req.body;
+  
+  if (!user_id) {
+    return res.status(400).json({
+      success: false,
+      error: 'user_id обязателен'
+    });
+  }
+
+  try {
+    const { rows } = await req.db.query(
+      `UPDATE couriers 
+       SET first_name = $1, last_name = $2, phone = $3, vehicle_type = $4, vehicle_number = $5, updated_at = CURRENT_TIMESTAMP 
+       WHERE user_id = $6 
+       RETURNING *`,
+      [first_name, last_name, phone, vehicle_type, vehicle_number, user_id]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Курьер не найден'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Профиль курьера обновлен',
+      courier: rows[0]
+    });
+  } catch (err) {
+    console.error('❌ Ошибка обновления профиля курьера:', err);
+    res.status(500).json({
+      success: false,
+      error: 'Ошибка обновления профиля курьера: ' + err.message
+    });
+  }
+});
+
+// Courier - Update status
+app.post('/api/courier/status', databaseMiddleware, async (req, res) => {
+  console.log('📨 POST /api/courier/status');
+  
+  const { user_id, status } = req.body;
+  
+  if (!user_id || !status) {
+    return res.status(400).json({
+      success: false,
+      error: 'user_id и status обязательны'
+    });
+  }
+
+  try {
+    const { rows } = await req.db.query(
+      `UPDATE couriers 
+       SET status = $1, last_activity = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP 
+       WHERE user_id = $2 
+       RETURNING *`,
+      [status, user_id]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Курьер не найден'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Статус обновлен',
+      courier: rows[0]
+    });
+  } catch (err) {
+    console.error('❌ Ошибка обновления статуса курьера:', err);
+    res.status(500).json({
+      success: false,
+      error: 'Ошибка обновления статуса курьера: ' + err.message
+    });
+  }
+});
+
+// ==================== COURIER MESSAGES & CHATS ====================
+
 // Courier - Get messages
 app.get('/api/courier/messages', databaseMiddleware, async (req, res) => {
   console.log('📨 GET /api/courier/messages');
@@ -177,12 +362,27 @@ app.get('/api/courier/messages', databaseMiddleware, async (req, res) => {
       });
     }
 
-    const { rows } = await req.db.query(
-      `SELECT cm.* FROM courier_messages cm 
-       JOIN couriers c ON cm.courier_id = c.id 
-       WHERE c.user_id = $1 
-       ORDER BY cm.created_at DESC`,
+    // Получаем курьера по user_id
+    const { rows: courierRows } = await req.db.query(
+      'SELECT id FROM couriers WHERE user_id = $1',
       [user_id]
+    );
+
+    if (courierRows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Курьер не найден'
+      });
+    }
+
+    const courierId = courierRows[0].id;
+
+    const { rows } = await req.db.query(
+      `SELECT * FROM courier_messages 
+       WHERE courier_id = $1 
+       ORDER BY created_at DESC 
+       LIMIT 50`,
+      [courierId]
     );
 
     res.json({
@@ -194,6 +394,53 @@ app.get('/api/courier/messages', databaseMiddleware, async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Ошибка получения сообщений: ' + err.message
+    });
+  }
+});
+
+// Courier - Mark message as read
+app.post('/api/courier/messages/:messageId/read', databaseMiddleware, async (req, res) => {
+  console.log('📨 POST /api/courier/messages/' + req.params.messageId + '/read');
+  
+  try {
+    const { user_id } = req.body;
+    
+    if (!user_id) {
+      return res.status(400).json({
+        success: false,
+        error: 'user_id обязателен'
+      });
+    }
+
+    // Получаем курьера по user_id
+    const { rows: courierRows } = await req.db.query(
+      'SELECT id FROM couriers WHERE user_id = $1',
+      [user_id]
+    );
+
+    if (courierRows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Курьер не найден'
+      });
+    }
+
+    const courierId = courierRows[0].id;
+
+    await req.db.query(
+      'UPDATE courier_messages SET is_read = true WHERE id = $1 AND courier_id = $2',
+      [req.params.messageId, courierId]
+    );
+
+    res.json({
+      success: true,
+      message: 'Сообщение помечено как прочитанное'
+    });
+  } catch (err) {
+    console.error('❌ Ошибка отметки сообщения:', err);
+    res.status(500).json({
+      success: false,
+      error: 'Ошибка отметки сообщения: ' + err.message
     });
   }
 });
@@ -212,12 +459,26 @@ app.get('/api/courier/chats', databaseMiddleware, async (req, res) => {
       });
     }
 
-    const { rows } = await req.db.query(
-      `SELECT cc.* FROM courier_chats cc 
-       JOIN couriers c ON cc.courier_id = c.id 
-       WHERE c.user_id = $1 AND cc.is_active = true 
-       ORDER BY cc.last_message_at DESC`,
+    // Получаем курьера по user_id
+    const { rows: courierRows } = await req.db.query(
+      'SELECT id FROM couriers WHERE user_id = $1',
       [user_id]
+    );
+
+    if (courierRows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Курьер не найден'
+      });
+    }
+
+    const courierId = courierRows[0].id;
+
+    const { rows } = await req.db.query(
+      `SELECT * FROM courier_chats 
+       WHERE courier_id = $1 AND is_active = true 
+       ORDER BY last_message_at DESC`,
+      [courierId]
     );
 
     res.json({
@@ -239,7 +500,10 @@ app.get('/api/courier/chats/:chatId/messages', databaseMiddleware, async (req, r
   
   try {
     const { rows } = await req.db.query(
-      'SELECT * FROM courier_chat_messages WHERE chat_id = $1 ORDER BY created_at ASC',
+      `SELECT * FROM courier_chat_messages 
+       WHERE chat_id = $1 
+       ORDER BY created_at ASC 
+       LIMIT 100`,
       [req.params.chatId]
     );
 
@@ -277,9 +541,9 @@ app.post('/api/courier/chats/:chatId/messages', databaseMiddleware, async (req, 
   }
 
   try {
-    // Получаем данные курьера для имени
+    // Получаем данные курьера
     const { rows: courierRows } = await req.db.query(
-      'SELECT first_name FROM couriers WHERE user_id = $1',
+      'SELECT id, first_name FROM couriers WHERE user_id = $1',
       [user_id]
     );
 
@@ -290,7 +554,8 @@ app.post('/api/courier/chats/:chatId/messages', databaseMiddleware, async (req, 
       });
     }
 
-    const courierName = courierRows[0]?.first_name || 'Курьер';
+    const courierId = courierRows[0].id;
+    const courierName = courierRows[0].first_name;
 
     // Добавляем сообщение
     const { rows } = await req.db.query(
@@ -301,7 +566,9 @@ app.post('/api/courier/chats/:chatId/messages', databaseMiddleware, async (req, 
 
     // Обновляем последнее сообщение в чате
     await req.db.query(
-      'UPDATE courier_chats SET last_message = $1, last_message_at = CURRENT_TIMESTAMP WHERE id = $2',
+      `UPDATE courier_chats 
+       SET last_message = $1, last_message_at = CURRENT_TIMESTAMP, unread_count = unread_count + 1 
+       WHERE id = $2`,
       [message, req.params.chatId]
     );
 
@@ -317,6 +584,586 @@ app.post('/api/courier/chats/:chatId/messages', databaseMiddleware, async (req, 
     });
   }
 });
+
+// Courier - Mark chat as read
+app.post('/api/courier/chats/:chatId/read', databaseMiddleware, async (req, res) => {
+  console.log('📨 POST /api/courier/chats/' + req.params.chatId + '/read');
+  
+  try {
+    await req.db.query(
+      'UPDATE courier_chats SET unread_count = 0 WHERE id = $1',
+      [req.params.chatId]
+    );
+
+    res.json({
+      success: true,
+      message: 'Чат помечен как прочитанный'
+    });
+  } catch (err) {
+    console.error('❌ Ошибка отметки чата:', err);
+    res.status(500).json({
+      success: false,
+      error: 'Ошибка отметки чата: ' + err.message
+    });
+  }
+});
+
+// ==================== COURIER ORDERS ====================
+
+// Courier - Get orders
+app.get('/api/courier/orders', databaseMiddleware, async (req, res) => {
+  console.log('📨 GET /api/courier/orders');
+  
+  try {
+    const { user_id } = req.query;
+    
+    if (!user_id) {
+      return res.status(400).json({
+        success: false,
+        error: 'user_id обязателен'
+      });
+    }
+
+    // Получаем курьера по user_id
+    const { rows: courierRows } = await req.db.query(
+      'SELECT id FROM couriers WHERE user_id = $1',
+      [user_id]
+    );
+
+    let orders = [];
+
+    if (courierRows.length > 0) {
+      const courierId = courierRows[0].id;
+
+      // Получаем заказы с информацией о товарах
+      const { rows: orderRows } = await req.db.query(`
+        SELECT 
+          o.id,
+          o.order_code,
+          o.total_amount,
+          o.delivery_address as address,
+          o.customer_name,
+          o.customer_phone,
+          o.customer_notes,
+          o.status,
+          o.created_at,
+          o.assigned_at,
+          o.delivered_at,
+          c.first_name as courier_name,
+          json_agg(
+            json_build_object(
+              'id', p.id,
+              'name', doi.product_name,
+              'quantity', doi.quantity,
+              'price', doi.unit_price
+            )
+          ) as products
+        FROM delivery_orders o
+        LEFT JOIN delivery_order_items doi ON o.id = doi.delivery_order_id
+        LEFT JOIN products p ON doi.product_id = p.id
+        LEFT JOIN couriers c ON o.courier_id = c.id
+        WHERE o.courier_id = $1 OR o.status = 'pending'
+        GROUP BY o.id, c.first_name
+        ORDER BY 
+          CASE 
+            WHEN o.status = 'pending' THEN 1
+            WHEN o.status = 'assigned' THEN 2
+            WHEN o.status = 'delivered' THEN 3
+            ELSE 4
+          END,
+          o.created_at DESC
+      `, [courierId]);
+
+      orders = orderRows;
+    } else {
+      // Если курьер не найден, возвращаем пустой список
+      orders = [];
+    }
+
+    console.log('✅ Найдено заказов:', orders.length);
+
+    res.json({
+      success: true,
+      orders: orders.map(order => ({
+        id: order.id,
+        order_code: order.order_code,
+        address: order.address,
+        status: order.status,
+        customer_name: order.customer_name,
+        customer_phone: order.customer_phone,
+        customer_notes: order.customer_notes,
+        total_amount: order.total_amount,
+        created_at: order.created_at,
+        assigned_at: order.assigned_at,
+        delivered_at: order.delivered_at,
+        courier_name: order.courier_name,
+        products: order.products || []
+      }))
+    });
+  } catch (err) {
+    console.error('❌ Ошибка получения заказов:', err);
+    res.status(500).json({
+      success: false,
+      error: 'Ошибка получения заказов: ' + err.message
+    });
+  }
+});
+
+// Courier - Accept order
+app.post('/api/courier/orders/accept', databaseMiddleware, async (req, res) => {
+  console.log('📨 POST /api/courier/orders/accept');
+  
+  const { order_id, user_id } = req.body;
+  
+  if (!order_id || !user_id) {
+    return res.status(400).json({
+      success: false,
+      error: 'order_id и user_id обязательны'
+    });
+  }
+
+  try {
+    // Получаем courier_id по user_id
+    const { rows: courierRows } = await req.db.query(
+      'SELECT id, first_name FROM couriers WHERE user_id = $1',
+      [user_id]
+    );
+
+    if (courierRows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Курьер не найден'
+      });
+    }
+
+    const courierId = courierRows[0].id;
+    const courierName = courierRows[0].first_name;
+
+    const { rows } = await req.db.query(
+      'UPDATE delivery_orders SET status = $1, courier_id = $2, assigned_at = CURRENT_TIMESTAMP WHERE id = $3 AND status = $4 RETURNING *',
+      ['assigned', courierId, order_id, 'pending']
+    );
+
+    if (rows.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Заказ не найден или уже принят'
+      });
+    }
+
+    // Обновляем статистику курьера
+    await req.db.query(
+      'UPDATE couriers SET total_orders = total_orders + 1, current_daily_orders = current_daily_orders + 1, updated_at = CURRENT_TIMESTAMP WHERE id = $1',
+      [courierId]
+    );
+
+    res.json({
+      success: true,
+      message: 'Заказ принят',
+      order: rows[0],
+      courier_name: courierName
+    });
+  } catch (err) {
+    console.error('❌ Ошибка принятия заказа:', err);
+    res.status(500).json({
+      success: false,
+      error: 'Ошибка принятия заказа: ' + err.message
+    });
+  }
+});
+
+// Courier - Complete order
+app.post('/api/courier/orders/complete', databaseMiddleware, async (req, res) => {
+  console.log('📨 POST /api/courier/orders/complete');
+  
+  const { order_id, user_id } = req.body;
+  
+  if (!order_id || !user_id) {
+    return res.status(400).json({
+      success: false,
+      error: 'order_id и user_id обязательны'
+    });
+  }
+
+  try {
+    // Получаем courier_id по user_id
+    const { rows: courierRows } = await req.db.query(
+      'SELECT id FROM couriers WHERE user_id = $1',
+      [user_id]
+    );
+
+    if (courierRows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Курьер не найден'
+      });
+    }
+
+    const courierId = courierRows[0].id;
+
+    const { rows } = await req.db.query(
+      'UPDATE delivery_orders SET status = $1, delivered_at = CURRENT_TIMESTAMP WHERE id = $2 AND status = $3 AND courier_id = $4 RETURNING *',
+      ['delivered', order_id, 'assigned', courierId]
+    );
+
+    if (rows.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Заказ не найден или не был принят'
+      });
+    }
+
+    // Обновляем статистику курьера
+    await req.db.query(
+      'UPDATE couriers SET completed_orders = completed_orders + 1, updated_at = CURRENT_TIMESTAMP WHERE id = $1',
+      [courierId]
+    );
+
+    // Рассчитываем и обновляем заработок (простая логика - 10% от суммы заказа)
+    const orderAmount = parseFloat(rows[0].total_amount) || 0;
+    const earnings = orderAmount * 0.1;
+
+    await req.db.query(
+      'UPDATE couriers SET total_earnings = total_earnings + $1, today_earnings = today_earnings + $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3',
+      [earnings, earnings, courierId]
+    );
+
+    res.json({
+      success: true,
+      message: 'Заказ доставлен',
+      order: rows[0],
+      earnings: earnings
+    });
+  } catch (err) {
+    console.error('❌ Ошибка завершения заказа:', err);
+    res.status(500).json({
+      success: false,
+      error: 'Ошибка завершения заказа: ' + err.message
+    });
+  }
+});
+
+// Courier - Cancel order
+app.post('/api/courier/orders/cancel', databaseMiddleware, async (req, res) => {
+  console.log('📨 POST /api/courier/orders/cancel');
+  
+  const { order_id, user_id, reason } = req.body;
+  
+  if (!order_id || !user_id) {
+    return res.status(400).json({
+      success: false,
+      error: 'order_id и user_id обязательны'
+    });
+  }
+
+  try {
+    // Получаем courier_id по user_id
+    const { rows: courierRows } = await req.db.query(
+      'SELECT id FROM couriers WHERE user_id = $1',
+      [user_id]
+    );
+
+    if (courierRows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Курьер не найден'
+      });
+    }
+
+    const courierId = courierRows[0].id;
+
+    const { rows } = await req.db.query(
+      'UPDATE delivery_orders SET status = $1, cancelled_at = CURRENT_TIMESTAMP WHERE id = $2 AND status = $3 AND courier_id = $4 RETURNING *',
+      ['cancelled', order_id, 'assigned', courierId]
+    );
+
+    if (rows.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Заказ не найден или не был принят'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Заказ отменен',
+      order: rows[0]
+    });
+  } catch (err) {
+    console.error('❌ Ошибка отмены заказа:', err);
+    res.status(500).json({
+      success: false,
+      error: 'Ошибка отмены заказа: ' + err.message
+    });
+  }
+});
+
+// Courier - Get order details
+app.get('/api/courier/orders/:orderId', databaseMiddleware, async (req, res) => {
+  console.log('📨 GET /api/courier/orders/' + req.params.orderId);
+  
+  try {
+    const { user_id } = req.query;
+    
+    if (!user_id) {
+      return res.status(400).json({
+        success: false,
+        error: 'user_id обязателен'
+      });
+    }
+
+    const { rows } = await req.db.query(`
+      SELECT 
+        o.*,
+        c.first_name as courier_name,
+        json_agg(
+          json_build_object(
+            'id', p.id,
+            'name', doi.product_name,
+            'quantity', doi.quantity,
+            'price', doi.unit_price,
+            'total_price', doi.total_price
+          )
+        ) as products
+      FROM delivery_orders o
+      LEFT JOIN delivery_order_items doi ON o.id = doi.delivery_order_id
+      LEFT JOIN products p ON doi.product_id = p.id
+      LEFT JOIN couriers c ON o.courier_id = c.id
+      WHERE o.id = $1
+      GROUP BY o.id, c.first_name
+    `, [req.params.orderId]);
+
+    if (rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Заказ не найден'
+      });
+    }
+
+    res.json({
+      success: true,
+      order: rows[0]
+    });
+  } catch (err) {
+    console.error('❌ Ошибка получения деталей заказа:', err);
+    res.status(500).json({
+      success: false,
+      error: 'Ошибка получения деталей заказа: ' + err.message
+    });
+  }
+});
+
+// ==================== COURIER WORK SCHEDULE ====================
+
+// Courier - Get work schedule
+app.get('/api/courier/schedule', databaseMiddleware, async (req, res) => {
+  console.log('📨 GET /api/courier/schedule');
+  
+  try {
+    const { user_id } = req.query;
+    
+    if (!user_id) {
+      return res.status(400).json({
+        success: false,
+        error: 'user_id обязателен'
+      });
+    }
+
+    // Получаем курьера по user_id
+    const { rows: courierRows } = await req.db.query(
+      'SELECT id FROM couriers WHERE user_id = $1',
+      [user_id]
+    );
+
+    if (courierRows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Курьер не найден'
+      });
+    }
+
+    const courierId = courierRows[0].id;
+
+    const { rows } = await req.db.query(
+      `SELECT * FROM courier_work_schedule 
+       WHERE courier_id = $1 AND is_active = true 
+       ORDER BY day_of_week, start_time`,
+      [courierId]
+    );
+
+    res.json({
+      success: true,
+      schedule: rows
+    });
+  } catch (err) {
+    console.error('❌ Ошибка получения расписания:', err);
+    res.status(500).json({
+      success: false,
+      error: 'Ошибка получения расписания: ' + err.message
+    });
+  }
+});
+
+// Courier - Update work schedule
+app.post('/api/courier/schedule', databaseMiddleware, async (req, res) => {
+  console.log('📨 POST /api/courier/schedule');
+  
+  const { user_id, schedule } = req.body;
+  
+  if (!user_id || !schedule) {
+    return res.status(400).json({
+      success: false,
+      error: 'user_id и schedule обязательны'
+    });
+  }
+
+  try {
+    // Получаем курьера по user_id
+    const { rows: courierRows } = await req.db.query(
+      'SELECT id FROM couriers WHERE user_id = $1',
+      [user_id]
+    );
+
+    if (courierRows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Курьер не найден'
+      });
+    }
+
+    const courierId = courierRows[0].id;
+
+    // Удаляем старое расписание
+    await req.db.query(
+      'DELETE FROM courier_work_schedule WHERE courier_id = $1',
+      [courierId]
+    );
+
+    // Добавляем новое расписание
+    for (const daySchedule of schedule) {
+      await req.db.query(
+        `INSERT INTO courier_work_schedule (courier_id, day_of_week, start_time, end_time, is_active) 
+         VALUES ($1, $2, $3, $4, $5)`,
+        [courierId, daySchedule.day_of_week, daySchedule.start_time, daySchedule.end_time, daySchedule.is_active || true]
+      );
+    }
+
+    res.json({
+      success: true,
+      message: 'Расписание обновлено'
+    });
+  } catch (err) {
+    console.error('❌ Ошибка обновления расписания:', err);
+    res.status(500).json({
+      success: false,
+      error: 'Ошибка обновления расписания: ' + err.message
+    });
+  }
+});
+
+// ==================== COURIER EARNINGS ====================
+
+// Courier - Get earnings
+app.get('/api/courier/earnings', databaseMiddleware, async (req, res) => {
+  console.log('📨 GET /api/courier/earnings');
+  
+  try {
+    const { user_id, period = 'today' } = req.query;
+    
+    if (!user_id) {
+      return res.status(400).json({
+        success: false,
+        error: 'user_id обязателен'
+      });
+    }
+
+    // Получаем курьера по user_id
+    const { rows: courierRows } = await req.db.query(
+      'SELECT id, total_earnings, today_earnings FROM couriers WHERE user_id = $1',
+      [user_id]
+    );
+
+    if (courierRows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Курьер не найден'
+      });
+    }
+
+    const courier = courierRows[0];
+    let earningsData = [];
+
+    if (period === 'today') {
+      const { rows } = await req.db.query(`
+        SELECT 
+          o.id,
+          o.order_code,
+          o.total_amount,
+          (o.total_amount * 0.1) as courier_earnings,
+          o.delivered_at
+        FROM delivery_orders o
+        WHERE o.courier_id = $1 
+          AND o.status = 'delivered'
+          AND DATE(o.delivered_at) = CURRENT_DATE
+        ORDER BY o.delivered_at DESC
+      `, [courier.id]);
+
+      earningsData = rows;
+    } else if (period === 'week') {
+      const { rows } = await req.db.query(`
+        SELECT 
+          o.id,
+          o.order_code,
+          o.total_amount,
+          (o.total_amount * 0.1) as courier_earnings,
+          o.delivered_at
+        FROM delivery_orders o
+        WHERE o.courier_id = $1 
+          AND o.status = 'delivered'
+          AND o.delivered_at >= CURRENT_DATE - INTERVAL '7 days'
+        ORDER BY o.delivered_at DESC
+      `, [courier.id]);
+
+      earningsData = rows;
+    } else if (period === 'month') {
+      const { rows } = await req.db.query(`
+        SELECT 
+          o.id,
+          o.order_code,
+          o.total_amount,
+          (o.total_amount * 0.1) as courier_earnings,
+          o.delivered_at
+        FROM delivery_orders o
+        WHERE o.courier_id = $1 
+          AND o.status = 'delivered'
+          AND o.delivered_at >= CURRENT_DATE - INTERVAL '30 days'
+        ORDER BY o.delivered_at DESC
+      `, [courier.id]);
+
+      earningsData = rows;
+    }
+
+    const totalEarnings = earningsData.reduce((sum, item) => sum + parseFloat(item.courier_earnings), 0);
+
+    res.json({
+      success: true,
+      earnings: {
+        total_earnings: parseFloat(courier.total_earnings) || 0,
+        today_earnings: parseFloat(courier.today_earnings) || 0,
+        period_earnings: totalEarnings,
+        orders: earningsData
+      }
+    });
+  } catch (err) {
+    console.error('❌ Ошибка получения заработка:', err);
+    res.status(500).json({
+      success: false,
+      error: 'Ошибка получения заработка: ' + err.message
+    });
+  }
+});
+
+// ==================== HEALTH CHECK & CONFIG ====================
 
 // Health check
 app.get('/health', async (req, res) => {
@@ -334,6 +1181,8 @@ app.get('/health', async (req, res) => {
     const categoriesCount = await db.query('SELECT COUNT(*) as count FROM categories');
     const usersCount = await db.query('SELECT COUNT(*) as count FROM users');
     const cartCount = await db.query('SELECT COUNT(*) as count FROM cart_items');
+    const couriersCount = await db.query('SELECT COUNT(*) as count FROM couriers');
+    const ordersCount = await db.query('SELECT COUNT(*) as count FROM delivery_orders');
     
     res.json({ 
       status: 'OK', 
@@ -343,7 +1192,9 @@ app.get('/health', async (req, res) => {
         products: parseInt(productsCount.rows[0]?.count) || 0,
         categories: parseInt(categoriesCount.rows[0]?.count) || 0,
         users: parseInt(usersCount.rows[0]?.count) || 0,
-        cart_items: parseInt(cartCount.rows[0]?.count) || 0
+        cart_items: parseInt(cartCount.rows[0]?.count) || 0,
+        couriers: parseInt(couriersCount.rows[0]?.count) || 0,
+        delivery_orders: parseInt(ordersCount.rows[0]?.count) || 0
       }
     });
   } catch (err) {
@@ -363,6 +1214,8 @@ app.get('/api/config', (req, res) => {
     googleClientId: process.env.GOOGLE_CLIENT_ID || 'demo'
   });
 });
+
+// ==================== EXISTING ROUTES (сохраняем все предыдущие функции) ====================
 
 // Categories
 app.get('/api/categories', databaseMiddleware, async (req, res) => {
@@ -562,7 +1415,6 @@ app.post('/api/auth/register', databaseMiddleware, async (req, res) => {
     
     const hashedPassword = simpleHash(password);
     
-    // ИСПРАВЛЕННЫЙ INSERT - используем nextval для id
     const { rows } = await req.db.query(
       `INSERT INTO users (id, username, email, password, full_name, phone) 
        VALUES (nextval('users_id_seq'), $1, $2, $3, $4, $5)
@@ -984,189 +1836,6 @@ app.post('/api/orders/create', databaseMiddleware, validateUser, async (req, res
   }
 });
 
-// ==================== COURIER ROUTES ====================
-
-// Courier - Get orders (ИСПРАВЛЕННАЯ ВЕРСИЯ)
-app.get('/api/courier/orders', databaseMiddleware, async (req, res) => {
-    console.log('📨 GET /api/courier/orders');
-    
-    try {
-        // Получаем заказы с информацией о товарах
-        const { rows: orders } = await req.db.query(`
-            SELECT 
-                o.id,
-                o.order_code,
-                o.total_amount,
-                o.delivery_address as address,
-                o.customer_name,
-                o.customer_phone,
-                o.status,
-                o.created_at,
-                o.assigned_at,
-                o.delivered_at,
-                c.first_name as courier_name,
-                json_agg(
-                    json_build_object(
-                        'id', p.id,
-                        'name', p.name,
-                        'quantity', oi.quantity,
-                        'price', oi.unit_price
-                    )
-                ) as products
-            FROM delivery_orders o
-            LEFT JOIN delivery_order_items oi ON o.id = oi.delivery_order_id
-            LEFT JOIN products p ON oi.product_id = p.id
-            LEFT JOIN couriers c ON o.courier_id = c.id
-            WHERE o.status IN ('pending', 'assigned', 'delivered')
-            GROUP BY o.id, c.first_name
-            ORDER BY 
-                CASE 
-                    WHEN o.status = 'pending' THEN 1
-                    WHEN o.status = 'assigned' THEN 2
-                    WHEN o.status = 'delivered' THEN 3
-                    ELSE 4
-                END,
-                o.created_at DESC
-        `);
-
-        console.log('✅ Найдено заказов:', orders.length);
-
-        res.json({
-            success: true,
-            orders: orders.map(order => ({
-                id: order.id,
-                order_code: order.order_code,
-                address: order.address,
-                status: order.status,
-                customer_name: order.customer_name,
-                customer_phone: order.customer_phone,
-                total_amount: order.total_amount,
-                created_at: order.created_at,
-                courier_name: order.courier_name,
-                products: order.products || []
-            }))
-        });
-    } catch (err) {
-        console.error('❌ Ошибка получения заказов:', err);
-        res.status(500).json({
-            success: false,
-            error: 'Ошибка получения заказов: ' + err.message
-        });
-    }
-});
-
-// Courier - Accept order (ИСПРАВЛЕННАЯ ВЕРСИЯ)
-app.post('/api/courier/orders/accept', databaseMiddleware, async (req, res) => {
-    console.log('📨 POST /api/courier/orders/accept');
-    
-    const { order_id, user_id } = req.body;
-    
-    if (!order_id || !user_id) {
-        return res.status(400).json({
-            success: false,
-            error: 'order_id и user_id обязательны'
-        });
-    }
-
-    try {
-        // Получаем courier_id по user_id
-        const { rows: courierRows } = await req.db.query(
-            'SELECT id, first_name FROM couriers WHERE user_id = $1',
-            [user_id]
-        );
-
-        if (courierRows.length === 0) {
-            return res.status(404).json({
-                success: false,
-                error: 'Курьер не найден'
-            });
-        }
-
-        const courierId = courierRows[0].id;
-        const courierName = courierRows[0].first_name;
-
-        const { rows } = await req.db.query(
-            'UPDATE delivery_orders SET status = $1, courier_id = $2, assigned_at = CURRENT_TIMESTAMP WHERE id = $3 AND status = $4 RETURNING *',
-            ['assigned', courierId, order_id, 'pending']
-        );
-
-        if (rows.length === 0) {
-            return res.status(400).json({
-                success: false,
-                error: 'Заказ не найден или уже принят'
-            });
-        }
-
-        res.json({
-            success: true,
-            message: 'Заказ принят',
-            order: rows[0],
-            courier_name: courierName
-        });
-    } catch (err) {
-        console.error('❌ Ошибка принятия заказа:', err);
-        res.status(500).json({
-            success: false,
-            error: 'Ошибка принятия заказа: ' + err.message
-        });
-    }
-});
-
-// Courier - Complete order
-app.post('/api/courier/orders/complete', databaseMiddleware, async (req, res) => {
-  console.log('📨 POST /api/courier/orders/complete');
-  
-  const { order_id, user_id } = req.body;
-  
-  if (!order_id || !user_id) {
-    return res.status(400).json({
-      success: false,
-      error: 'order_id и user_id обязательны'
-    });
-  }
-
-  try {
-    // Получаем courier_id по user_id
-    const { rows: courierRows } = await req.db.query(
-      'SELECT id FROM couriers WHERE user_id = $1',
-      [user_id]
-    );
-
-    if (courierRows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        error: 'Курьер не найден'
-      });
-    }
-
-    const courierId = courierRows[0].id;
-
-    const { rows } = await req.db.query(
-      'UPDATE delivery_orders SET status = $1, delivered_at = CURRENT_TIMESTAMP WHERE id = $2 AND status = $3 AND courier_id = $4 RETURNING *',
-      ['delivered', order_id, 'assigned', courierId]
-    );
-
-    if (rows.length === 0) {
-      return res.status(400).json({
-        success: false,
-        error: 'Заказ не найден или не был принят'
-      });
-    }
-
-    res.json({
-      success: true,
-      message: 'Заказ доставлен',
-      order: rows[0]
-    });
-  } catch (err) {
-    console.error('❌ Ошибка завершения заказа:', err);
-    res.status(500).json({
-      success: false,
-      error: 'Ошибка завершения заказа: ' + err.message
-    });
-  }
-});
-
 // ==================== GOOGLE AUTH ====================
 
 // Verify Google token
@@ -1227,19 +1896,18 @@ app.post('/api/auth/google', databaseMiddleware, async (req, res) => {
       });
     } else {
       res.json({
-    success: true,
-    user: {
-        sub: payload.sub,
-        email: payload.email,
-        email_verified: payload.email_verified,
-        name: payload.name,
-        given_name: payload.given_name,
-        family_name: payload.family_name,
-        picture: payload.picture
-        // НЕТ id - это признак нового пользователя
-    },
-    requires_additional_info: false
-});
+        success: true,
+        user: {
+          sub: payload.sub,
+          email: payload.email,
+          email_verified: payload.email_verified,
+          name: payload.name,
+          given_name: payload.given_name,
+          family_name: payload.family_name,
+          picture: payload.picture
+        },
+        requires_additional_info: false
+      });
     }
   } catch (err) {
     console.error('❌ Ошибка Google аутентификации:', err);
@@ -1250,7 +1918,7 @@ app.post('/api/auth/google', databaseMiddleware, async (req, res) => {
   }
 });
 
-// Google OAuth register (ИСПРАВЛЕННАЯ ВЕРСИЯ)
+// Google OAuth register
 app.post('/api/auth/google/register', databaseMiddleware, async (req, res) => {
   console.log('📨 POST /api/auth/google/register');
   
@@ -1458,6 +2126,10 @@ app.get('/courier-profile', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'courier-profile.html'));
 });
 
+app.get('/courier-register', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'courier-register.html'));
+});
+
 app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'netuDostup.html'));
 });
@@ -1489,23 +2161,26 @@ async function startServer() {
       console.log(`📍 http://localhost:${PORT}`);
       console.log(`🗄️ База данных: Neon.tech PostgreSQL`);
       console.log(`🔐 Google OAuth: ${process.env.GOOGLE_CLIENT_ID ? 'Настроен' : 'Не настроен'}`);
-      console.log(`\n📋 Доступные endpoints:`);
+      console.log(`\n📋 Доступные endpoints для курьеров:`);
+      console.log(`   POST /api/courier/register - Регистрация курьера`);
+      console.log(`   GET  /api/courier/profile - Профиль курьера`);
+      console.log(`   PUT  /api/courier/profile - Обновление профиля`);
+      console.log(`   POST /api/courier/status - Обновление статуса`);
+      console.log(`   GET  /api/courier/orders - Заказы курьера`);
+      console.log(`   POST /api/courier/orders/accept - Принять заказ`);
+      console.log(`   POST /api/courier/orders/complete - Завершить заказ`);
+      console.log(`   POST /api/courier/orders/cancel - Отменить заказ`);
+      console.log(`   GET  /api/courier/messages - Сообщения курьера`);
+      console.log(`   GET  /api/courier/chats - Чаты курьера`);
+      console.log(`   POST /api/courier/chats/:id/messages - Отправить сообщение`);
+      console.log(`   GET  /api/courier/earnings - Заработок курьера`);
+      console.log(`   GET  /api/courier/schedule - Расписание работы`);
+      console.log(`\n📋 Стандартные endpoints:`);
       console.log(`   GET  /api/categories - Категории`);
       console.log(`   GET  /api/products - Товары`);
       console.log(`   POST /api/orders/create - Создание заказа`);
-      console.log(`   GET  /api/courier/orders - Заказы для курьера`);
-      console.log(`   POST /api/courier/orders/accept - Принять заказ`);
-      console.log(`   POST /api/courier/orders/complete - Завершить заказ`);
-      console.log(`   POST /api/admin/products - Добавление товара`);
-      console.log(`   GET  /api/auth/me - Получение пользователя`);
-      console.log(`   POST /api/cart/add - Добавление в корзину`);
-      console.log(`   GET  /api/cart - Получение корзины`);
-      console.log(`   PUT  /api/cart/:id - Обновление корзины`);
-      console.log(`   DELETE /api/cart/:id - Удаление из корзины`);
       console.log(`   POST /api/auth/register - Регистрация`);
       console.log(`   POST /api/auth/login - Вход`);
-      console.log(`   POST /api/auth/google - Google OAuth`);
-      console.log(`   POST /api/auth/google/register - Google регистрация`);
       console.log(`   GET  /health - Проверка работы`);
     });
   } catch (err) {
