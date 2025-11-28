@@ -47,204 +47,11 @@ async function initializeDatabase() {
     
     console.log('✅ Успешное подключение к Neon.tech');
     
-    // Create tables
-    await createTables();
-    await createCourierTables();
-    
     return db;
   } catch (err) {
     console.error('❌ Ошибка подключения к Neon.tech:', err);
     isDatabaseConnected = false;
     db = null;
-    throw err;
-  }
-}
-
-// Create tables
-async function createTables() {
-  try {
-    // Users table
-    await db.query(`
-      CREATE TABLE IF NOT EXISTS users (
-        id SERIAL PRIMARY KEY,
-        first_name VARCHAR(50),
-        last_name VARCHAR(50),
-        middle_name VARCHAR(50),
-        username VARCHAR(50) UNIQUE NOT NULL,
-        email VARCHAR(100) UNIQUE NOT NULL,
-        password VARCHAR(255) NOT NULL,
-        phone VARCHAR(20),
-        avatar VARCHAR(500),
-        google_id VARCHAR(100) UNIQUE,
-        email_verified BOOLEAN DEFAULT false,
-        is_admin BOOLEAN DEFAULT false,
-        login_count INTEGER DEFAULT 0,
-        last_login TIMESTAMP,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-
-    // Categories table
-    await db.query(`
-      CREATE TABLE IF NOT EXISTS categories (
-        id SERIAL PRIMARY KEY,
-        name VARCHAR(100) NOT NULL,
-        description TEXT,
-        image VARCHAR(500),
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-
-    // Products table
-    await db.query(`
-      CREATE TABLE IF NOT EXISTS products (
-        id SERIAL PRIMARY KEY,
-        name VARCHAR(255) NOT NULL,
-        description TEXT,
-        price DECIMAL(10,2) NOT NULL,
-        old_price DECIMAL(10,2),
-        image VARCHAR(500),
-        category_id INTEGER REFERENCES categories(id),
-        manufacturer VARCHAR(100),
-        country VARCHAR(50),
-        stock_quantity INTEGER DEFAULT 0,
-        in_stock BOOLEAN DEFAULT true,
-        is_popular BOOLEAN DEFAULT false,
-        is_new BOOLEAN DEFAULT true,
-        composition TEXT,
-        indications TEXT,
-        usage TEXT,
-        contraindications TEXT,
-        dosage VARCHAR(100),
-        expiry_date VARCHAR(50),
-        storage_conditions VARCHAR(200),
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-
-    // Cart items table
-    await db.query(`
-      CREATE TABLE IF NOT EXISTS cart_items (
-        id SERIAL PRIMARY KEY,
-        user_id INTEGER REFERENCES users(id),
-        product_id INTEGER REFERENCES products(id),
-        quantity INTEGER DEFAULT 1,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE(user_id, product_id)
-      )
-    `);
-
-    console.log('✅ Таблицы созданы/проверены');
-  } catch (err) {
-    console.error('❌ Ошибка создания таблиц:', err);
-    throw err;
-  }
-}
-
-// Create courier tables
-async function createCourierTables() {
-  try {
-    // Couriers table
-    await db.query(`
-      CREATE TABLE IF NOT EXISTS couriers (
-        id SERIAL PRIMARY KEY,
-        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-        courier_code VARCHAR(20) UNIQUE NOT NULL,
-        first_name VARCHAR(50) NOT NULL,
-        last_name VARCHAR(50) NOT NULL,
-        phone VARCHAR(20) NOT NULL,
-        email VARCHAR(100),
-        vehicle_type VARCHAR(50) DEFAULT 'bicycle',
-        vehicle_number VARCHAR(20),
-        status VARCHAR(20) DEFAULT 'active',
-        rating DECIMAL(3,2) DEFAULT 5.0,
-        total_orders INTEGER DEFAULT 0,
-        completed_orders INTEGER DEFAULT 0,
-        daily_goal INTEGER DEFAULT 10,
-        current_daily_orders INTEGER DEFAULT 0,
-        total_earnings DECIMAL(10,2) DEFAULT 0,
-        today_earnings DECIMAL(10,2) DEFAULT 0,
-        last_activity TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-
-    // Delivery orders table
-    await db.query(`
-      CREATE TABLE IF NOT EXISTS delivery_orders (
-        id SERIAL PRIMARY KEY,
-        order_code VARCHAR(20) UNIQUE NOT NULL,
-        user_id INTEGER REFERENCES users(id),
-        total_amount DECIMAL(10,2) NOT NULL,
-        delivery_address TEXT NOT NULL,
-        customer_name VARCHAR(100) NOT NULL,
-        customer_phone VARCHAR(20) NOT NULL,
-        customer_notes TEXT,
-        status VARCHAR(20) DEFAULT 'pending',
-        courier_id INTEGER REFERENCES couriers(id),
-        assigned_at TIMESTAMP,
-        picked_up_at TIMESTAMP,
-        delivered_at TIMESTAMP,
-        estimated_delivery_time INTEGER,
-        actual_delivery_time INTEGER,
-        delivery_fee DECIMAL(8,2) DEFAULT 0,
-        payment_method VARCHAR(20) DEFAULT 'card',
-        is_paid BOOLEAN DEFAULT false,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-
-    // Delivery order items table
-    await db.query(`
-      CREATE TABLE IF NOT EXISTS delivery_order_items (
-        id SERIAL PRIMARY KEY,
-        delivery_order_id INTEGER REFERENCES delivery_orders(id) ON DELETE CASCADE,
-        product_id INTEGER REFERENCES products(id),
-        product_name VARCHAR(255) NOT NULL,
-        quantity INTEGER NOT NULL,
-        unit_price DECIMAL(10,2) NOT NULL,
-        total_price DECIMAL(10,2) NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-
-    // Courier messages table
-    await db.query(`
-      CREATE TABLE IF NOT EXISTS courier_messages (
-        id SERIAL PRIMARY KEY,
-        courier_id INTEGER REFERENCES couriers(id) ON DELETE CASCADE,
-        sender_type VARCHAR(20) DEFAULT 'support',
-        sender_name VARCHAR(100) NOT NULL,
-        subject VARCHAR(200),
-        message TEXT NOT NULL,
-        is_read BOOLEAN DEFAULT false,
-        message_type VARCHAR(20) DEFAULT 'info',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        read_at TIMESTAMP
-      )
-    `);
-
-    // Courier chats table
-    await db.query(`
-      CREATE TABLE IF NOT EXISTS courier_chats (
-        id SERIAL PRIMARY KEY,
-        courier_id INTEGER REFERENCES couriers(id) ON DELETE CASCADE,
-        participant_type VARCHAR(20) DEFAULT 'support',
-        participant_name VARCHAR(100) NOT NULL,
-        last_message TEXT,
-        last_message_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        unread_count INTEGER DEFAULT 0,
-        is_active BOOLEAN DEFAULT true,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-
-    console.log('✅ Таблицы курьеров созданы/проверены');
-  } catch (err) {
-    console.error('❌ Ошибка создания таблиц курьеров:', err);
     throw err;
   }
 }
@@ -728,7 +535,7 @@ app.get('/api/auth/me', databaseMiddleware, async (req, res) => {
   }
 });
 
-// Auth - Register
+// Auth - Register (ИСПРАВЛЕННАЯ ВЕРСИЯ)
 app.post('/api/auth/register', databaseMiddleware, async (req, res) => {
   console.log('📨 POST /api/auth/register');
   const { first_name, last_name, username, email, password, phone } = req.body;
@@ -755,11 +562,12 @@ app.post('/api/auth/register', databaseMiddleware, async (req, res) => {
     
     const hashedPassword = simpleHash(password);
     
+    // ИСПРАВЛЕНИЕ: phone теперь не обязателен
     const { rows } = await req.db.query(
       `INSERT INTO users (first_name, last_name, username, email, password, phone, login_count) 
        VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING *`,
-      [first_name, last_name, username, email, hashedPassword, phone, 0]
+      [first_name, last_name, username, email, hashedPassword, phone || null, 0]
     );
     
     const newUser = rows[0];
@@ -1394,7 +1202,7 @@ app.post('/api/auth/google', databaseMiddleware, async (req, res) => {
           family_name: payload.family_name,
           picture: payload.picture
         },
-        requires_additional_info: true
+        requires_additional_info: false // ИЗМЕНЕНИЕ: теперь всегда false
       });
     }
   } catch (err) {
@@ -1406,7 +1214,7 @@ app.post('/api/auth/google', databaseMiddleware, async (req, res) => {
   }
 });
 
-// Google OAuth register
+// Google OAuth register (ИСПРАВЛЕННАЯ ВЕРСИЯ)
 app.post('/api/auth/google/register', databaseMiddleware, async (req, res) => {
   console.log('📨 POST /api/auth/google/register');
   
@@ -1431,7 +1239,7 @@ app.post('/api/auth/google/register', databaseMiddleware, async (req, res) => {
       user = rows[0];
       await req.db.query(
         'UPDATE users SET first_name = $1, last_name = $2, phone = $3, avatar = $4, email_verified = $5, google_id = $6, last_login = CURRENT_TIMESTAMP, login_count = login_count + 1 WHERE id = $7',
-        [first_name, last_name, phone, avatar, email_verified, google_id, user.id]
+        [first_name, last_name, phone || null, avatar, email_verified, google_id, user.id]
       );
     } else {
       const username = email.split('@')[0] + '_google';
@@ -1441,7 +1249,7 @@ app.post('/api/auth/google/register', databaseMiddleware, async (req, res) => {
         `INSERT INTO users (first_name, last_name, username, email, password, phone, avatar, google_id, email_verified, login_count) 
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
          RETURNING *`,
-        [first_name, last_name, username, email, tempPassword, phone, avatar, google_id, email_verified, 1]
+        [first_name, last_name, username, email, tempPassword, phone || null, avatar, google_id, email_verified, 1]
       );
       
       user = result.rows[0];
