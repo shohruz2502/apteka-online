@@ -535,7 +535,7 @@ app.get('/api/auth/me', databaseMiddleware, async (req, res) => {
   }
 });
 
-// Auth - Register (ИСПРАВЛЕННАЯ ВЕРСИЯ)
+// Auth - Register
 app.post('/api/auth/register', databaseMiddleware, async (req, res) => {
   console.log('📨 POST /api/auth/register');
   const { first_name, last_name, username, email, password, phone } = req.body;
@@ -562,15 +562,17 @@ app.post('/api/auth/register', databaseMiddleware, async (req, res) => {
     
     const hashedPassword = simpleHash(password);
     
+    // ИСПРАВЛЕННЫЙ INSERT - используем nextval для id
     const { rows } = await req.db.query(
-    `INSERT INTO users (first_name, last_name, username, email, password, phone) 
-     VALUES ($1, $2, $3, $4, $5, $6)
-     RETURNING *`,
-    [first_name, last_name, username, email, hashedPassword, phone || null]
-  );
+      `INSERT INTO users (id, username, email, password, full_name, phone) 
+       VALUES (nextval('users_id_seq'), $1, $2, $3, $4, $5)
+       RETURNING id, username, email, full_name, phone, avatar_url`,
+      [username, email, hashedPassword, 
+       (first_name && last_name) ? `${first_name} ${last_name}` : null, 
+       phone || null]
+    );
     
     const newUser = rows[0];
-    delete newUser.password;
     
     res.json({
       success: true,
@@ -581,7 +583,7 @@ app.post('/api/auth/register', databaseMiddleware, async (req, res) => {
     console.error('❌ Ошибка регистрации:', err);
     res.status(500).json({ 
       success: false,
-      error: 'Ошибка создания пользователя' 
+      error: 'Ошибка создания пользователя: ' + err.message 
     });
   }
 });
