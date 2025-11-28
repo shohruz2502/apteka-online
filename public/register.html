@@ -351,23 +351,6 @@
             to { transform: rotate(360deg); }
         }
 
-        .phone-input-container {
-            position: relative;
-        }
-
-        .phone-prefix {
-            position: absolute;
-            left: 16px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: var(--gray);
-            font-weight: 500;
-        }
-
-        .phone-input {
-            padding-left: 60px !important;
-        }
-
         @media (max-width: 480px) {
             .container {
                 max-width: 100%;
@@ -519,17 +502,6 @@
                     </div>
                     
                     <div class="form-group">
-                        <label for="register-phone">Телефон (Таджикистан) *</label>
-                        <div class="phone-input-container">
-                            <span class="phone-prefix">+992</span>
-                            <input type="tel" id="register-phone" class="phone-input" placeholder="000662311" required>
-                        </div>
-                        <small style="color: var(--gray); font-size: 0.8rem; margin-top: 5px; display: block;">
-                            Введите 9 цифр без пробелов (например: 000662311)
-                        </small>
-                    </div>
-                    
-                    <div class="form-group">
                         <label for="register-password">Пароль *</label>
                         <input type="password" id="register-password" placeholder="Придумайте пароль" required>
                     </div>
@@ -560,52 +532,7 @@
                 </div>
             </div>
             
-            <!-- Шаг 3: Дополнительная информация для Google пользователей -->
-            <div class="step" id="step-google-info">
-                <div class="welcome-text">
-                    <h2>Дополнительная информация</h2>
-                    <p>Завершите регистрацию вашего аккаунта</p>
-                </div>
-                
-                <form id="google-info-form">
-                    <div class="user-info">
-                        <img id="google-user-avatar" class="user-avatar" src="" alt="Аватар" onerror="this.style.display='none'">
-                        <div class="user-name" id="google-user-name"></div>
-                        <div class="user-email" id="google-user-email"></div>
-                    </div>
-                    
-                    <div class="form-group name-fields">
-                        <div>
-                            <label for="google-first-name">Имя *</label>
-                            <input type="text" id="google-first-name" placeholder="Введите имя" required>
-                        </div>
-                        <div>
-                            <label for="google-last-name">Фамилия *</label>
-                            <input type="text" id="google-last-name" placeholder="Введите фамилию" required>
-                        </div>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="google-phone">Телефон (Таджикистан) *</label>
-                        <div class="phone-input-container">
-                            <span class="phone-prefix">+992</span>
-                            <input type="tel" id="google-phone" class="phone-input" placeholder="000662311" required>
-                        </div>
-                        <small style="color: var(--gray); font-size: 0.8rem; margin-top: 5px; display: block;">
-                            Введите 9 цифр без пробелов (например: 000662311)
-                        </small>
-                    </div>
-                    
-                    <div class="error-message" id="google-info-error"></div>
-                    
-                    <button type="submit" class="btn btn-primary" id="save-google-info-btn">
-                        <i class="fas fa-save"></i>
-                        Сохранить и продолжить
-                    </button>
-                </form>
-            </div>
-            
-            <!-- Шаг 4: Успешная авторизация -->
+            <!-- Шаг 3: Успешная авторизация -->
             <div class="step" id="step-success">
                 <div class="user-info">
                     <img id="user-avatar" class="user-avatar" src="" alt="Аватар" onerror="this.style.display='none'">
@@ -638,13 +565,11 @@
         // Элементы DOM
         const stepLogin = document.getElementById('step-login');
         const stepRegister = document.getElementById('step-register');
-        const stepGoogleInfo = document.getElementById('step-google-info');
         const stepSuccess = document.getElementById('step-success');
         
         // Формы
         const loginForm = document.getElementById('login-form');
         const registerForm = document.getElementById('register-form');
-        const googleInfoForm = document.getElementById('google-info-form');
         
         // Кнопки навигации
         const showRegisterBtn = document.getElementById('show-register');
@@ -657,7 +582,6 @@
         const loginError = document.getElementById('login-error');
         const registerError = document.getElementById('register-error');
         const registerSuccess = document.getElementById('register-success');
-        const googleInfoError = document.getElementById('google-info-error');
 
         // Навигация между шагами
         showRegisterBtn.addEventListener('click', function(e) {
@@ -691,7 +615,6 @@
             loginError.textContent = '';
             registerError.textContent = '';
             registerSuccess.textContent = '';
-            googleInfoError.textContent = '';
         }
 
         // Получение конфигурации с сервера
@@ -797,7 +720,6 @@
             const lastName = document.getElementById('last-name').value.trim();
             const username = document.getElementById('register-username').value.trim();
             const email = document.getElementById('register-email').value.trim();
-            const phoneInput = document.getElementById('register-phone').value.trim();
             const password = document.getElementById('register-password').value;
             const confirmPassword = document.getElementById('confirm-password').value;
             const registerBtn = document.getElementById('register-btn');
@@ -807,7 +729,7 @@
             registerBtn.disabled = true;
             
             // Валидация
-            if (!firstName || !lastName || !username || !email || !phoneInput || !password) {
+            if (!firstName || !lastName || !username || !email || !password) {
                 registerError.textContent = 'Заполните все обязательные поля.';
                 registerBtn.innerHTML = '<i class="fas fa-user-plus"></i> Зарегистрироваться';
                 registerBtn.disabled = false;
@@ -827,17 +749,6 @@
                 registerBtn.disabled = false;
                 return;
             }
-
-            // Валидация телефона - проверяем что 9 цифр
-            const cleanPhone = phoneInput.replace(/\D/g, '');
-            if (cleanPhone.length !== 9 || !/^\d{9}$/.test(cleanPhone)) {
-                registerError.textContent = 'Введите корректный номер телефона Таджикистана (9 цифр после +992).';
-                registerBtn.innerHTML = '<i class="fas fa-user-plus"></i> Зарегистрироваться';
-                registerBtn.disabled = false;
-                return;
-            }
-
-            const phone = '+992' + cleanPhone;
             
             try {
                 const response = await fetch('/api/auth/register', {
@@ -850,7 +761,6 @@
                         last_name: lastName,
                         username: username,
                         email: email,
-                        phone: phone,
                         password: password
                     })
                 });
@@ -901,74 +811,6 @@
                 console.error('Register error:', error);
                 registerBtn.innerHTML = '<i class="fas fa-user-plus"></i> Зарегистрироваться';
                 registerBtn.disabled = false;
-            }
-        });
-
-        // Обработка дополнительной информации для Google
-        googleInfoForm.addEventListener('submit', async function(e) {
-            e.preventDefault();
-            
-            const firstName = document.getElementById('google-first-name').value.trim();
-            const lastName = document.getElementById('google-last-name').value.trim();
-            const phoneInput = document.getElementById('google-phone').value.trim();
-            const saveBtn = document.getElementById('save-google-info-btn');
-            
-            clearErrors();
-            saveBtn.innerHTML = '<div class="loading"></div> Сохранение...';
-            saveBtn.disabled = true;
-            
-            // Валидация
-            if (!firstName || !lastName || !phoneInput) {
-                googleInfoError.textContent = 'Заполните все обязательные поля.';
-                saveBtn.innerHTML = '<i class="fas fa-save"></i> Сохранить и продолжить';
-                saveBtn.disabled = false;
-                return;
-            }
-
-            // Валидация телефона - проверяем что 9 цифр
-            const cleanPhone = phoneInput.replace(/\D/g, '');
-            if (cleanPhone.length !== 9 || !/^\d{9}$/.test(cleanPhone)) {
-                googleInfoError.textContent = 'Введите корректный номер телефона Таджикистана (9 цифр после +992).';
-                saveBtn.innerHTML = '<i class="fas fa-save"></i> Сохранить и продолжить';
-                saveBtn.disabled = false;
-                return;
-            }
-
-            const phone = '+992' + cleanPhone;
-            
-            try {
-                // Создаем пользователя с данными от Google
-                const response = await fetch('/api/auth/google/register', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        google_id: googleUserData.sub,
-                        email: googleUserData.email,
-                        first_name: firstName,
-                        last_name: lastName,
-                        phone: phone,
-                        avatar: googleUserData.picture,
-                        email_verified: googleUserData.email_verified
-                    })
-                });
-                
-                const data = await response.json();
-                
-                if (response.ok && data.success) {
-                    localStorage.setItem('user', JSON.stringify(data.user));
-                    showSuccessScreen(data.user);
-                } else {
-                    googleInfoError.textContent = data.error || 'Ошибка сохранения данных.';
-                    saveBtn.innerHTML = '<i class="fas fa-save"></i> Сохранить и продолжить';
-                    saveBtn.disabled = false;
-                }
-            } catch (error) {
-                googleInfoError.textContent = 'Ошибка соединения с сервером. Попробуйте позже.';
-                console.error('Google info error:', error);
-                saveBtn.innerHTML = '<i class="fas fa-save"></i> Сохранить и продолжить';
-                saveBtn.disabled = false;
             }
         });
 
@@ -1036,14 +878,9 @@
                 const data = await authResponse.json();
                 
                 if (authResponse.ok && data.success) {
-                    if (data.requires_additional_info) {
-                        // Если пользователь новый, запрашиваем дополнительную информацию
-                        showGoogleInfoStep(data.user);
-                    } else {
-                        // Если пользователь существует, сразу входим
-                        localStorage.setItem('user', JSON.stringify(data.user));
-                        showSuccessScreen(data.user);
-                    }
+                    // Если пользователь существует, сразу входим
+                    localStorage.setItem('user', JSON.stringify(data.user));
+                    showSuccessScreen(data.user);
                 } else {
                     showError(data.error || 'Ошибка авторизации через Google.');
                 }
@@ -1052,31 +889,6 @@
                 showError('Ошибка соединения с сервером. Попробуйте позже.');
             }
         };
-
-        // Показать шаг с дополнительной информацией для Google
-        function showGoogleInfoStep(user) {
-            showStep('step-google-info');
-            
-            // Заполняем поля данными от Google
-            document.getElementById('google-user-email').textContent = user.email || '';
-            document.getElementById('google-user-name').textContent = user.name || '';
-            
-            if (user.picture) {
-                document.getElementById('google-user-avatar').src = user.picture;
-                document.getElementById('google-user-avatar').style.display = 'block';
-            }
-            
-            // Предзаполняем имя и фамилию, если есть
-            if (user.given_name) {
-                document.getElementById('google-first-name').value = user.given_name;
-            }
-            
-            if (user.family_name) {
-                document.getElementById('google-last-name').value = user.family_name;
-            }
-            
-            googleUserData = user;
-        }
 
         // Функция показа ошибки
         function showError(message) {
