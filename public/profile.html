@@ -859,7 +859,13 @@
                     currentUser = JSON.parse(storedUser);
                     console.log("Текущий пользователь:", currentUser);
                     
-                    // Проверяем структуру пользователя
+                    // ИСПРАВЛЕНИЕ: Поддержка Google пользователей без ID
+                    if (!currentUser.id && currentUser.sub) {
+                        console.log("Google пользователь без ID, загружаем профиль...");
+                        loadProfile();
+                        return;
+                    }
+                    
                     if (!currentUser.id) {
                         console.error("У пользователя нет ID");
                         showUnauthorizedContent();
@@ -902,12 +908,27 @@
         async function loadProfile() {
             showLoading();
             try {
-                const response = await fetch(`/api/auth/me?user_id=${currentUser.id}`, {
-                    method: "GET",
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
-                });
+                // ИСПРАВЛЕНИЕ: Для Google пользователей используем другой подход
+                let response;
+                if (currentUser && currentUser.sub) {
+                    // Это Google пользователь без ID - пытаемся найти по Google ID
+                    response = await fetch(`/api/auth/me?google_id=${currentUser.sub}`, {
+                        method: "GET",
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
+                    });
+                } else if (currentUser && currentUser.id) {
+                    // Обычный пользователь с ID
+                    response = await fetch(`/api/auth/me?user_id=${currentUser.id}`, {
+                        method: "GET",
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
+                    });
+                } else {
+                    throw new Error("Нет данных пользователя");
+                }
 
                 if (response.status === 401) {
                     localStorage.removeItem("user");
@@ -933,8 +954,9 @@
             } catch (error) {
                 console.error("Ошибка загрузки профиля:", error);
                 
-                // Если есть данные в localStorage, показываем их
-                if (currentUser && currentUser.id) {
+                // ИСПРАВЛЕНИЕ: Для Google пользователей показываем данные из localStorage
+                if (currentUser && (currentUser.id || currentUser.sub)) {
+                    console.log("Используем локальные данные пользователя:", currentUser);
                     displayUserData(currentUser);
                     showAuthorizedContent();
                     showNotification("Используются локальные данные", "error");
@@ -951,16 +973,20 @@
         function displayUserData(user) {
             console.log("Отображение данных пользователя:", user);
             
-            // Формируем отображаемое имя
+            // ИСПРАВЛЕНИЕ: Поддержка Google пользователей
             let displayName = "Пользователь";
             if (user.first_name && user.last_name) {
                 displayName = `${user.first_name} ${user.last_name}`;
             } else if (user.full_name) {
                 displayName = user.full_name;
+            } else if (user.name) {
+                displayName = user.name;
             } else if (user.username) {
                 displayName = user.username;
             } else if (user.email) {
                 displayName = user.email.split('@')[0];
+            } else if (user.given_name && user.family_name) {
+                displayName = `${user.given_name} ${user.family_name}`;
             }
             
             document.getElementById("profile-display-name").innerHTML = displayName;
@@ -969,7 +995,7 @@
 
             // Отображаем бейдж способа входа
             const authBadge = document.getElementById("auth-badge");
-            if (user.google_id) {
+            if (user.google_id || user.sub) {
                 authBadge.textContent = "Google";
                 authBadge.className = "auth-badge google";
                 document.getElementById("change-password-btn").style.display = "none";
@@ -980,8 +1006,8 @@
             }
 
             // Аватар
-            if (user.avatar || user.avatar_url) {
-                const avatarUrl = user.avatar || user.avatar_url;
+            if (user.avatar || user.avatar_url || user.picture) {
+                const avatarUrl = user.avatar || user.avatar_url || user.picture;
                 document.getElementById("profile-avatar").innerHTML = `<img src="${avatarUrl}" alt="Аватар">`;
             } else {
                 document.getElementById("profile-avatar").innerHTML = '<i class="fas fa-user" id="avatar-icon"></i>';
@@ -989,18 +1015,18 @@
 
             // Заполняем данные в разделе "Аккаунт"
             const fullName = user.full_name || 
-                `${user.last_name || ""} ${user.first_name || ""} ${user.middle_name || ""}`.trim() || 
-                "Не указано";
+                `${user.last_name || user.family_name || ""} ${user.first_name || user.given_name || ""} ${user.middle_name || ""}`.trim() || 
+                displayName;
                 
             document.getElementById("fullname-text").textContent = fullName;
-            document.getElementById("account-username").textContent = user.username || "Не указан";
+            document.getElementById("account-username").textContent = user.username || user.email?.split('@')[0] || "Не указан";
             document.getElementById("account-email").textContent = user.email || "Не указан";
             document.getElementById("phone-text").textContent = user.phone || "Не указан";
-            document.getElementById("account-auth-type").textContent = user.google_id ? "Google" : "Email/Пароль";
+            document.getElementById("account-auth-type").textContent = (user.google_id || user.sub) ? "Google" : "Email/Пароль";
 
             // Заполняем поля для редактирования
-            document.getElementById("edit-first-name").value = user.first_name || "";
-            document.getElementById("edit-last-name").value = user.last_name || "";
+            document.getElementById("edit-first-name").value = user.first_name || user.given_name || "";
+            document.getElementById("edit-last-name").value = user.last_name || user.family_name || "";
             document.getElementById("edit-phone").value = user.phone || "";
 
             checkForChanges();
@@ -1019,8 +1045,8 @@
             
             // Восстанавливаем оригинальные значения
             if (field === 'fullname') {
-                document.getElementById("edit-first-name").value = currentUser.first_name || "";
-                document.getElementById("edit-last-name").value = currentUser.last_name || "";
+                document.getElementById("edit-first-name").value = currentUser.first_name || currentUser.given_name || "";
+                document.getElementById("edit-last-name").value = currentUser.last_name || currentUser.family_name || "";
             } else if (field === 'phone') {
                 document.getElementById("edit-phone").value = currentUser.phone || "";
             }
@@ -1065,8 +1091,8 @@
             try {
                 const formData = {
                     user_id: currentUser.id,
-                    first_name: currentUser.first_name,
-                    last_name: currentUser.last_name,
+                    first_name: currentUser.first_name || currentUser.given_name,
+                    last_name: currentUser.last_name || currentUser.family_name,
                     middle_name: currentUser.middle_name || "",
                     phone: currentUser.phone || "",
                 };
@@ -1299,7 +1325,11 @@
 
             try {
                 const user = JSON.parse(userData);
-                const response = await fetch(`/api/cart?user_id=${user.id}`);
+                // ИСПРАВЛЕНИЕ: Для Google пользователей используем другой параметр
+                const userId = user.id || user.sub;
+                if (!userId) return;
+
+                const response = await fetch(`/api/cart?user_id=${userId}`);
                 const data = await response.json();
 
                 if (data.success) {
