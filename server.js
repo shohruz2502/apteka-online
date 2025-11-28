@@ -1836,6 +1836,166 @@ app.post('/api/orders/create', databaseMiddleware, validateUser, async (req, res
   }
 });
 
+
+// ==================== TELEGRAM BOT ROUTES ====================
+
+// Telegram - Send message to admin
+app.post('/api/telegram/send-message', databaseMiddleware, async (req, res) => {
+  console.log('📨 POST /api/telegram/send-message');
+  
+  const { message, user_id } = req.body;
+  
+  if (!message) {
+    return res.status(400).json({
+      success: false,
+      error: 'Сообщение обязательно'
+    });
+  }
+
+  try {
+    // Получаем данные пользователя
+    let userInfo = 'Пользователь не авторизован';
+    let courierInfo = 'Курьер не зарегистрирован';
+
+    if (user_id) {
+      const { rows: userRows } = await req.db.query(
+        'SELECT first_name, last_name, email FROM users WHERE id = $1',
+        [user_id]
+      );
+
+      if (userRows.length > 0) {
+        const user = userRows[0];
+        userInfo = `👤 Пользователь: ${user.first_name || ''} ${user.last_name || ''} (${user.email || 'нет email'})`;
+      }
+
+      // Получаем данные курьера
+      const { rows: courierRows } = await req.db.query(
+        'SELECT first_name, last_name, courier_code FROM couriers WHERE user_id = $1',
+        [user_id]
+      );
+
+      if (courierRows.length > 0) {
+        const courier = courierRows[0];
+        courierInfo = `🚴 Курьер: ${courier.first_name} ${courier.last_name} (${courier.courier_code})`;
+      }
+    }
+
+    const fullMessage = `📱 *Новое сообщение из приложения ФармаПлюс*\n\n${userInfo}\n${courierInfo}\n\n💬 *Сообщение:* ${message}\n\n⏰ ${new Date().toLocaleString('ru-RU')}`;
+
+    // Отправляем в Telegram
+    const botToken = process.env.TELEGRAM_BOT_TOKEN;
+    const chatId = process.env.TELEGRAM_CHAT_ID;
+
+    if (!botToken || !chatId) {
+      console.log('⚠️ Telegram credentials not set, using demo mode');
+      // В демо-режиме просто логируем сообщение
+      console.log('📧 Telegram message (demo):', fullMessage);
+      
+      return res.json({
+        success: true,
+        message: 'Сообщение отправлено (демо-режим)',
+        demo: true
+      });
+    }
+
+    const telegramResponse = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text: fullMessage,
+        parse_mode: 'Markdown'
+      })
+    });
+
+    const telegramData = await telegramResponse.json();
+
+    if (!telegramResponse.ok) {
+      console.error('❌ Telegram API error:', telegramData);
+      throw new Error(`Telegram error: ${telegramData.description || 'Unknown error'}`);
+    }
+
+    console.log('✅ Сообщение отправлено в Telegram');
+
+    res.json({
+      success: true,
+      message: 'Сообщение отправлено администратору',
+      telegram: telegramData
+    });
+
+  } catch (err) {
+    console.error('❌ Ошибка отправки сообщения в Telegram:', err);
+    res.status(500).json({
+      success: false,
+      error: 'Ошибка отправки сообщения: ' + err.message
+    });
+  }
+});
+
+// Telegram - Test connection
+app.get('/api/telegram/test', async (req, res) => {
+  console.log('📨 GET /api/telegram/test');
+  
+  try {
+    const botToken = process.env.TELEGRAM_BOT_TOKEN;
+    const chatId = process.env.TELEGRAM_CHAT_ID;
+
+    if (!botToken || !chatId) {
+      return res.json({
+        success: false,
+        error: 'Telegram credentials not configured',
+        botToken: !!botToken,
+        chatId: !!chatId
+      });
+    }
+
+    // Тестируем соединение с Telegram API
+    const testMessage = `🧪 *Тестовое сообщение от ФармаПлюс*\n\n✅ Сервер работает корректно\n⏰ ${new Date().toLocaleString('ru-RU')}`;
+
+    const telegramResponse = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text: testMessage,
+        parse_mode: 'Markdown'
+      })
+    });
+
+    const telegramData = await telegramResponse.json();
+
+    if (telegramResponse.ok) {
+      res.json({
+        success: true,
+        message: 'Telegram connection successful',
+        botInfo: {
+          id: telegramData.result.from.id,
+          name: telegramData.result.from.first_name,
+          username: telegramData.result.from.username
+        }
+      });
+    } else {
+      res.json({
+        success: false,
+        error: `Telegram API error: ${telegramData.description}`,
+        details: telegramData
+      });
+    }
+
+  } catch (err) {
+    console.error('❌ Telegram test error:', err);
+    res.status(500).json({
+      success: false,
+      error: 'Telegram test failed: ' + err.message
+    });
+  }
+});
+
+
 // ==================== GOOGLE AUTH ====================
 
 // Verify Google token
