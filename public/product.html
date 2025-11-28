@@ -1062,744 +1062,805 @@
     </div>
 
     <script>
-        // Глобальные переменные
-        let currentProduct = null;
-        let cart = JSON.parse(localStorage.getItem('cart')) || [];
-        let currentPaymentMethod = 'card';
+    // Глобальные переменные
+    let currentProduct = null;
+    let cart = JSON.parse(localStorage.getItem('cart')) || [];
+    let currentPaymentMethod = 'card';
 
-        // Получение ID товара из URL
-        function getProductIdFromURL() {
-            const urlParams = new URLSearchParams(window.location.search);
-            return urlParams.get('id');
+    // Получение ID товара из URL
+    function getProductIdFromURL() {
+        const urlParams = new URLSearchParams(window.location.search);
+        return urlParams.get('id');
+    }
+
+    // Инициализация при загрузке
+    document.addEventListener('DOMContentLoaded', function() {
+        const productId = getProductIdFromURL();
+        
+        if (!productId) {
+            showError('ID товара не указан в URL. Пример: product.html?id=1', 'error');
+            return;
         }
+        
+        loadProductData(productId);
+        updateCartBadge();
+    });
 
-        // Инициализация при загрузке
-        document.addEventListener('DOMContentLoaded', function() {
-            const productId = getProductIdFromURL();
+    // Загрузка данных о товаре с сервера
+    async function loadProductData(productId) {
+        showLoading();
+        
+        try {
+            console.log('Загрузка товара с ID:', productId);
+            const response = await fetch(`/api/products/${productId}`);
             
-            if (!productId) {
-                showError('ID товара не указан в URL. Пример: product.html?id=1', 'error');
-                return;
+            if (!response.ok) {
+                throw new Error(`Ошибка сервера: ${response.status}`);
             }
             
-            loadProductData(productId);
-            updateCartBadge();
-        });
-
-        // Загрузка данных о товаре с сервера
-        async function loadProductData(productId) {
-            showLoading();
+            const data = await response.json();
+            console.log('Полученные данные:', data);
             
-            try {
-                console.log('Загрузка товара с ID:', productId);
-                const response = await fetch(`/api/products/${productId}`);
-                
-                if (!response.ok) {
-                    throw new Error(`Ошибка сервера: ${response.status}`);
-                }
-                
-                const data = await response.json();
-                console.log('Полученные данные:', data);
-                
-                // УНИВЕРСАЛЬНАЯ ОБРАБОТКА ФОРМАТОВ ОТВЕТА
-                let product = null;
-                
-                if (data.success && data.product) {
-                    // Формат: {success: true, product: {...}}
-                    product = data.product;
-                } else if (data.data && data.data.id) {
-                    // Формат: {data: {...}}
-                    product = data.data;
-                } else if (data.id) {
-                    // Формат: прямой объект товара
-                    product = data;
-                } else if (Array.isArray(data) && data.length > 0) {
-                    // Формат: массив с одним товаром
-                    product = data[0];
-                } else {
-                    console.error('Неизвестный формат данных:', data);
-                    throw new Error('Неверный формат данных товара');
-                }
-                
-                if (!product || !product.id) {
-                    throw new Error('Товар не найден или данные повреждены');
-                }
-                
-                currentProduct = product;
-                displayProductData(currentProduct);
-                
-            } catch (error) {
-                console.error('Ошибка загрузки товара:', error);
-                showError(`Не удалось загрузить данные о товаре: ${error.message}`, 'error');
+            // УНИВЕРСАЛЬНАЯ ОБРАБОТКА ФОРМАТОВ ОТВЕТА
+            let product = null;
+            
+            if (data.success && data.product) {
+                // Формат: {success: true, product: {...}}
+                product = data.product;
+            } else if (data.data && data.data.id) {
+                // Формат: {data: {...}}
+                product = data.data;
+            } else if (data.id) {
+                // Формат: прямой объект товара
+                product = data;
+            } else if (Array.isArray(data) && data.length > 0) {
+                // Формат: массив с одним товаром
+                product = data[0];
+            } else {
+                console.error('Неизвестный формат данных:', data);
+                throw new Error('Неверный формат данных товара');
             }
+            
+            if (!product || !product.id) {
+                throw new Error('Товар не найден или данные повреждены');
+            }
+            
+            currentProduct = product;
+            displayProductData(currentProduct);
+            
+        } catch (error) {
+            console.error('Ошибка загрузки товара:', error);
+            showError(`Не удалось загрузить данные о товаре: ${error.message}`, 'error');
         }
+    }
 
-        // Отображение данных о товаре
-        function displayProductData(product) {
-            const productSection = document.getElementById('product-section');
+    // Отображение данных о товаре
+    function displayProductData(product) {
+        const productSection = document.getElementById('product-section');
+        
+        if (!product) {
+            showError('Товар не найден', 'error');
+            return;
+        }
+        
+        // Безопасное извлечение данных
+        const productName = product.name || 'Без названия';
+        const productPrice = parseFloat(product.price) || 0;
+        const oldPrice = product.old_price ? parseFloat(product.old_price) : null;
+        const productDescription = product.description || 'Описание отсутствует';
+        const productImage = product.image || 'https://via.placeholder.com/500x400?text=Нет+изображения';
+        const stockQuantity = parseInt(product.stock_quantity) || 0;
+        const inStock = product.in_stock !== false && stockQuantity > 0;
+        const isNew = product.is_new === true || product.is_new === 'true';
+        const isPopular = product.is_popular === true || product.is_popular === 'true';
+        const hasDiscount = oldPrice && oldPrice > productPrice;
+        const discountPercent = hasDiscount ? Math.round((1 - productPrice / oldPrice) * 100) : 0;
+        
+        productSection.innerHTML = `
+            <div class="product-images">
+                <div class="main-image">
+                    <img id="main-product-image" src="${productImage}" alt="${productName}" onerror="this.src='https://via.placeholder.com/500x400?text=Ошибка+загрузки'">
+                </div>
+            </div>
             
-            if (!product) {
-                showError('Товар не найден', 'error');
-                return;
+            <div class="product-details">
+                <h1 class="product-title">${productName}</h1>
+                
+                <div class="product-badges">
+                    ${isNew ? '<div class="badge new">Новинка</div>' : ''}
+                    ${isPopular ? '<div class="badge popular">Популярный</div>' : ''}
+                    ${hasDiscount ? `<div class="badge discount">-${discountPercent}%</div>` : ''}
+                    ${!inStock ? '<div class="badge out-of-stock">Нет в наличии</div>' : ''}
+                </div>
+                
+                <div class="product-price">
+                    ${hasDiscount ? `<span class="product-old-price">${formatPrice(oldPrice)}</span>` : ''}
+                    ${formatPrice(productPrice)}
+                </div>
+                
+                <div class="product-description">
+                    ${productDescription}
+                </div>
+                
+                <div class="quantity-selector">
+                    <span>Количество:</span>
+                    <button class="quantity-btn" id="decrease-quantity">-</button>
+                    <input type="number" id="quantity" class="quantity-input" value="1" min="1" max="${Math.min(stockQuantity, 10)}" ${!inStock ? 'disabled' : ''}>
+                    <button class="quantity-btn" id="increase-quantity">+</button>
+                </div>
+                
+                <div class="product-actions">
+                    <button class="add-to-cart" id="add-to-cart" ${!inStock ? 'disabled' : ''}>
+                        <i class="fas fa-shopping-cart"></i> 
+                        ${inStock ? 'В корзину' : 'Нет в наличии'}
+                    </button>
+                    <button class="order-btn" id="order-btn" ${!inStock ? 'disabled' : ''}>
+                        <i class="fas fa-credit-card"></i> 
+                        ${inStock ? 'Купить сейчас' : 'Нет в наличии'}
+                    </button>
+                </div>
+                
+                <div class="product-meta">
+                    <div class="meta-item">
+                        <i class="fas fa-truck"></i>
+                        <span>Бесплатная доставка от 2000₽</span>
+                    </div>
+                    <div class="meta-item">
+                        <i class="fas fa-shield-alt"></i>
+                        <span>Гарантия качества</span>
+                    </div>
+                    <div class="meta-item">
+                        <i class="fas fa-undo"></i>
+                        <span>Возврат в течение 14 дней</span>
+                    </div>
+                    <div class="meta-item">
+                        <i class="fas fa-check-circle"></i>
+                        <span>${inStock ? `В наличии (${stockQuantity} шт.)` : 'Нет в наличии'}</span>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Обновляем хлебные крошки
+        document.getElementById('breadcrumb-product').textContent = productName;
+        
+        // Добавляем вкладки
+        addProductTabs(product);
+        
+        // Настраиваем обработчики событий
+        setupEventListeners();
+        setupTabs();
+        
+        // Загружаем похожие товары
+        loadRelatedProducts(product.category_id, product.id);
+    }
+
+    // Добавление вкладок товара
+    function addProductTabs(product) {
+        const tabsSection = document.createElement('section');
+        tabsSection.className = 'product-tabs';
+        tabsSection.innerHTML = `
+            <div class="tabs-header">
+                <button class="tab-btn active" data-tab="specifications">Характеристики</button>
+                <button class="tab-btn" data-tab="description">Описание</button>
+                <button class="tab-btn" data-tab="instructions">Инструкция</button>
+            </div>
+            
+            <div class="tab-content active" id="specifications-tab">
+                <h3>Характеристики</h3>
+                <div class="specifications-content">
+                    <div class="spec-item">
+                        <span class="spec-label">Категория:</span>
+                        <span class="spec-value">${product.category_name || 'Не указана'}</span>
+                    </div>
+                    <div class="spec-item">
+                        <span class="spec-label">Производитель:</span>
+                        <span class="spec-value">${product.manufacturer || 'Не указан'}</span>
+                    </div>
+                    <div class="spec-item">
+                        <span class="spec-label">Страна:</span>
+                        <span class="spec-value">${product.country || 'Не указана'}</span>
+                    </div>
+                    <div class="spec-item">
+                        <span class="spec-label">В наличии:</span>
+                        <span class="spec-value">${product.stock_quantity || 0} шт.</span>
+                    </div>
+                    <div class="spec-item">
+                        <span class="spec-label">Статус:</span>
+                        <span class="spec-value">${product.in_stock ? 'В наличии' : 'Нет в наличии'}</span>
+                    </div>
+                    ${product.composition ? `
+                    <div class="spec-item">
+                        <span class="spec-label">Состав:</span>
+                        <span class="spec-value">${product.composition}</span>
+                    </div>
+                    ` : ''}
+                </div>
+            </div>
+            
+            <div class="tab-content" id="description-tab">
+                <h3>Описание</h3>
+                <p>${product.description || 'Описание отсутствует'}</p>
+            </div>
+            
+            <div class="tab-content" id="instructions-tab">
+                <h3>Инструкция</h3>
+                <div class="instructions-content">
+                    ${product.usage ? `<p><strong>Применение:</strong> ${product.usage}</p>` : ''}
+                    ${product.dosage ? `<p><strong>Дозировка:</strong> ${product.dosage}</p>` : ''}
+                    ${product.indications ? `<p><strong>Показания:</strong> ${product.indications}</p>` : ''}
+                    ${product.contraindications ? `<p><strong>Противопоказания:</strong> ${product.contraindications}</p>` : ''}
+                    ${product.expiry_date ? `<p><strong>Срок годности:</strong> ${product.expiry_date}</p>` : ''}
+                    ${product.storage_conditions ? `<p><strong>Условия хранения:</strong> ${product.storage_conditions}</p>` : ''}
+                    ${!product.usage && !product.dosage && !product.indications && !product.contraindications && !product.expiry_date && !product.storage_conditions ? 
+                        '<p>Инструкция отсутствует</p>' : ''}
+                </div>
+            </div>
+        `;
+        
+        document.getElementById('product-section').parentNode.insertBefore(tabsSection, document.getElementById('product-section').nextSibling);
+        
+        // Добавляем секцию похожих товаров
+        addRelatedProductsSection();
+    }
+
+    // Добавление секции похожих товаров
+    function addRelatedProductsSection() {
+        const relatedSection = document.createElement('section');
+        relatedSection.className = 'related-products';
+        relatedSection.innerHTML = `
+            <h2 class="section-title">Похожие товары</h2>
+            <div class="products-scroll" id="related-products-container">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <div>Загрузка похожих товаров...</div>
+                </div>
+            </div>
+        `;
+        
+        const tabsSection = document.querySelector('.product-tabs');
+        tabsSection.parentNode.insertBefore(relatedSection, tabsSection.nextSibling);
+    }
+
+    // Загрузка похожих товаров
+    async function loadRelatedProducts(categoryId, currentProductId) {
+        try {
+            console.log('Загрузка похожих товаров для категории:', categoryId);
+            const response = await fetch(`/api/products?category_id=${categoryId}`);
+            
+            if (!response.ok) {
+                throw new Error(`Ошибка сервера: ${response.status}`);
             }
             
-            // Безопасное извлечение данных
+            const data = await response.json();
+            console.log('Данные похожих товаров:', data);
+            
+            // УНИВЕРСАЛЬНАЯ ОБРАБОТКА ФОРМАТОВ
+            let products = [];
+            
+            if (data.success && Array.isArray(data.products)) {
+                products = data.products;
+            } else if (data.success && Array.isArray(data.data)) {
+                products = data.data;
+            } else if (Array.isArray(data)) {
+                products = data;
+            } else if (data.products && Array.isArray(data.products)) {
+                products = data.products;
+            } else if (data.data && Array.isArray(data.data)) {
+                products = data.data;
+            } else {
+                console.warn('Неизвестный формат данных похожих товаров:', data);
+                products = [];
+            }
+            
+            // Фильтруем текущий товар и ограничиваем количество
+            const relatedProducts = products
+                .filter(p => p && p.id && p.id != currentProductId)
+                .slice(0, 6);
+            
+            displayRelatedProducts(relatedProducts);
+            
+        } catch (error) {
+            console.error('Ошибка загрузки похожих товаров:', error);
+            showRelatedProductsError('Не удалось загрузить похожие товары');
+        }
+    }
+
+    // Отображение похожих товаров
+    function displayRelatedProducts(products) {
+        const container = document.getElementById('related-products-container');
+        
+        if (!container) {
+            console.error('Контейнер для похожих товаров не найден');
+            return;
+        }
+        
+        if (!products || products.length === 0) {
+            container.innerHTML = '<p style="text-align: center; color: #666; padding: 2rem;">Нет похожих товаров</p>';
+            return;
+        }
+        
+        container.innerHTML = '';
+        
+        products.forEach(product => {
+            if (!product || !product.id) return;
+            
+            const productCard = document.createElement('div');
+            productCard.className = 'product-card';
+            productCard.onclick = () => window.location.href = `product.html?id=${product.id}`;
+            
             const productName = product.name || 'Без названия';
             const productPrice = parseFloat(product.price) || 0;
-            const oldPrice = product.old_price ? parseFloat(product.old_price) : null;
-            const productDescription = product.description || 'Описание отсутствует';
-            const productImage = product.image || 'https://via.placeholder.com/500x400?text=Нет+изображения';
+            const productImage = product.image || 'https://via.placeholder.com/200x150?text=Товар';
             const stockQuantity = parseInt(product.stock_quantity) || 0;
             const inStock = product.in_stock !== false && stockQuantity > 0;
-            const isNew = product.is_new === true || product.is_new === 'true';
-            const isPopular = product.is_popular === true || product.is_popular === 'true';
-            const hasDiscount = oldPrice && oldPrice > productPrice;
-            const discountPercent = hasDiscount ? Math.round((1 - productPrice / oldPrice) * 100) : 0;
             
-            productSection.innerHTML = `
-                <div class="product-images">
-                    <div class="main-image">
-                        <img id="main-product-image" src="${productImage}" alt="${productName}" onerror="this.src='https://via.placeholder.com/500x400?text=Ошибка+загрузки'">
-                    </div>
+            productCard.innerHTML = `
+                <div class="product-image">
+                    <img src="${productImage}" alt="${productName}" onerror="this.src='https://via.placeholder.com/200x150?text=Ошибка+загрузки'">
                 </div>
-                
-                <div class="product-details">
-                    <h1 class="product-title">${productName}</h1>
-                    
-                    <div class="product-badges">
-                        ${isNew ? '<div class="badge new">Новинка</div>' : ''}
-                        ${isPopular ? '<div class="badge popular">Популярный</div>' : ''}
-                        ${hasDiscount ? `<div class="badge discount">-${discountPercent}%</div>` : ''}
-                        ${!inStock ? '<div class="badge out-of-stock">Нет в наличии</div>' : ''}
-                    </div>
-                    
-                    <div class="product-price">
-                        ${hasDiscount ? `<span class="product-old-price">${formatPrice(oldPrice)}</span>` : ''}
-                        ${formatPrice(productPrice)}
-                    </div>
-                    
-                    <div class="product-description">
-                        ${productDescription}
-                    </div>
-                    
-                    <div class="quantity-selector">
-                        <span>Количество:</span>
-                        <button class="quantity-btn" id="decrease-quantity">-</button>
-                        <input type="number" id="quantity" class="quantity-input" value="1" min="1" max="${Math.min(stockQuantity, 10)}" ${!inStock ? 'disabled' : ''}>
-                        <button class="quantity-btn" id="increase-quantity">+</button>
-                    </div>
-                    
-                    <div class="product-actions">
-                        <button class="add-to-cart" id="add-to-cart" ${!inStock ? 'disabled' : ''}>
-                            <i class="fas fa-shopping-cart"></i> 
-                            ${inStock ? 'В корзину' : 'Нет в наличии'}
-                        </button>
-                        <button class="order-btn" id="order-btn" ${!inStock ? 'disabled' : ''}>
-                            <i class="fas fa-credit-card"></i> 
-                            ${inStock ? 'Купить сейчас' : 'Нет в наличии'}
-                        </button>
-                    </div>
-                    
-                    <div class="product-meta">
-                        <div class="meta-item">
-                            <i class="fas fa-truck"></i>
-                            <span>Бесплатная доставка от 2000₽</span>
-                        </div>
-                        <div class="meta-item">
-                            <i class="fas fa-shield-alt"></i>
-                            <span>Гарантия качества</span>
-                        </div>
-                        <div class="meta-item">
-                            <i class="fas fa-undo"></i>
-                            <span>Возврат в течение 14 дней</span>
-                        </div>
-                        <div class="meta-item">
-                            <i class="fas fa-check-circle"></i>
-                            <span>${inStock ? `В наличии (${stockQuantity} шт.)` : 'Нет в наличии'}</span>
-                        </div>
-                    </div>
+                <div class="product-info">
+                    <h3 class="product-title">${productName}</h3>
+                    <div class="product-price">${formatPrice(productPrice)}</div>
+                    <button class="add-to-cart-small" 
+                            onclick="event.stopPropagation(); addRelatedToCart(${product.id})"
+                            ${!inStock ? 'disabled' : ''}>
+                        ${inStock ? 'В корзину' : 'Нет в наличии'}
+                    </button>
                 </div>
             `;
-            
-            // Обновляем хлебные крошки
-            document.getElementById('breadcrumb-product').textContent = productName;
-            
-            // Добавляем вкладки
-            addProductTabs(product);
-            
-            // Настраиваем обработчики событий
-            setupEventListeners();
-            setupTabs();
-            
-            // Загружаем похожие товары
-            loadRelatedProducts(product.category_id, product.id);
-        }
+            container.appendChild(productCard);
+        });
+    }
 
-        // Добавление вкладок товара
-        function addProductTabs(product) {
-            const tabsSection = document.createElement('section');
-            tabsSection.className = 'product-tabs';
-            tabsSection.innerHTML = `
-                <div class="tabs-header">
-                    <button class="tab-btn active" data-tab="specifications">Характеристики</button>
-                    <button class="tab-btn" data-tab="description">Описание</button>
-                    <button class="tab-btn" data-tab="instructions">Инструкция</button>
-                </div>
-                
-                <div class="tab-content active" id="specifications-tab">
-                    <h3>Характеристики</h3>
-                    <div class="specifications-content">
-                        <div class="spec-item">
-                            <span class="spec-label">Категория:</span>
-                            <span class="spec-value">${product.category_name || 'Не указана'}</span>
-                        </div>
-                        <div class="spec-item">
-                            <span class="spec-label">Производитель:</span>
-                            <span class="spec-value">${product.manufacturer || 'Не указан'}</span>
-                        </div>
-                        <div class="spec-item">
-                            <span class="spec-label">Страна:</span>
-                            <span class="spec-value">${product.country || 'Не указана'}</span>
-                        </div>
-                        <div class="spec-item">
-                            <span class="spec-label">В наличии:</span>
-                            <span class="spec-value">${product.stock_quantity || 0} шт.</span>
-                        </div>
-                        <div class="spec-item">
-                            <span class="spec-label">Статус:</span>
-                            <span class="spec-value">${product.in_stock ? 'В наличии' : 'Нет в наличии'}</span>
-                        </div>
-                        ${product.composition ? `
-                        <div class="spec-item">
-                            <span class="spec-label">Состав:</span>
-                            <span class="spec-value">${product.composition}</span>
-                        </div>
-                        ` : ''}
-                    </div>
-                </div>
-                
-                <div class="tab-content" id="description-tab">
-                    <h3>Описание</h3>
-                    <p>${product.description || 'Описание отсутствует'}</p>
-                </div>
-                
-                <div class="tab-content" id="instructions-tab">
-                    <h3>Инструкция</h3>
-                    <div class="instructions-content">
-                        ${product.usage ? `<p><strong>Применение:</strong> ${product.usage}</p>` : ''}
-                        ${product.dosage ? `<p><strong>Дозировка:</strong> ${product.dosage}</p>` : ''}
-                        ${product.indications ? `<p><strong>Показания:</strong> ${product.indications}</p>` : ''}
-                        ${product.contraindications ? `<p><strong>Противопоказания:</strong> ${product.contraindications}</p>` : ''}
-                        ${product.expiry_date ? `<p><strong>Срок годности:</strong> ${product.expiry_date}</p>` : ''}
-                        ${product.storage_conditions ? `<p><strong>Условия хранения:</strong> ${product.storage_conditions}</p>` : ''}
-                        ${!product.usage && !product.dosage && !product.indications && !product.contraindications && !product.expiry_date && !product.storage_conditions ? 
-                            '<p>Инструкция отсутствует</p>' : ''}
-                    </div>
+    // Показать ошибку для похожих товаров
+    function showRelatedProductsError(message) {
+        const container = document.getElementById('related-products-container');
+        if (container) {
+            container.innerHTML = `
+                <div style="text-align: center; color: #666; padding: 2rem;">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 2rem; margin-bottom: 1rem;"></i>
+                    <p>${message}</p>
                 </div>
             `;
-            
-            document.getElementById('product-section').parentNode.insertBefore(tabsSection, document.getElementById('product-section').nextSibling);
-            
-            // Добавляем секцию похожих товаров
-            addRelatedProductsSection();
         }
+    }
 
-        // Добавление секции похожих товаров
-        function addRelatedProductsSection() {
-            const relatedSection = document.createElement('section');
-            relatedSection.className = 'related-products';
-            relatedSection.innerHTML = `
-                <h2 class="section-title">Похожие товары</h2>
-                <div class="products-scroll" id="related-products-container">
-                    <div class="loading">
-                        <div class="spinner"></div>
-                        <div>Загрузка похожих товаров...</div>
-                    </div>
-                </div>
-            `;
-            
-            const tabsSection = document.querySelector('.product-tabs');
-            tabsSection.parentNode.insertBefore(relatedSection, tabsSection.nextSibling);
-        }
-
-        // Загрузка похожих товаров
-        async function loadRelatedProducts(categoryId, currentProductId) {
-            try {
-                console.log('Загрузка похожих товаров для категории:', categoryId);
-                const response = await fetch(`/api/products?category_id=${categoryId}`);
-                
-                if (!response.ok) {
-                    throw new Error(`Ошибка сервера: ${response.status}`);
+    // Настройка обработчиков событий
+    function setupEventListeners() {
+        // Кнопки количества
+        const decreaseBtn = document.getElementById('decrease-quantity');
+        const increaseBtn = document.getElementById('increase-quantity');
+        const quantityInput = document.getElementById('quantity');
+        
+        if (decreaseBtn && quantityInput) {
+            decreaseBtn.addEventListener('click', function() {
+                let value = parseInt(quantityInput.value) || 1;
+                if (value > 1) {
+                    quantityInput.value = value - 1;
                 }
-                
-                const data = await response.json();
-                console.log('Данные похожих товаров:', data);
-                
-                // УНИВЕРСАЛЬНАЯ ОБРАБОТКА ФОРМАТОВ
-                let products = [];
-                
-                if (data.success && Array.isArray(data.products)) {
-                    products = data.products;
-                } else if (data.success && Array.isArray(data.data)) {
-                    products = data.data;
-                } else if (Array.isArray(data)) {
-                    products = data;
-                } else if (data.products && Array.isArray(data.products)) {
-                    products = data.products;
-                } else if (data.data && Array.isArray(data.data)) {
-                    products = data.data;
-                } else {
-                    console.warn('Неизвестный формат данных похожих товаров:', data);
-                    products = [];
-                }
-                
-                // Фильтруем текущий товар и ограничиваем количество
-                const relatedProducts = products
-                    .filter(p => p && p.id && p.id != currentProductId)
-                    .slice(0, 6);
-                
-                displayRelatedProducts(relatedProducts);
-                
-            } catch (error) {
-                console.error('Ошибка загрузки похожих товаров:', error);
-                showRelatedProductsError('Не удалось загрузить похожие товары');
-            }
-        }
-
-        // Отображение похожих товаров
-        function displayRelatedProducts(products) {
-            const container = document.getElementById('related-products-container');
-            
-            if (!container) {
-                console.error('Контейнер для похожих товаров не найден');
-                return;
-            }
-            
-            if (!products || products.length === 0) {
-                container.innerHTML = '<p style="text-align: center; color: #666; padding: 2rem;">Нет похожих товаров</p>';
-                return;
-            }
-            
-            container.innerHTML = '';
-            
-            products.forEach(product => {
-                if (!product || !product.id) return;
-                
-                const productCard = document.createElement('div');
-                productCard.className = 'product-card';
-                productCard.onclick = () => window.location.href = `product.html?id=${product.id}`;
-                
-                const productName = product.name || 'Без названия';
-                const productPrice = parseFloat(product.price) || 0;
-                const productImage = product.image || 'https://via.placeholder.com/200x150?text=Товар';
-                const stockQuantity = parseInt(product.stock_quantity) || 0;
-                const inStock = product.in_stock !== false && stockQuantity > 0;
-                
-                productCard.innerHTML = `
-                    <div class="product-image">
-                        <img src="${productImage}" alt="${productName}" onerror="this.src='https://via.placeholder.com/200x150?text=Ошибка+загрузки'">
-                    </div>
-                    <div class="product-info">
-                        <h3 class="product-title">${productName}</h3>
-                        <div class="product-price">${formatPrice(productPrice)}</div>
-                        <button class="add-to-cart-small" 
-                                onclick="event.stopPropagation(); addRelatedToCart(${product.id})"
-                                ${!inStock ? 'disabled' : ''}>
-                            ${inStock ? 'В корзину' : 'Нет в наличии'}
-                        </button>
-                    </div>
-                `;
-                container.appendChild(productCard);
             });
         }
-
-        // Показать ошибку для похожих товаров
-        function showRelatedProductsError(message) {
-            const container = document.getElementById('related-products-container');
-            if (container) {
-                container.innerHTML = `
-                    <div style="text-align: center; color: #666; padding: 2rem;">
-                        <i class="fas fa-exclamation-triangle" style="font-size: 2rem; margin-bottom: 1rem;"></i>
-                        <p>${message}</p>
-                    </div>
-                `;
-            }
-        }
-
-        // Настройка обработчиков событий
-        function setupEventListeners() {
-            // Кнопки количества
-            const decreaseBtn = document.getElementById('decrease-quantity');
-            const increaseBtn = document.getElementById('increase-quantity');
-            const quantityInput = document.getElementById('quantity');
-            
-            if (decreaseBtn && quantityInput) {
-                decreaseBtn.addEventListener('click', function() {
-                    let value = parseInt(quantityInput.value) || 1;
-                    if (value > 1) {
-                        quantityInput.value = value - 1;
-                    }
-                });
-            }
-            
-            if (increaseBtn && quantityInput) {
-                increaseBtn.addEventListener('click', function() {
-                    let value = parseInt(quantityInput.value) || 1;
-                    const max = parseInt(quantityInput.max) || 10;
-                    if (value < max) {
-                        quantityInput.value = value + 1;
-                    }
-                });
-            }
-            
-            // Добавление в корзину
-            const addToCartBtn = document.getElementById('add-to-cart');
-            if (addToCartBtn) {
-                addToCartBtn.addEventListener('click', function() {
-                    if (!currentProduct) {
-                        showNotification('Ошибка: товар не загружен', 'error');
-                        return;
-                    }
-                    
-                    const quantity = parseInt(document.getElementById('quantity').value) || 1;
-                    addToCart(currentProduct, quantity);
-                });
-            }
-            
-            // Быстрый заказ
-            const orderBtn = document.getElementById('order-btn');
-            if (orderBtn) {
-                orderBtn.addEventListener('click', function() {
-                    if (!currentProduct) {
-                        showNotification('Ошибка: товар не загружен', 'error');
-                        return;
-                    }
-                    
-                    openOrderModal();
-                });
-            }
-        }
-
-        // Открытие модального окна заказа
-        function openOrderModal() {
-            if (!currentProduct) return;
-            
-            const quantity = parseInt(document.getElementById('quantity').value) || 1;
-            const totalPrice = (currentProduct.price * quantity).toFixed(2);
-            
-            // Заполняем данные в модальном окне
-            document.getElementById('modal-product-name').textContent = currentProduct.name;
-            document.getElementById('modal-product-price').textContent = formatPrice(currentProduct.price);
-            document.getElementById('modal-product-quantity').textContent = `${quantity} шт`;
-            document.getElementById('modal-total-price').textContent = formatPrice(totalPrice);
-            
-            // Показываем модальное окно
-            document.getElementById('order-modal').style.display = 'flex';
-        }
-
-        // Закрытие модального окна
-        function closeOrderModal() {
-            document.getElementById('order-modal').style.display = 'none';
-        }
-
-        // Выбор способа оплаты
-        function selectPaymentMethod(method) {
-            currentPaymentMethod = method;
-            
-            // Обновляем активный класс
-            document.querySelectorAll('.payment-method').forEach(el => {
-                el.classList.remove('active');
-            });
-            document.querySelector(`.payment-method[data-method="${method}"]`).classList.add('active');
-            
-            // Показываем/скрываем поля для карты
-            const cardInputs = document.getElementById('card-inputs');
-            if (method === 'card') {
-                cardInputs.classList.add('active');
-            } else {
-                cardInputs.classList.remove('active');
-            }
-        }
-
-        // Подтверждение заказа
-        async function confirmOrder() {
-            if (!currentProduct) {
-                showNotification('Ошибка: товар не загружен', 'error');
-                return;
-            }
-
-            // Получаем данные из формы
-            const customerName = document.getElementById('customer-name').value.trim();
-            const customerPhone = document.getElementById('customer-phone').value.trim();
-            const deliveryAddress = document.getElementById('delivery-address').value.trim();
-            const customerNotes = document.getElementById('customer-notes').value.trim();
-            const quantity = parseInt(document.getElementById('quantity').value) || 1;
-            const totalAmount = (currentProduct.price * quantity).toFixed(2);
-
-            // Валидация обязательных полей
-            if (!customerName) {
-                showNotification('Введите ФИО', 'error');
-                return;
-            }
-
-            if (!customerPhone) {
-                showNotification('Введите телефон', 'error');
-                return;
-            }
-
-            if (!deliveryAddress) {
-                showNotification('Введите адрес доставки', 'error');
-                return;
-            }
-
-            // Валидация данных карты (если выбран способ оплаты картой)
-            if (currentPaymentMethod === 'card') {
-                const cardNumber = document.getElementById('card-number').value.trim();
-                const cardExpiry = document.getElementById('card-expiry').value.trim();
-                const cardCvv = document.getElementById('card-cvv').value.trim();
-                const cardHolder = document.getElementById('card-holder').value.trim();
-
-                if (!cardNumber || !cardExpiry || !cardCvv || !cardHolder) {
-                    showNotification('Заполните все данные карты', 'error');
-                    return;
+        
+        if (increaseBtn && quantityInput) {
+            increaseBtn.addEventListener('click', function() {
+                let value = parseInt(quantityInput.value) || 1;
+                const max = parseInt(quantityInput.max) || 10;
+                if (value < max) {
+                    quantityInput.value = value + 1;
                 }
-
-                // Простая валидация номера карты (должен быть 16 цифр)
-                const cleanCardNumber = cardNumber.replace(/\s/g, '');
-                if (!/^\d{16}$/.test(cleanCardNumber)) {
-                    showNotification('Неверный номер карты', 'error');
-                    return;
-                }
-
-                // Валидация срока действия
-                if (!/^\d{2}\/\d{2}$/.test(cardExpiry)) {
-                    showNotification('Неверный формат срока действия (ММ/ГГ)', 'error');
-                    return;
-                }
-
-                // Валидация CVV
-                if (!/^\d{3}$/.test(cardCvv)) {
-                    showNotification('Неверный CVV код', 'error');
-                    return;
-                }
-            }
-
-            try {
-                // Отправляем заказ на сервер
-                const orderData = {
-                    product_id: currentProduct.id,
-                    quantity: quantity,
-                    total_amount: totalAmount,
-                    customer_name: customerName,
-                    customer_phone: customerPhone,
-                    delivery_address: deliveryAddress,
-                    customer_notes: customerNotes,
-                    payment_method: currentPaymentMethod
-                };
-
-                const response = await fetch('/api/orders/create', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(orderData)
-                });
-
-                const result = await response.json();
-
-                if (result.success) {
-                    showNotification('Заказ успешно создан!', 'success');
-                    closeOrderModal();
-                    
-                    // Очищаем форму
-                    document.getElementById('customer-name').value = '';
-                    document.getElementById('customer-phone').value = '';
-                    document.getElementById('delivery-address').value = '';
-                    document.getElementById('customer-notes').value = '';
-                    
-                    if (currentPaymentMethod === 'card') {
-                        document.getElementById('card-number').value = '';
-                        document.getElementById('card-expiry').value = '';
-                        document.getElementById('card-cvv').value = '';
-                        document.getElementById('card-holder').value = '';
-                    }
-                } else {
-                    showNotification(result.error || 'Ошибка при создании заказа', 'error');
-                }
-
-            } catch (error) {
-                console.error('Ошибка создания заказа:', error);
-                showNotification('Ошибка сети при создании заказа', 'error');
-            }
-        }
-
-        // Настройка вкладок
-        function setupTabs() {
-            const tabBtns = document.querySelectorAll('.tab-btn');
-            
-            tabBtns.forEach(btn => {
-                btn.addEventListener('click', function() {
-                    const tabId = this.getAttribute('data-tab');
-                    
-                    // Убираем активный класс у всех кнопок и контента
-                    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-                    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-                    
-                    // Добавляем активный класс к текущей кнопке и контенту
-                    this.classList.add('active');
-                    const tabContent = document.getElementById(`${tabId}-tab`);
-                    if (tabContent) {
-                        tabContent.classList.add('active');
-                    }
-                });
             });
         }
-
-        // Функция добавления в корзину
-        function addToCart(product, quantity) {
-            if (!product || !product.id) {
-                showNotification('Ошибка: неверные данные товара', 'error');
-                return;
-            }
-            
-            const existingItem = cart.find(item => item.id === product.id);
-            
-            if (existingItem) {
-                existingItem.quantity += quantity;
-            } else {
-                cart.push({
-                    id: product.id,
-                    name: product.name || 'Без названия',
-                    price: parseFloat(product.price) || 0,
-                    image: product.image || '',
-                    quantity: quantity
-                });
-            }
-            
-            localStorage.setItem('cart', JSON.stringify(cart));
-            updateCartBadge();
-            showNotification(`"${product.name || 'Товар'}" добавлен в корзину!`);
+        
+        // Добавление в корзину
+        const addToCartBtn = document.getElementById('add-to-cart');
+        if (addToCartBtn) {
+            addToCartBtn.addEventListener('click', function() {
+                if (!currentProduct) {
+                    showNotification('Ошибка: товар не загружен', 'error');
+                    return;
+                }
+                
+                const quantity = parseInt(document.getElementById('quantity').value) || 1;
+                addToCart(currentProduct, quantity);
+            });
         }
+        
+        // Быстрый заказ
+        const orderBtn = document.getElementById('order-btn');
+        if (orderBtn) {
+            orderBtn.addEventListener('click', function() {
+                if (!currentProduct) {
+                    showNotification('Ошибка: товар не загружен', 'error');
+                    return;
+                }
+                
+                openOrderModal();
+            });
+        }
+    }
 
-        // Добавление похожего товара в корзину
-        async function addRelatedToCart(productId) {
+    // Открытие модального окна заказа
+    function openOrderModal() {
+        if (!currentProduct) return;
+        
+        const quantity = parseInt(document.getElementById('quantity').value) || 1;
+        const totalPrice = (currentProduct.price * quantity).toFixed(2);
+        
+        // Заполняем данные в модальном окне
+        document.getElementById('modal-product-name').textContent = currentProduct.name;
+        document.getElementById('modal-product-price').textContent = formatPrice(currentProduct.price);
+        document.getElementById('modal-product-quantity').textContent = `${quantity} шт`;
+        document.getElementById('modal-total-price').textContent = formatPrice(totalPrice);
+        
+        // Автозаполнение данных пользователя, если он авторизован
+        const userData = localStorage.getItem('user');
+        if (userData) {
             try {
-                const response = await fetch(`/api/products/${productId}`);
-                if (!response.ok) {
-                    throw new Error('Товар не найден');
+                const user = JSON.parse(userData);
+                const customerName = document.getElementById('customer-name');
+                const customerPhone = document.getElementById('customer-phone');
+                
+                if (customerName && !customerName.value) {
+                    if (user.first_name && user.last_name) {
+                        customerName.value = `${user.first_name} ${user.last_name}`;
+                    } else if (user.full_name) {
+                        customerName.value = user.full_name;
+                    } else if (user.name) {
+                        customerName.value = user.name;
+                    }
                 }
                 
-                const data = await response.json();
-                
-                // Универсальная обработка формата
-                let product = null;
-                if (data.success && data.product) {
-                    product = data.product;
-                } else if (data.data && data.data.id) {
-                    product = data.data;
-                } else if (data.id) {
-                    product = data;
-                } else {
-                    throw new Error('Неверный формат данных товара');
+                if (customerPhone && !customerPhone.value && user.phone) {
+                    customerPhone.value = user.phone;
                 }
-                
-                if (!product) {
-                    throw new Error('Товар не найден');
-                }
-                
-                addToCart(product, 1);
-                
-            } catch (error) {
-                console.error('Ошибка добавления похожего товара:', error);
-                showNotification('Не удалось добавить товар в корзину', 'error');
+            } catch (e) {
+                console.error('Ошибка автозаполнения:', e);
             }
         }
+        
+        // Показываем модальное окно
+        document.getElementById('order-modal').style.display = 'flex';
+    }
 
-        // Обновление бейджа корзины
-        function updateCartBadge() {
-            const badge = document.getElementById('cart-badge');
-            if (!badge) return;
-            
-            const totalItems = cart.reduce((sum, item) => sum + (item.quantity || 0), 0);
-            
-            if (totalItems > 0) {
-                badge.textContent = totalItems > 99 ? '99+' : totalItems;
-                badge.style.display = 'flex';
-            } else {
-                badge.style.display = 'none';
-            }
+    // Закрытие модального окна
+    function closeOrderModal() {
+        document.getElementById('order-modal').style.display = 'none';
+    }
+
+    // Выбор способа оплаты
+    function selectPaymentMethod(method) {
+        currentPaymentMethod = method;
+        
+        // Обновляем активный класс
+        document.querySelectorAll('.payment-method').forEach(el => {
+            el.classList.remove('active');
+        });
+        document.querySelector(`.payment-method[data-method="${method}"]`).classList.add('active');
+        
+        // Показываем/скрываем поля для карты
+        const cardInputs = document.getElementById('card-inputs');
+        if (method === 'card') {
+            cardInputs.classList.add('active');
+        } else {
+            cardInputs.classList.remove('active');
+        }
+    }
+
+    // Подтверждение заказа
+    async function confirmOrder() {
+        if (!currentProduct) {
+            showNotification('Ошибка: товар не загружен', 'error');
+            return;
         }
 
-        // Форматирование цены
-        function formatPrice(price) {
-            if (typeof price !== 'number') {
-                price = parseFloat(price) || 0;
-            }
-            return `${price.toFixed(2)} ₽`;
-        }
-
-        // Показать уведомление
-        function showNotification(message, type = 'success') {
-            const existingNotifications = document.querySelectorAll('.notification');
-            existingNotifications.forEach(notification => notification.remove());
-            
-            const notification = document.createElement('div');
-            notification.className = `notification ${type}`;
-            notification.innerHTML = `
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <i class="fas ${type === 'error' ? 'fa-exclamation-circle' : type === 'warning' ? 'fa-exclamation-triangle' : 'fa-check-circle'}" style="font-size: 18px;"></i>
-                    <div style="font-weight: bold;">${message}</div>
-                </div>
-            `;
-            document.body.appendChild(notification);
-            
+        // Получаем данные пользователя
+        const userData = localStorage.getItem('user');
+        if (!userData) {
+            showNotification('Для оформления заказа необходимо авторизоваться', 'error');
             setTimeout(() => {
-                notification.style.animation = 'slideInRight 0.3s ease reverse';
+                window.location.href = 'register.html';
+            }, 2000);
+            return;
+        }
+
+        let user;
+        try {
+            user = JSON.parse(userData);
+        } catch (e) {
+            showNotification('Ошибка данных пользователя', 'error');
+            return;
+        }
+
+        // Получаем user_id - для обычных пользователей используем id, для Google - sub
+        const userId = user.id || user.sub;
+        if (!userId) {
+            showNotification('Ошибка: пользователь не идентифицирован', 'error');
+            return;
+        }
+
+        // Получаем данные из формы
+        const customerName = document.getElementById('customer-name').value.trim();
+        const customerPhone = document.getElementById('customer-phone').value.trim();
+        const deliveryAddress = document.getElementById('delivery-address').value.trim();
+        const customerNotes = document.getElementById('customer-notes').value.trim();
+        const quantity = parseInt(document.getElementById('quantity').value) || 1;
+        const totalAmount = (currentProduct.price * quantity).toFixed(2);
+
+        // Валидация обязательных полей
+        if (!customerName) {
+            showNotification('Введите ФИО', 'error');
+            return;
+        }
+
+        if (!customerPhone) {
+            showNotification('Введите телефон', 'error');
+            return;
+        }
+
+        if (!deliveryAddress) {
+            showNotification('Введите адрес доставки', 'error');
+            return;
+        }
+
+        // Валидация данных карты (если выбран способ оплаты картой)
+        if (currentPaymentMethod === 'card') {
+            const cardNumber = document.getElementById('card-number').value.trim();
+            const cardExpiry = document.getElementById('card-expiry').value.trim();
+            const cardCvv = document.getElementById('card-cvv').value.trim();
+            const cardHolder = document.getElementById('card-holder').value.trim();
+
+            if (!cardNumber || !cardExpiry || !cardCvv || !cardHolder) {
+                showNotification('Заполните все данные карты', 'error');
+                return;
+            }
+
+            // Простая валидация номера карты (должен быть 16 цифр)
+            const cleanCardNumber = cardNumber.replace(/\s/g, '');
+            if (!/^\d{16}$/.test(cleanCardNumber)) {
+                showNotification('Неверный номер карты', 'error');
+                return;
+            }
+
+            // Валидация срока действия
+            if (!/^\d{2}\/\d{2}$/.test(cardExpiry)) {
+                showNotification('Неверный формат срока действия (ММ/ГГ)', 'error');
+                return;
+            }
+
+            // Валидация CVV
+            if (!/^\d{3}$/.test(cardCvv)) {
+                showNotification('Неверный CVV код', 'error');
+                return;
+            }
+        }
+
+        try {
+            // Отправляем заказ на сервер
+            const orderData = {
+                user_id: userId, // ОБЯЗАТЕЛЬНОЕ ПОЛЕ - передаем user_id
+                product_id: currentProduct.id,
+                quantity: quantity,
+                total_amount: totalAmount,
+                customer_name: customerName,
+                customer_phone: customerPhone,
+                delivery_address: deliveryAddress,
+                customer_notes: customerNotes,
+                payment_method: currentPaymentMethod
+            };
+
+            console.log('Отправка заказа на сервер:', orderData);
+
+            const response = await fetch('/api/orders/create', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(orderData)
+            });
+
+            const result = await response.json();
+            console.log('Ответ сервера при создании заказа:', result);
+
+            if (result.success) {
+                showNotification('Заказ успешно создан! Курьер будет назначен в ближайшее время.', 'success');
+                closeOrderModal();
+                
+                // Очищаем форму
+                document.getElementById('customer-name').value = '';
+                document.getElementById('customer-phone').value = '';
+                document.getElementById('delivery-address').value = '';
+                document.getElementById('customer-notes').value = '';
+                
+                if (currentPaymentMethod === 'card') {
+                    document.getElementById('card-number').value = '';
+                    document.getElementById('card-expiry').value = '';
+                    document.getElementById('card-cvv').value = '';
+                    document.getElementById('card-holder').value = '';
+                }
+
+                // Перенаправляем на главную через 3 секунды
                 setTimeout(() => {
-                    if (notification.parentNode) {
-                        notification.remove();
-                    }
-                }, 300);
-            }, 3000);
-        }
-
-        // Назад
-        function goBack() {
-            window.history.back();
-        }
-
-        // Показать загрузку
-        function showLoading() {
-            const productSection = document.getElementById('product-section');
-            if (productSection) {
-                productSection.innerHTML = `
-                    <div class="loading">
-                        <div class="spinner"></div>
-                        <div>Загрузка товара...</div>
-                    </div>
-                `;
+                    window.location.href = 'main.html';
+                }, 3000);
+                
+            } else {
+                showNotification(result.error || 'Ошибка при создании заказа', 'error');
             }
-        }
 
-        // Показать ошибку
-        function showError(message, type = 'error') {
-            const productSection = document.getElementById('product-section');
-            if (productSection) {
-                productSection.innerHTML = `
-                    <div class="error-state">
-                        <i class="fas fa-exclamation-triangle"></i>
-                        <h2>${type === 'error' ? 'Ошибка' : 'Внимание'}</h2>
-                        <p>${message}</p>
-                        <button class="order-btn" onclick="window.location.href='main.html'" style="margin-top: 1rem;">
-                            <i class="fas fa-arrow-left"></i> Вернуться на главную
-                        </button>
-                        <button class="add-to-cart" onclick="location.reload()" style="margin-top: 0.5rem; background: var(--warning);">
-                            <i class="fas fa-redo"></i> Попробовать снова
-                        </button>
-                    </div>
-                `;
-            }
+        } catch (error) {
+            console.error('Ошибка создания заказа:', error);
+            showNotification('Ошибка сети при создании заказа: ' + error.message, 'error');
         }
-    </script>
+    }
+
+    // Настройка вкладок
+    function setupTabs() {
+        const tabBtns = document.querySelectorAll('.tab-btn');
+        
+        tabBtns.forEach(btn => {
+            btn.addEventListener('click', function() {
+                const tabId = this.getAttribute('data-tab');
+                
+                // Убираем активный класс у всех кнопок и контента
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                
+                // Добавляем активный класс к текущей кнопке и контенту
+                this.classList.add('active');
+                const tabContent = document.getElementById(`${tabId}-tab`);
+                if (tabContent) {
+                    tabContent.classList.add('active');
+                }
+            });
+        });
+    }
+
+    // Функция добавления в корзину
+    function addToCart(product, quantity) {
+        if (!product || !product.id) {
+            showNotification('Ошибка: неверные данные товара', 'error');
+            return;
+        }
+        
+        const existingItem = cart.find(item => item.id === product.id);
+        
+        if (existingItem) {
+            existingItem.quantity += quantity;
+        } else {
+            cart.push({
+                id: product.id,
+                name: product.name || 'Без названия',
+                price: parseFloat(product.price) || 0,
+                image: product.image || '',
+                quantity: quantity
+            });
+        }
+        
+        localStorage.setItem('cart', JSON.stringify(cart));
+        updateCartBadge();
+        showNotification(`"${product.name || 'Товар'}" добавлен в корзину!`);
+    }
+
+    // Добавление похожего товара в корзину
+    async function addRelatedToCart(productId) {
+        try {
+            const response = await fetch(`/api/products/${productId}`);
+            if (!response.ok) {
+                throw new Error('Товар не найден');
+            }
+            
+            const data = await response.json();
+            
+            // Универсальная обработка формата
+            let product = null;
+            if (data.success && data.product) {
+                product = data.product;
+            } else if (data.data && data.data.id) {
+                product = data.data;
+            } else if (data.id) {
+                product = data;
+            } else {
+                throw new Error('Неверный формат данных товара');
+            }
+            
+            if (!product) {
+                throw new Error('Товар не найден');
+            }
+            
+            addToCart(product, 1);
+            
+        } catch (error) {
+            console.error('Ошибка добавления похожего товара:', error);
+            showNotification('Не удалось добавить товар в корзину', 'error');
+        }
+    }
+
+    // Обновление бейджа корзины
+    function updateCartBadge() {
+        const badge = document.getElementById('cart-badge');
+        if (!badge) return;
+        
+        const totalItems = cart.reduce((sum, item) => sum + (item.quantity || 0), 0);
+        
+        if (totalItems > 0) {
+            badge.textContent = totalItems > 99 ? '99+' : totalItems;
+            badge.style.display = 'flex';
+        } else {
+            badge.style.display = 'none';
+        }
+    }
+
+    // Форматирование цены
+    function formatPrice(price) {
+        if (typeof price !== 'number') {
+            price = parseFloat(price) || 0;
+        }
+        return `${price.toFixed(2)} ₽`;
+    }
+
+    // Показать уведомление
+    function showNotification(message, type = 'success') {
+        const existingNotifications = document.querySelectorAll('.notification');
+        existingNotifications.forEach(notification => notification.remove());
+        
+        const notification = document.createElement('div');
+        notification.className = `notification ${type}`;
+        notification.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <i class="fas ${type === 'error' ? 'fa-exclamation-circle' : type === 'warning' ? 'fa-exclamation-triangle' : 'fa-check-circle'}" style="font-size: 18px;"></i>
+                <div style="font-weight: bold;">${message}</div>
+            </div>
+        `;
+        document.body.appendChild(notification);
+        
+        setTimeout(() => {
+            notification.style.animation = 'slideInRight 0.3s ease reverse';
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.remove();
+                }
+            }, 300);
+        }, 3000);
+    }
+
+    // Назад
+    function goBack() {
+        window.history.back();
+    }
+
+    // Показать загрузку
+    function showLoading() {
+        const productSection = document.getElementById('product-section');
+        if (productSection) {
+            productSection.innerHTML = `
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <div>Загрузка товара...</div>
+                </div>
+            `;
+        }
+    }
+
+    // Показать ошибку
+    function showError(message, type = 'error') {
+        const productSection = document.getElementById('product-section');
+        if (productSection) {
+            productSection.innerHTML = `
+                <div class="error-state">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <h2>${type === 'error' ? 'Ошибка' : 'Внимание'}</h2>
+                    <p>${message}</p>
+                    <button class="order-btn" onclick="window.location.href='main.html'" style="margin-top: 1rem;">
+                        <i class="fas fa-arrow-left"></i> Вернуться на главную
+                    </button>
+                    <button class="add-to-cart" onclick="location.reload()" style="margin-top: 0.5rem; background: var(--warning);">
+                        <i class="fas fa-redo"></i> Попробовать снова
+                    </button>
+                </div>
+            `;
+        }
+    }
+</script>
 </body>
 </html>
