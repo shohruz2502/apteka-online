@@ -986,96 +986,130 @@ app.post('/api/orders/create', databaseMiddleware, validateUser, async (req, res
 
 // ==================== COURIER ROUTES ====================
 
-// Courier - Get orders
+// Courier - Get orders (ИСПРАВЛЕННАЯ ВЕРСИЯ)
 app.get('/api/courier/orders', databaseMiddleware, async (req, res) => {
-  console.log('📨 GET /api/courier/orders');
-  
-  try {
-    // Получаем заказы с товарами
-    const { rows: orders } = await req.db.query(`
-      SELECT o.*, 
-             json_agg(
-               json_build_object(
-                 'id', p.id,
-                 'name', p.name,
-                 'quantity', oi.quantity,
-                 'price', oi.price
-               )
-             ) as products
-      FROM delivery_orders o
-      LEFT JOIN delivery_order_items oi ON o.id = oi.delivery_order_id
-      LEFT JOIN products p ON oi.product_id = p.id
-      WHERE o.status IN ('pending', 'assigned', 'delivered')
-      GROUP BY o.id
-      ORDER BY o.created_at DESC
-    `);
+    console.log('📨 GET /api/courier/orders');
+    
+    try {
+        // Получаем заказы с информацией о товарах
+        const { rows: orders } = await req.db.query(`
+            SELECT 
+                o.id,
+                o.order_code,
+                o.total_amount,
+                o.delivery_address as address,
+                o.customer_name,
+                o.customer_phone,
+                o.status,
+                o.created_at,
+                o.assigned_at,
+                o.delivered_at,
+                c.first_name as courier_name,
+                json_agg(
+                    json_build_object(
+                        'id', p.id,
+                        'name', p.name,
+                        'quantity', oi.quantity,
+                        'price', oi.unit_price
+                    )
+                ) as products
+            FROM delivery_orders o
+            LEFT JOIN delivery_order_items oi ON o.id = oi.delivery_order_id
+            LEFT JOIN products p ON oi.product_id = p.id
+            LEFT JOIN couriers c ON o.courier_id = c.id
+            WHERE o.status IN ('pending', 'assigned', 'delivered')
+            GROUP BY o.id, c.first_name
+            ORDER BY 
+                CASE 
+                    WHEN o.status = 'pending' THEN 1
+                    WHEN o.status = 'assigned' THEN 2
+                    WHEN o.status = 'delivered' THEN 3
+                    ELSE 4
+                END,
+                o.created_at DESC
+        `);
 
-    res.json({
-      success: true,
-      orders: orders
-    });
-  } catch (err) {
-    console.error('❌ Ошибка получения заказов:', err);
-    res.status(500).json({
-      success: false,
-      error: 'Ошибка получения заказов: ' + err.message
-    });
-  }
+        console.log('✅ Найдено заказов:', orders.length);
+
+        res.json({
+            success: true,
+            orders: orders.map(order => ({
+                id: order.id,
+                order_code: order.order_code,
+                address: order.address,
+                status: order.status,
+                customer_name: order.customer_name,
+                customer_phone: order.customer_phone,
+                total_amount: order.total_amount,
+                created_at: order.created_at,
+                courier_name: order.courier_name,
+                products: order.products || []
+            }))
+        });
+    } catch (err) {
+        console.error('❌ Ошибка получения заказов:', err);
+        res.status(500).json({
+            success: false,
+            error: 'Ошибка получения заказов: ' + err.message
+        });
+    }
 });
 
-// Courier - Accept order
+// Courier - Accept order (ИСПРАВЛЕННАЯ ВЕРСИЯ)
 app.post('/api/courier/orders/accept', databaseMiddleware, async (req, res) => {
-  console.log('📨 POST /api/courier/orders/accept');
-  
-  const { order_id, user_id } = req.body;
-  
-  if (!order_id || !user_id) {
-    return res.status(400).json({
-      success: false,
-      error: 'order_id и user_id обязательны'
-    });
-  }
-
-  try {
-    // Получаем courier_id по user_id
-    const { rows: courierRows } = await req.db.query(
-      'SELECT id FROM couriers WHERE user_id = $1',
-      [user_id]
-    );
-
-    if (courierRows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        error: 'Курьер не найден'
-      });
+    console.log('📨 POST /api/courier/orders/accept');
+    
+    const { order_id, user_id } = req.body;
+    
+    if (!order_id || !user_id) {
+        return res.status(400).json({
+            success: false,
+            error: 'order_id и user_id обязательны'
+        });
     }
 
-    const courierId = courierRows[0].id;
+    try {
+        // Получаем courier_id по user_id
+        const { rows: courierRows } = await req.db.query(
+            'SELECT id, first_name FROM couriers WHERE user_id = $1',
+            [user_id]
+        );
 
-    const { rows } = await req.db.query(
-      'UPDATE delivery_orders SET status = $1, courier_id = $2, assigned_at = CURRENT_TIMESTAMP WHERE id = $3 AND status = $4 RETURNING *',
-      ['assigned', courierId, order_id, 'pending']
-    );
+        if (courierRows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'Курьер не найден'
+            });
+        }
 
-    if (rows.length === 0) {
-      return res.status(400).json({
-        success: false,
-        error: 'Заказ не найден или уже принят'
-      });
+        const courierId = courierRows[0].id;
+        const courierName = courierRows[0].first_name;
+
+        const { rows } = await req.db.query(
+            'UPDATE delivery_orders SET status = $1, courier_id = $2, assigned_at = CURRENT_TIMESTAMP WHERE id = $3 AND status = $4 RETURNING *',
+            ['assigned', courierId, order_id, 'pending']
+        );
+
+        if (rows.length === 0) {
+            return res.status(400).json({
+                success: false,
+                error: 'Заказ не найден или уже принят'
+            });
+        }
+
+        res.json({
+            success: true,
+            message: 'Заказ принят',
+            order: rows[0],
+            courier_name: courierName
+        });
+    } catch (err) {
+        console.error('❌ Ошибка принятия заказа:', err);
+        res.status(500).json({
+            success: false,
+            error: 'Ошибка принятия заказа: ' + err.message
+        });
     }
-
-    res.json({
-      success: true,
-      message: 'Заказ принят',
-      order: rows[0]
-    });
-  } catch (err) {
-    console.error('❌ Ошибка принятия заказа:', err);
-    res.status(500).json({
-      success: false,
-      error: 'Ошибка принятия заказа: ' + err.message
-    });
-  }
 });
 
 // Courier - Complete order
