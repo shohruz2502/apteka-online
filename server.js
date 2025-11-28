@@ -1193,18 +1193,19 @@ app.post('/api/auth/google', databaseMiddleware, async (req, res) => {
       });
     } else {
       res.json({
-        success: true,
-        user: {
-          sub: payload.sub,
-          email: payload.email,
-          email_verified: payload.email_verified,
-          name: payload.name,
-          given_name: payload.given_name,
-          family_name: payload.family_name,
-          picture: payload.picture
-        },
-        requires_additional_info: false // ИЗМЕНЕНИЕ: теперь всегда false
-      });
+    success: true,
+    user: {
+        sub: payload.sub,
+        email: payload.email,
+        email_verified: payload.email_verified,
+        name: payload.name,
+        given_name: payload.given_name,
+        family_name: payload.family_name,
+        picture: payload.picture
+        // НЕТ id - это признак нового пользователя
+    },
+    requires_additional_info: false
+});
     }
   } catch (err) {
     console.error('❌ Ошибка Google аутентификации:', err);
