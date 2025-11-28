@@ -732,48 +732,48 @@
         }
 
         async acceptOrder(orderId) {
-            if (!this.isAvailable) {
-                alert('Сначала переведите себя в статус "Доступен"');
-                return;
-            }
+    if (!this.isAvailable) {
+        alert('Сначала переведите себя в статус "Доступен"');
+        return;
+    }
 
-            if (!this.currentUser) {
-                alert('Ошибка: пользователь не авторизован');
-                return;
-            }
+    if (!this.currentUser) {
+        alert('Ошибка: пользователь не авторизован');
+        return;
+    }
 
-            try {
-                const userId = this.currentUser.id || this.currentUser.sub;
-                if (!userId) {
-                    alert('Ошибка: не удалось идентифицировать пользователя');
-                    return;
-                }
-
-                const response = await fetch('/api/courier/orders/accept', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        order_id: orderId,
-                        user_id: userId
-                    })
-                });
-
-                const data = await response.json();
-                console.log('Ответ при принятии заказа:', data);
-
-                if (data.success) {
-                    alert('Заказ успешно принят!');
-                    this.loadOrders();
-                } else {
-                    alert(data.error || 'Ошибка принятия заказа');
-                }
-            } catch (error) {
-                console.error('Ошибка принятия заказа:', error);
-                alert('Ошибка принятия заказа: ' + error.message);
-            }
+    try {
+        const userId = this.currentUser.id || this.currentUser.sub;
+        if (!userId) {
+            alert('Ошибка: не удалось идентифицировать пользователя');
+            return;
         }
+
+        const response = await fetch('/api/courier/orders/accept', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                order_id: orderId,
+                user_id: userId
+            })
+        });
+
+        const data = await response.json();
+        console.log('Ответ при принятии заказа:', data);
+
+        if (data.success) {
+            alert('Заказ успешно принят!');
+            this.loadOrders();
+        } else {
+            alert(data.error || 'Ошибка принятия заказа');
+        }
+    } catch (error) {
+        console.error('Ошибка принятия заказа:', error);
+        alert('Ошибка принятия заказа: ' + error.message);
+    }
+}
 
         async completeOrder(orderId) {
             if (!this.currentUser) {
