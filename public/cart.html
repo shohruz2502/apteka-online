@@ -876,14 +876,15 @@
       let cartItems = [];
       let currentUser = null;
 
-      // Улучшенная проверка авторизации
+      // ИСПРАВЛЕННАЯ проверка авторизации - поддержка Google пользователей
       function checkAuth() {
         const userData = localStorage.getItem("user");
         
         if (userData) {
           try {
             const user = JSON.parse(userData);
-            if (user && user.id) {
+            // ИСПРАВЛЕНИЕ: Поддержка Google пользователей (id или sub)
+            if (user && (user.id || user.sub)) {
               currentUser = user;
               return true;
             }
@@ -893,6 +894,12 @@
         }
         
         return false;
+      }
+
+      // Получение ID пользователя (поддержка Google)
+      function getUserId() {
+        if (!currentUser) return null;
+        return currentUser.id || currentUser.sub;
       }
 
       // Показать/скрыть элементы
@@ -970,7 +977,12 @@
         hideMessages();
 
         try {
-          const response = await fetch(`/api/cart?user_id=${currentUser.id}`);
+          const userId = getUserId();
+          if (!userId) {
+            throw new Error("Не удалось определить ID пользователя");
+          }
+
+          const response = await fetch(`/api/cart?user_id=${userId}`);
 
           if (!response.ok) {
             throw new Error("Ошибка загрузки корзины");
@@ -1068,13 +1080,18 @@
         hideMessages();
 
         try {
+          const userId = getUserId();
+          if (!userId) {
+            throw new Error("Не удалось определить ID пользователя");
+          }
+
           const response = await fetch(`/api/cart/${itemId}`, {
             method: "PUT",
             headers: {
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              user_id: currentUser.id,
+              user_id: userId,
               quantity: newQuantity,
             }),
           });
@@ -1112,13 +1129,18 @@
         hideMessages();
 
         try {
+          const userId = getUserId();
+          if (!userId) {
+            throw new Error("Не удалось определить ID пользователя");
+          }
+
           const response = await fetch(`/api/cart/${itemId}`, {
             method: "DELETE",
             headers: {
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              user_id: currentUser.id,
+              user_id: userId,
             }),
           });
 
@@ -1158,13 +1180,18 @@
         hideMessages();
 
         try {
+          const userId = getUserId();
+          if (!userId) {
+            throw new Error("Не удалось определить ID пользователя");
+          }
+
           const response = await fetch("/api/cart", {
             method: "DELETE",
             headers: {
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              user_id: currentUser.id,
+              user_id: userId,
             }),
           });
 
