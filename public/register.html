@@ -860,35 +860,71 @@
         }
 
         // Обработчик Google Sign-In
-        window.handleGoogleSignIn = async function(response) {
-            console.log('Google Sign-In response:', response);
-            
-            try {
-                // Отправляем токен на сервер для проверки
-                const authResponse = await fetch('/api/auth/google', {
+window.handleGoogleSignIn = async function(response) {
+    console.log('Google Sign-In response:', response);
+    
+    try {
+        // Отправляем токен на сервер для проверки
+        const authResponse = await fetch('/api/auth/google', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ 
+                token: response.credential 
+            })
+        });
+        
+        const data = await authResponse.json();
+        
+        if (authResponse.ok && data.success) {
+            // Если пользователь существует и имеет ID, сразу входим
+            if (data.user && data.user.id) {
+                localStorage.setItem('user', JSON.stringify(data.user));
+                showSuccessScreen(data.user);
+            } 
+            // Если это новый Google пользователь без ID, выполняем регистрацию
+            else if (data.user && !data.user.id) {
+                console.log('Новый Google пользователь, выполняем регистрацию...');
+                
+                const registerResponse = await fetch('/api/auth/google/register', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ 
-                        token: response.credential 
+                    body: JSON.stringify({
+                        google_id: data.user.sub,
+                        email: data.user.email,
+                        first_name: data.user.given_name || data.user.name?.split(' ')[0] || 'Google',
+                        last_name: data.user.family_name || data.user.name?.split(' ')[1] || 'User',
+                        phone: '',
+                        avatar: data.user.picture,
+                        email_verified: data.user.email_verified || true
                     })
                 });
                 
-                const data = await authResponse.json();
+                const registerData = await registerResponse.json();
                 
-                if (authResponse.ok && data.success) {
-                    // Если пользователь существует, сразу входим
-                    localStorage.setItem('user', JSON.stringify(data.user));
-                    showSuccessScreen(data.user);
+                if (registerResponse.ok && registerData.success) {
+                    console.log('Google регистрация успешна:', registerData.user);
+                    // Сохраняем пользователя с ID
+                    localStorage.setItem('user', JSON.stringify(registerData.user));
+                    showSuccessScreen(registerData.user);
                 } else {
-                    showError(data.error || 'Ошибка авторизации через Google.');
+                    console.error('Ошибка Google регистрации:', registerData);
+                    showError(registerData.error || 'Ошибка регистрации через Google');
                 }
-            } catch (error) {
-                console.error('Google auth error:', error);
-                showError('Ошибка соединения с сервером. Попробуйте позже.');
+            } else {
+                showError('Неизвестная ошибка авторизации');
             }
-        };
+        } else {
+            showError(data.error || 'Ошибка авторизации через Google.');
+        }
+    } catch (error) {
+        console.error('Google auth error:', error);
+        showError('Ошибка соединения с сервером. Попробуйте позже.');
+    }
+};
 
         // Функция показа ошибки
         function showError(message) {
