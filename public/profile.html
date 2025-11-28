@@ -840,140 +840,149 @@
     </div>
 
     <script>
-        let currentUser = null;
-        let originalUserData = null;
-        let isGoogleUser = false;
+    let currentUser = null;
+    let originalUserData = null;
+    let isGoogleUser = false;
 
-        // Инициализация при загрузке страницы
-        document.addEventListener("DOMContentLoaded", () => {
-            checkAuthStatus();
-            updateCartBadge();
-        });
+    // Инициализация при загрузке страницы
+    document.addEventListener("DOMContentLoaded", () => {
+        checkAuthStatus();
+        updateCartBadge();
+    });
 
-        // Проверка статуса авторизации
-        function checkAuthStatus() {
-            const storedUser = localStorage.getItem("user");
-            
-            if (storedUser) {
-                try {
-                    currentUser = JSON.parse(storedUser);
-                    console.log("Текущий пользователь:", currentUser);
-                    
-                    // ИСПРАВЛЕНИЕ: Поддержка Google пользователей без ID
-                    if (!currentUser.id && currentUser.sub) {
-                        console.log("Google пользователь без ID, загружаем профиль...");
-                        loadProfile();
-                        return;
-                    }
-                    
-                    if (!currentUser.id) {
-                        console.error("У пользователя нет ID");
-                        showUnauthorizedContent();
-                        return;
-                    }
-                    
-                    originalUserData = { ...currentUser };
-                    isGoogleUser = !!currentUser.google_id;
-                    
-                    displayUserData(currentUser);
-                    showAuthorizedContent();
-                    
-                    // Загружаем актуальные данные с сервера
-                    loadProfile();
-                } catch (e) {
-                    console.error("Ошибка парсинга данных пользователя:", e);
-                    localStorage.removeItem("user");
-                    showUnauthorizedContent();
-                }
-            } else {
-                showUnauthorizedContent();
-            }
-        }
-
-        // Показать контент для авторизованного пользователя
-        function showAuthorizedContent() {
-            document.getElementById("unauthorized-state").style.display = "none";
-            document.getElementById("authorized-content").style.display = "block";
-            document.getElementById("loading").style.display = "none";
-        }
-
-        // Показать контент для неавторизованного пользователя
-        function showUnauthorizedContent() {
-            document.getElementById("unauthorized-state").style.display = "block";
-            document.getElementById("authorized-content").style.display = "none";
-            document.getElementById("loading").style.display = "none";
-        }
-
-        // Загрузка профиля с сервера
-        async function loadProfile() {
-            showLoading();
+    // Проверка статуса авторизации
+    function checkAuthStatus() {
+        const storedUser = localStorage.getItem("user");
+        
+        if (storedUser) {
             try {
-                // ИСПРАВЛЕНИЕ: Для Google пользователей используем другой подход
-                let response;
-                if (currentUser && currentUser.sub) {
-                    // Это Google пользователь без ID - пытаемся найти по Google ID
-                    response = await fetch(`/api/auth/me?google_id=${currentUser.sub}`, {
-                        method: "GET",
-                        headers: {
-                            "Content-Type": "application/json",
-                        },
-                    });
-                } else if (currentUser && currentUser.id) {
-                    // Обычный пользователь с ID
-                    response = await fetch(`/api/auth/me?user_id=${currentUser.id}`, {
-                        method: "GET",
-                        headers: {
-                            "Content-Type": "application/json",
-                        },
-                    });
-                } else {
-                    throw new Error("Нет данных пользователя");
+                currentUser = JSON.parse(storedUser);
+                console.log("Текущий пользователь:", currentUser);
+                
+                // Поддержка Google пользователей без ID
+                if (!currentUser.id && currentUser.sub) {
+                    console.log("Google пользователь без ID, загружаем профиль...");
+                    loadProfile();
+                    return;
                 }
-
-                if (response.status === 401) {
-                    localStorage.removeItem("user");
+                
+                if (!currentUser.id) {
+                    console.error("У пользователя нет ID");
                     showUnauthorizedContent();
                     return;
                 }
-
-                if (!response.ok) {
-                    throw new Error("Ошибка загрузки профиля");
-                }
-
-                const data = await response.json();
-                if (data.success) {
-                    currentUser = data.user;
-                    originalUserData = { ...currentUser };
-                    isGoogleUser = !!currentUser.google_id;
-                    localStorage.setItem("user", JSON.stringify(currentUser));
-                    displayUserData(currentUser);
-                    showAuthorizedContent();
-                } else {
-                    throw new Error(data.error || "Ошибка загрузки");
-                }
-            } catch (error) {
-                console.error("Ошибка загрузки профиля:", error);
                 
-                // ИСПРАВЛЕНИЕ: Для Google пользователей показываем данные из localStorage
-                if (currentUser && (currentUser.id || currentUser.sub)) {
-                    console.log("Используем локальные данные пользователя:", currentUser);
-                    displayUserData(currentUser);
-                    showAuthorizedContent();
-                    showNotification("Используются локальные данные", "error");
-                } else {
-                    localStorage.removeItem("user");
-                    showUnauthorizedContent();
-                }
-            } finally {
-                hideLoading();
+                originalUserData = { ...currentUser };
+                isGoogleUser = !!currentUser.google_id;
+                
+                displayUserData(currentUser);
+                showAuthorizedContent();
+                
+                // Загружаем актуальные данные с сервера
+                loadProfile();
+            } catch (e) {
+                console.error("Ошибка парсинга данных пользователя:", e);
+                localStorage.removeItem("user");
+                showUnauthorizedContent();
             }
+        } else {
+            showUnauthorizedContent();
         }
+    }
 
-        // Отображение данных пользователя
-        function displayUserData(user) {
-            console.log("Отображение данных пользователя:", user);
+    // Показать контент для авторизованного пользователя
+    function showAuthorizedContent() {
+        const unauthorizedState = document.getElementById("unauthorized-state");
+        const authorizedContent = document.getElementById("authorized-content");
+        const loading = document.getElementById("loading");
+        
+        if (unauthorizedState) unauthorizedState.style.display = "none";
+        if (authorizedContent) authorizedContent.style.display = "block";
+        if (loading) loading.style.display = "none";
+    }
+
+    // Показать контент для неавторизованного пользователя
+    function showUnauthorizedContent() {
+        const unauthorizedState = document.getElementById("unauthorized-state");
+        const authorizedContent = document.getElementById("authorized-content");
+        const loading = document.getElementById("loading");
+        
+        if (unauthorizedState) unauthorizedState.style.display = "block";
+        if (authorizedContent) authorizedContent.style.display = "none";
+        if (loading) loading.style.display = "none";
+    }
+
+    // Загрузка профиля с сервера
+    async function loadProfile() {
+        showLoading();
+        try {
+            // Для Google пользователей используем другой подход
+            let response;
+            if (currentUser && currentUser.sub) {
+                // Это Google пользователь без ID - пытаемся найти по Google ID
+                response = await fetch(`/api/auth/me?google_id=${currentUser.sub}`, {
+                    method: "GET",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                });
+            } else if (currentUser && currentUser.id) {
+                // Обычный пользователь с ID
+                response = await fetch(`/api/auth/me?user_id=${currentUser.id}`, {
+                    method: "GET",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                });
+            } else {
+                throw new Error("Нет данных пользователя");
+            }
+
+            if (response.status === 401) {
+                localStorage.removeItem("user");
+                showUnauthorizedContent();
+                return;
+            }
+
+            if (!response.ok) {
+                throw new Error("Ошибка загрузки профиля");
+            }
+
+            const data = await response.json();
+            if (data.success) {
+                currentUser = data.user;
+                originalUserData = { ...currentUser };
+                isGoogleUser = !!currentUser.google_id;
+                localStorage.setItem("user", JSON.stringify(currentUser));
+                displayUserData(currentUser);
+                showAuthorizedContent();
+            } else {
+                throw new Error(data.error || "Ошибка загрузки");
+            }
+        } catch (error) {
+            console.error("Ошибка загрузки профиля:", error);
             
-            // ИСПРАВЛЕНИЕ: Поддержка Google пользователей
+            // Для Google пользователей показываем данные из localStorage
+            if (currentUser && (currentUser.id || currentUser.sub)) {
+                console.log("Используем локальные данные пользователя:", currentUser);
+                displayUserData(currentUser);
+                showAuthorizedContent();
+                showNotification("Используются локальные данные", "error");
+            } else {
+                localStorage.removeItem("user");
+                showUnauthorizedContent();
+            }
+        } finally {
+            hideLoading();
+        }
+    }
+
+    // Отображение данных пользователя
+    function displayUserData(user) {
+        console.log("Отображение данных пользователя:", user);
+        
+        try {
+            // Формируем отображаемое имя
             let displayName = "Пользователь";
             if (user.first_name && user.last_name) {
                 displayName = `${user.first_name} ${user.last_name}`;
@@ -989,28 +998,48 @@
                 displayName = `${user.given_name} ${user.family_name}`;
             }
             
-            document.getElementById("profile-display-name").innerHTML = displayName;
-            document.getElementById("profile-display-email").textContent = user.email || "Не указан";
-            document.getElementById("profile-display-phone").textContent = user.phone || "Не указан";
+            // Безопасное обновление элементов
+            const profileName = document.getElementById("profile-display-name");
+            const profileEmail = document.getElementById("profile-display-email");
+            const profilePhone = document.getElementById("profile-display-phone");
+            
+            if (profileName) {
+                profileName.innerHTML = displayName;
+            }
+            
+            if (profileEmail) {
+                profileEmail.textContent = user.email || "Не указан";
+            }
+            
+            if (profilePhone) {
+                profilePhone.textContent = user.phone || "Не указан";
+            }
 
             // Отображаем бейдж способа входа
             const authBadge = document.getElementById("auth-badge");
-            if (user.google_id || user.sub) {
-                authBadge.textContent = "Google";
-                authBadge.className = "auth-badge google";
-                document.getElementById("change-password-btn").style.display = "none";
-            } else {
-                authBadge.textContent = "Email";
-                authBadge.className = "auth-badge email";
-                document.getElementById("change-password-btn").style.display = "block";
+            if (authBadge) {
+                if (user.google_id || user.sub) {
+                    authBadge.textContent = "Google";
+                    authBadge.className = "auth-badge google";
+                    const changePasswordBtn = document.getElementById("change-password-btn");
+                    if (changePasswordBtn) changePasswordBtn.style.display = "none";
+                } else {
+                    authBadge.textContent = "Email";
+                    authBadge.className = "auth-badge email";
+                    const changePasswordBtn = document.getElementById("change-password-btn");
+                    if (changePasswordBtn) changePasswordBtn.style.display = "block";
+                }
             }
 
             // Аватар
-            if (user.avatar || user.avatar_url || user.picture) {
-                const avatarUrl = user.avatar || user.avatar_url || user.picture;
-                document.getElementById("profile-avatar").innerHTML = `<img src="${avatarUrl}" alt="Аватар">`;
-            } else {
-                document.getElementById("profile-avatar").innerHTML = '<i class="fas fa-user" id="avatar-icon"></i>';
+            const profileAvatar = document.getElementById("profile-avatar");
+            if (profileAvatar) {
+                if (user.avatar || user.avatar_url || user.picture) {
+                    const avatarUrl = user.avatar || user.avatar_url || user.picture;
+                    profileAvatar.innerHTML = `<img src="${avatarUrl}" alt="Аватар">`;
+                } else {
+                    profileAvatar.innerHTML = '<i class="fas fa-user" id="avatar-icon"></i>';
+                }
             }
 
             // Заполняем данные в разделе "Аккаунт"
@@ -1018,343 +1047,408 @@
                 `${user.last_name || user.family_name || ""} ${user.first_name || user.given_name || ""} ${user.middle_name || ""}`.trim() || 
                 displayName;
                 
-            document.getElementById("fullname-text").textContent = fullName;
-            document.getElementById("account-username").textContent = user.username || user.email?.split('@')[0] || "Не указан";
-            document.getElementById("account-email").textContent = user.email || "Не указан";
-            document.getElementById("phone-text").textContent = user.phone || "Не указан";
-            document.getElementById("account-auth-type").textContent = (user.google_id || user.sub) ? "Google" : "Email/Пароль";
+            const fullnameText = document.getElementById("fullname-text");
+            const accountUsername = document.getElementById("account-username");
+            const accountEmail = document.getElementById("account-email");
+            const phoneText = document.getElementById("phone-text");
+            const accountAuthType = document.getElementById("account-auth-type");
+            
+            if (fullnameText) fullnameText.textContent = fullName;
+            if (accountUsername) accountUsername.textContent = user.username || user.email?.split('@')[0] || "Не указан";
+            if (accountEmail) accountEmail.textContent = user.email || "Не указан";
+            if (phoneText) phoneText.textContent = user.phone || "Не указан";
+            if (accountAuthType) accountAuthType.textContent = (user.google_id || user.sub) ? "Google" : "Email/Пароль";
 
             // Заполняем поля для редактирования
-            document.getElementById("edit-first-name").value = user.first_name || user.given_name || "";
-            document.getElementById("edit-last-name").value = user.last_name || user.family_name || "";
-            document.getElementById("edit-phone").value = user.phone || "";
+            const editFirstName = document.getElementById("edit-first-name");
+            const editLastName = document.getElementById("edit-last-name");
+            const editPhone = document.getElementById("edit-phone");
+            
+            if (editFirstName) editFirstName.value = user.first_name || user.given_name || "";
+            if (editLastName) editLastName.value = user.last_name || user.family_name || "";
+            if (editPhone) editPhone.value = user.phone || "";
 
             checkForChanges();
-        }
-
-        // Редактирование поля
-        function editField(field) {
-            document.getElementById(`${field}-text`).style.display = "none";
-            document.getElementById(`${field}-edit`).style.display = "block";
-        }
-
-        // Отмена редактирования
-        function cancelEdit(field) {
-            document.getElementById(`${field}-edit`).style.display = "none";
-            document.getElementById(`${field}-text`).style.display = "block";
             
-            // Восстанавливаем оригинальные значения
-            if (field === 'fullname') {
-                document.getElementById("edit-first-name").value = currentUser.first_name || currentUser.given_name || "";
-                document.getElementById("edit-last-name").value = currentUser.last_name || currentUser.family_name || "";
-            } else if (field === 'phone') {
-                document.getElementById("edit-phone").value = currentUser.phone || "";
-            }
+        } catch (error) {
+            console.error("Ошибка при отображении данных пользователя:", error);
         }
+    }
 
-        // Сохранение поля
-        function saveField(field) {
-            if (field === 'fullname') {
-                const firstName = document.getElementById("edit-first-name").value.trim();
-                const lastName = document.getElementById("edit-last-name").value.trim();
-                
-                if (!firstName || !lastName) {
-                    showNotification("Заполните имя и фамилию", "error");
-                    return;
-                }
-                
-                currentUser.first_name = firstName;
-                currentUser.last_name = lastName;
-                
-            } else if (field === 'phone') {
-                const phone = document.getElementById("edit-phone").value.trim();
-                
-                if (!phone) {
-                    showNotification("Введите номер телефона", "error");
-                    return;
-                }
-                
-                currentUser.phone = phone;
-            }
+    // Редактирование поля
+    function editField(field) {
+        const textElement = document.getElementById(`${field}-text`);
+        const editElement = document.getElementById(`${field}-edit`);
+        
+        if (textElement) textElement.style.display = "none";
+        if (editElement) editElement.style.display = "block";
+    }
+
+    // Отмена редактирования
+    function cancelEdit(field) {
+        const textElement = document.getElementById(`${field}-text`);
+        const editElement = document.getElementById(`${field}-edit`);
+        
+        if (textElement) textElement.style.display = "block";
+        if (editElement) editElement.style.display = "none";
+        
+        // Восстанавливаем оригинальные значения
+        if (field === 'fullname') {
+            const editFirstName = document.getElementById("edit-first-name");
+            const editLastName = document.getElementById("edit-last-name");
             
-            cancelEdit(field);
-            displayUserData(currentUser);
-            checkForChanges();
+            if (editFirstName) editFirstName.value = currentUser.first_name || currentUser.given_name || "";
+            if (editLastName) editLastName.value = currentUser.last_name || currentUser.family_name || "";
+        } else if (field === 'phone') {
+            const editPhone = document.getElementById("edit-phone");
+            if (editPhone) editPhone.value = currentUser.phone || "";
         }
+    }
 
-        // Сохранение профиля
-        async function saveProfile() {
-            const saveBtn = document.getElementById("save-btn");
-            saveBtn.disabled = true;
-            saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Сохранение...';
-
-            try {
-                const formData = {
-                    user_id: currentUser.id,
-                    first_name: currentUser.first_name || currentUser.given_name,
-                    last_name: currentUser.last_name || currentUser.family_name,
-                    middle_name: currentUser.middle_name || "",
-                    phone: currentUser.phone || "",
-                };
-
-                const response = await fetch("/api/user/update-profile", {
-                    method: "PUT",
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
-                    body: JSON.stringify(formData),
-                });
-
-                const result = await response.json();
-
-                if (!response.ok) {
-                    throw new Error(result.error || "Ошибка сохранения");
-                }
-
-                if (result.success) {
-                    showNotification("Профиль успешно обновлен");
-                    currentUser = { ...currentUser, ...formData };
-                    originalUserData = { ...currentUser };
-                    localStorage.setItem("user", JSON.stringify(currentUser));
-                    displayUserData(currentUser);
-                } else {
-                    throw new Error(result.error || "Ошибка сохранения");
-                }
-            } catch (error) {
-                console.error("Ошибка сохранения профиля:", error);
-                showNotification(error.message, "error");
-            } finally {
-                saveBtn.disabled = false;
-                saveBtn.innerHTML = '<i class="fas fa-save"></i> Сохранить изменения';
-                checkForChanges();
-            }
-        }
-
-        // Загрузка аватарки
-        async function uploadAvatar(file) {
-            if (!file) return;
-
-            if (!file.type.startsWith("image/")) {
-                showNotification("Пожалуйста, выберите изображение", "error");
+    // Сохранение поля
+    function saveField(field) {
+        if (field === 'fullname') {
+            const editFirstName = document.getElementById("edit-first-name");
+            const editLastName = document.getElementById("edit-last-name");
+            
+            if (!editFirstName || !editLastName) return;
+            
+            const firstName = editFirstName.value.trim();
+            const lastName = editLastName.value.trim();
+            
+            if (!firstName || !lastName) {
+                showNotification("Заполните имя и фамилию", "error");
                 return;
             }
-
-            if (file.size > 5 * 1024 * 1024) {
-                showNotification("Размер изображения не должен превышать 5MB", "error");
+            
+            currentUser.first_name = firstName;
+            currentUser.last_name = lastName;
+            
+        } else if (field === 'phone') {
+            const editPhone = document.getElementById("edit-phone");
+            if (!editPhone) return;
+            
+            const phone = editPhone.value.trim();
+            
+            if (!phone) {
+                showNotification("Введите номер телефона", "error");
                 return;
             }
+            
+            currentUser.phone = phone;
+        }
+        
+        cancelEdit(field);
+        displayUserData(currentUser);
+        checkForChanges();
+    }
 
-            showLoading();
+    // Сохранение профиля
+    async function saveProfile() {
+        const saveBtn = document.getElementById("save-btn");
+        if (!saveBtn) return;
+        
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Сохранение...';
 
-            try {
-                // Для демонстрации просто создаем URL для предпросмотра
-                const avatarUrl = URL.createObjectURL(file);
+        try {
+            const formData = {
+                user_id: currentUser.id,
+                first_name: currentUser.first_name || currentUser.given_name,
+                last_name: currentUser.last_name || currentUser.family_name,
+                middle_name: currentUser.middle_name || "",
+                phone: currentUser.phone || "",
+            };
 
-                // Сохраняем в localStorage для демонстрации
-                currentUser.avatar = avatarUrl;
+            const response = await fetch("/api/user/update-profile", {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(formData),
+            });
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                throw new Error(result.error || "Ошибка сохранения");
+            }
+
+            if (result.success) {
+                showNotification("Профиль успешно обновлен");
+                currentUser = { ...currentUser, ...formData };
+                originalUserData = { ...currentUser };
                 localStorage.setItem("user", JSON.stringify(currentUser));
-                
-                document.getElementById("profile-avatar").innerHTML = `<img src="${avatarUrl}" alt="Аватар">`;
-                showNotification("Аватар успешно обновлен");
-                
-                // Обновляем оригинальные данные
-                originalUserData.avatar = avatarUrl;
-                checkForChanges();
-            } catch (error) {
-                console.error("Ошибка загрузки аватарки:", error);
-                showNotification(error.message, "error");
-            } finally {
-                hideLoading();
-            }
-        }
-
-        // Смена пароля
-        async function changePassword() {
-            if (isGoogleUser) {
-                showNotification("Для пользователей Google смена пароля недоступна", "error");
-                return;
-            }
-
-            try {
-                const currentPassword = document.getElementById("current-password-modal").value;
-                const newPassword = document.getElementById("new-password-modal").value;
-                const confirmPassword = document.getElementById("confirm-password-modal").value;
-
-                if (!currentPassword) {
-                    throw new Error("Введите текущий пароль");
-                }
-
-                if (!newPassword) {
-                    throw new Error("Введите новый пароль");
-                }
-
-                if (newPassword !== confirmPassword) {
-                    throw new Error("Новые пароли не совпадают");
-                }
-
-                if (newPassword.length < 6) {
-                    throw new Error("Пароль должен содержать минимум 6 символов");
-                }
-
-                const response = await fetch("/api/user/change-password", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
-                    body: JSON.stringify({
-                        user_id: currentUser.id,
-                        current_password: currentPassword,
-                        new_password: newPassword,
-                    }),
-                });
-
-                const result = await response.json();
-
-                if (!response.ok) {
-                    throw new Error(result.error || "Ошибка смены пароля");
-                }
-
-                if (result.success) {
-                    showNotification("Пароль успешно изменен");
-                    closePasswordModal();
-                    document.getElementById("current-password-modal").value = "";
-                    document.getElementById("new-password-modal").value = "";
-                    document.getElementById("confirm-password-modal").value = "";
-                } else {
-                    throw new Error(result.error || "Ошибка смены пароля");
-                }
-            } catch (error) {
-                console.error("Ошибка смены пароля:", error);
-                showNotification(error.message, "error");
-            }
-        }
-
-        // Открытие модального окна смены пароля
-        function openPasswordModal() {
-            if (isGoogleUser) {
-                showNotification("Для пользователей Google смена пароля недоступна", "error");
-                return;
-            }
-            document.getElementById("password-modal").style.display = "flex";
-        }
-
-        // Закрытие модального окна смены пароля
-        function closePasswordModal() {
-            document.getElementById("password-modal").style.display = "none";
-            document.getElementById("current-password-modal").value = "";
-            document.getElementById("new-password-modal").value = "";
-            document.getElementById("confirm-password-modal").value = "";
-        }
-
-        // Выход из аккаунта
-        function logout() {
-            if (confirm("Вы уверены, что хотите выйти из аккаунта?")) {
-                localStorage.removeItem("user");
-                currentUser = null;
-                originalUserData = null;
-                showUnauthorizedContent();
-                showNotification("Вы вышли из аккаунта");
-            }
-        }
-
-        // Переход на страницу входа
-        function goToLogin() {
-            window.location.href = "register.html";
-        }
-
-        // Назад
-        function goBack() {
-            window.history.back();
-        }
-
-        // Переключение видимости пароля
-        function togglePassword(inputId) {
-            const input = document.getElementById(inputId);
-            const icon = input.parentNode.querySelector(".password-toggle i");
-
-            if (input.type === "password") {
-                input.type = "text";
-                icon.className = "fas fa-eye-slash";
+                displayUserData(currentUser);
             } else {
-                input.type = "password";
-                icon.className = "fas fa-eye";
+                throw new Error(result.error || "Ошибка сохранения");
             }
+        } catch (error) {
+            console.error("Ошибка сохранения профиля:", error);
+            showNotification(error.message, "error");
+        } finally {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = '<i class="fas fa-save"></i> Сохранить изменения';
+            checkForChanges();
+        }
+    }
+
+    // Загрузка аватарки
+    async function uploadAvatar(file) {
+        if (!file) return;
+
+        if (!file.type.startsWith("image/")) {
+            showNotification("Пожалуйста, выберите изображение", "error");
+            return;
         }
 
-        // Уведомления
-        function showNotification(message, type = "success") {
-            const existingNotifications = document.querySelectorAll(".notification");
-            existingNotifications.forEach((notification) => notification.remove());
+        if (file.size > 5 * 1024 * 1024) {
+            showNotification("Размер изображения не должен превышать 5MB", "error");
+            return;
+        }
 
-            const notification = document.createElement("div");
-            notification.className = `notification ${type === "error" ? "error" : ""}`;
-            notification.innerHTML = `
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <i class="fas ${type === "error" ? "fa-exclamation-circle" : "fa-check-circle"}" style="font-size: 18px;"></i>
-                    <div>${message}</div>
-                </div>
-            `;
-            document.body.appendChild(notification);
+        showLoading();
 
+        try {
+            // Для демонстрации просто создаем URL для предпросмотра
+            const avatarUrl = URL.createObjectURL(file);
+
+            // Сохраняем в localStorage для демонстрации
+            currentUser.avatar = avatarUrl;
+            localStorage.setItem("user", JSON.stringify(currentUser));
+            
+            const profileAvatar = document.getElementById("profile-avatar");
+            if (profileAvatar) {
+                profileAvatar.innerHTML = `<img src="${avatarUrl}" alt="Аватар">`;
+            }
+            
+            showNotification("Аватар успешно обновлен");
+            
+            // Обновляем оригинальные данные
+            originalUserData.avatar = avatarUrl;
+            checkForChanges();
+        } catch (error) {
+            console.error("Ошибка загрузки аватарки:", error);
+            showNotification(error.message, "error");
+        } finally {
+            hideLoading();
+        }
+    }
+
+    // Смена пароля
+    async function changePassword() {
+        if (isGoogleUser) {
+            showNotification("Для пользователей Google смена пароля недоступна", "error");
+            return;
+        }
+
+        try {
+            const currentPasswordInput = document.getElementById("current-password-modal");
+            const newPasswordInput = document.getElementById("new-password-modal");
+            const confirmPasswordInput = document.getElementById("confirm-password-modal");
+            
+            if (!currentPasswordInput || !newPasswordInput || !confirmPasswordInput) {
+                throw new Error("Не найдены поля ввода пароля");
+            }
+
+            const currentPassword = currentPasswordInput.value;
+            const newPassword = newPasswordInput.value;
+            const confirmPassword = confirmPasswordInput.value;
+
+            if (!currentPassword) {
+                throw new Error("Введите текущий пароль");
+            }
+
+            if (!newPassword) {
+                throw new Error("Введите новый пароль");
+            }
+
+            if (newPassword !== confirmPassword) {
+                throw new Error("Новые пароли не совпадают");
+            }
+
+            if (newPassword.length < 6) {
+                throw new Error("Пароль должен содержать минимум 6 символов");
+            }
+
+            const response = await fetch("/api/user/change-password", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    user_id: currentUser.id,
+                    current_password: currentPassword,
+                    new_password: newPassword,
+                }),
+            });
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                throw new Error(result.error || "Ошибка смены пароля");
+            }
+
+            if (result.success) {
+                showNotification("Пароль успешно изменен");
+                closePasswordModal();
+                currentPasswordInput.value = "";
+                newPasswordInput.value = "";
+                confirmPasswordInput.value = "";
+            } else {
+                throw new Error(result.error || "Ошибка смены пароля");
+            }
+        } catch (error) {
+            console.error("Ошибка смены пароля:", error);
+            showNotification(error.message, "error");
+        }
+    }
+
+    // Открытие модального окна смены пароля
+    function openPasswordModal() {
+        if (isGoogleUser) {
+            showNotification("Для пользователей Google смена пароля недоступна", "error");
+            return;
+        }
+        const passwordModal = document.getElementById("password-modal");
+        if (passwordModal) {
+            passwordModal.style.display = "flex";
+        }
+    }
+
+    // Закрытие модального окна смены пароля
+    function closePasswordModal() {
+        const passwordModal = document.getElementById("password-modal");
+        const currentPasswordInput = document.getElementById("current-password-modal");
+        const newPasswordInput = document.getElementById("new-password-modal");
+        const confirmPasswordInput = document.getElementById("confirm-password-modal");
+        
+        if (passwordModal) passwordModal.style.display = "none";
+        if (currentPasswordInput) currentPasswordInput.value = "";
+        if (newPasswordInput) newPasswordInput.value = "";
+        if (confirmPasswordInput) confirmPasswordInput.value = "";
+    }
+
+    // Выход из аккаунта
+    function logout() {
+        if (confirm("Вы уверены, что хотите выйти из аккаунта?")) {
+            localStorage.removeItem("user");
+            currentUser = null;
+            originalUserData = null;
+            showUnauthorizedContent();
+            showNotification("Вы вышли из аккаунта");
+        }
+    }
+
+    // Переход на страницу входа
+    function goToLogin() {
+        window.location.href = "register.html";
+    }
+
+    // Назад
+    function goBack() {
+        window.history.back();
+    }
+
+    // Переключение видимости пароля
+    function togglePassword(inputId) {
+        const input = document.getElementById(inputId);
+        if (!input) return;
+        
+        const icon = input.parentNode.querySelector(".password-toggle i");
+        if (!icon) return;
+
+        if (input.type === "password") {
+            input.type = "text";
+            icon.className = "fas fa-eye-slash";
+        } else {
+            input.type = "password";
+            icon.className = "fas fa-eye";
+        }
+    }
+
+    // Уведомления
+    function showNotification(message, type = "success") {
+        const existingNotifications = document.querySelectorAll(".notification");
+        existingNotifications.forEach((notification) => notification.remove());
+
+        const notification = document.createElement("div");
+        notification.className = `notification ${type === "error" ? "error" : ""}`;
+        notification.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <i class="fas ${type === "error" ? "fa-exclamation-circle" : "fa-check-circle"}" style="font-size: 18px;"></i>
+                <div>${message}</div>
+            </div>
+        `;
+        document.body.appendChild(notification);
+
+        setTimeout(() => {
+            notification.style.animation = "slideInRight 0.3s ease reverse";
             setTimeout(() => {
-                notification.style.animation = "slideInRight 0.3s ease reverse";
-                setTimeout(() => {
-                    if (notification.parentNode) {
-                        notification.remove();
-                    }
-                }, 300);
-            }, 3000);
-        }
-
-        // Индикатор загрузки
-        function showLoading() {
-            document.getElementById("loading").style.display = "block";
-        }
-
-        function hideLoading() {
-            document.getElementById("loading").style.display = "none";
-        }
-
-        // Обновление бейджа корзины
-        async function updateCartBadge() {
-            const userData = localStorage.getItem("user");
-            if (!userData) {
-                document.getElementById("cart-badge").textContent = "0";
-                return;
-            }
-
-            try {
-                const user = JSON.parse(userData);
-                // ИСПРАВЛЕНИЕ: Для Google пользователей используем другой параметр
-                const userId = user.id || user.sub;
-                if (!userId) return;
-
-                const response = await fetch(`/api/cart?user_id=${userId}`);
-                const data = await response.json();
-
-                if (data.success) {
-                    const totalItems = data.items.reduce((sum, item) => sum + item.quantity, 0);
-                    document.getElementById("cart-badge").textContent = totalItems;
+                if (notification.parentNode) {
+                    notification.remove();
                 }
-            } catch (error) {
-                console.error("Ошибка получения корзины:", error);
-            }
+            }, 300);
+        }, 3000);
+    }
+
+    // Индикатор загрузки
+    function showLoading() {
+        const loading = document.getElementById("loading");
+        if (loading) loading.style.display = "block";
+    }
+
+    function hideLoading() {
+        const loading = document.getElementById("loading");
+        if (loading) loading.style.display = "none";
+    }
+
+    // Обновление бейджа корзины
+    async function updateCartBadge() {
+        const cartBadge = document.getElementById("cart-badge");
+        if (!cartBadge) return;
+        
+        const userData = localStorage.getItem("user");
+        if (!userData) {
+            cartBadge.textContent = "0";
+            return;
         }
 
-        // Проверка изменений для кнопки сохранения
-        function checkForChanges() {
-            const saveBtn = document.getElementById("save-btn");
-            if (!currentUser || !originalUserData) {
-                saveBtn.disabled = true;
-                saveBtn.style.opacity = "0.7";
-                return;
+        try {
+            const user = JSON.parse(userData);
+            // Для Google пользователей используем другой параметр
+            const userId = user.id || user.sub;
+            if (!userId) return;
+
+            const response = await fetch(`/api/cart?user_id=${userId}`);
+            const data = await response.json();
+
+            if (data.success) {
+                const totalItems = data.items.reduce((sum, item) => sum + item.quantity, 0);
+                cartBadge.textContent = totalItems;
+                cartBadge.style.display = totalItems > 0 ? "flex" : "none";
             }
-
-            const hasChanges = JSON.stringify(currentUser) !== JSON.stringify(originalUserData);
-
-            saveBtn.disabled = !hasChanges;
-            saveBtn.style.opacity = hasChanges ? "1" : "0.7";
+        } catch (error) {
+            console.error("Ошибка получения корзины:", error);
         }
-    </script>
+    }
+
+    // Проверка изменений для кнопки сохранения
+    function checkForChanges() {
+        const saveBtn = document.getElementById("save-btn");
+        if (!saveBtn) return;
+        
+        if (!currentUser || !originalUserData) {
+            saveBtn.disabled = true;
+            saveBtn.style.opacity = "0.7";
+            return;
+        }
+
+        const hasChanges = JSON.stringify(currentUser) !== JSON.stringify(originalUserData);
+
+        saveBtn.disabled = !hasChanges;
+        saveBtn.style.opacity = hasChanges ? "1" : "0.7";
+    }
+</script>
 </body>
 </html>
