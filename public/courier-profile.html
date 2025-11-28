@@ -1294,40 +1294,36 @@
             }
 
             async sendToTelegram(message) {
-                const { botToken, chatId } = this.telegramConfig;
-                const userInfo = this.currentUser ? 
-                    `Пользователь: ${this.currentUser.first_name || ''} ${this.currentUser.last_name || ''} (${this.currentUser.email || 'нет email'})` :
-                    'Пользователь не авторизован';
-                
-                const courierInfo = this.courierData ?
-                    `Курьер: ${this.courierData.first_name} ${this.courierData.last_name} (${this.courierData.courier_code})` :
-                    'Курьер не зарегистрирован';
+    try {
+        if (!this.currentUser) {
+            throw new Error('Пользователь не авторизован');
+        }
 
-                const fullMessage = `📱 Сообщение из приложения ФармаПлюс:\n\n${userInfo}\n${courierInfo}\n\n💬 Сообщение: ${message}`;
+        const userId = this.currentUser.id || this.currentUser.sub;
+        
+        const response = await fetch('/api/telegram/send-message', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                message: message,
+                user_id: userId
+            })
+        });
 
-                try {
-                    const response = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            chat_id: chatId,
-                            text: fullMessage,
-                            parse_mode: 'HTML'
-                        })
-                    });
+        const data = await response.json();
 
-                    if (!response.ok) {
-                        throw new Error('Ошибка отправки в Telegram');
-                    }
+        if (!response.ok) {
+            throw new Error(data.error || 'Ошибка отправки сообщения');
+        }
 
-                    return await response.json();
-                } catch (error) {
-                    console.error('Ошибка отправки в Telegram:', error);
-                    throw error;
-                }
-            }
+        return data;
+    } catch (error) {
+        console.error('Ошибка отправки в Telegram:', error);
+        throw error;
+    }
+}
 
             showNotification(message, type = 'success') {
                 const notification = document.getElementById('notification');
