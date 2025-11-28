@@ -562,13 +562,12 @@ app.post('/api/auth/register', databaseMiddleware, async (req, res) => {
     
     const hashedPassword = simpleHash(password);
     
-    // ИСПРАВЛЕНИЕ: phone теперь не обязателен
     const { rows } = await req.db.query(
-      `INSERT INTO users (first_name, last_name, username, email, password, phone, login_count) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
-       RETURNING *`,
-      [first_name, last_name, username, email, hashedPassword, phone || null, 0]
-    );
+    `INSERT INTO users (first_name, last_name, username, email, password, phone) 
+     VALUES ($1, $2, $3, $4, $5, $6)
+     RETURNING *`,
+    [first_name, last_name, username, email, hashedPassword, phone || null]
+  );
     
     const newUser = rows[0];
     delete newUser.password;
