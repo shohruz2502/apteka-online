@@ -188,7 +188,7 @@
             color: white;
         }
 
-        .stat-icon.time {
+        .stat-icon.earnings {
             background: linear-gradient(135deg, #9c27b0, #7b1fa2);
             color: white;
         }
@@ -667,7 +667,7 @@
         class ProfileManager {
             constructor() {
                 this.courierData = null;
-                this.orders = [];
+                this.currentUser = null;
                 this.messages = [];
                 this.chats = [];
                 this.currentChatId = null;
@@ -676,40 +676,49 @@
             }
 
             async initialize() {
-                await this.loadCourierData();
-                await this.loadOrders();
-                await this.loadMessages();
-                await this.loadChats();
+                await this.loadCurrentUser();
+                if (this.currentUser) {
+                    await this.loadCourierData();
+                    await this.loadMessages();
+                    await this.loadChats();
+                }
                 this.setupEventListeners();
+            }
+
+            async loadCurrentUser() {
+                const userData = localStorage.getItem('user');
+                if (userData) {
+                    try {
+                        this.currentUser = JSON.parse(userData);
+                    } catch (e) {
+                        console.error('Ошибка загрузки пользователя:', e);
+                    }
+                }
             }
 
             async loadCourierData() {
                 try {
-                    // Загружаем данные курьера (в реальном приложении здесь был бы ID курьера)
-                    const response = await fetch('/api/courier/profile');
+                    if (!this.currentUser) {
+                        throw new Error('Пользователь не авторизован');
+                    }
+
+                    const userId = this.currentUser.id || this.currentUser.sub;
+                    const response = await fetch(`/api/courier/profile?user_id=${userId}`);
                     
                     if (!response.ok) {
-                        // Если endpoint не существует, используем демо-данные
-                        this.courierData = {
-                            id: 1,
-                            first_name: "Иван",
-                            last_name: "Курьеров",
-                            courier_code: "C-7842",
-                            phone: "+7 (999) 123-45-67",
-                            email: "courier@pharmaplus.ru",
-                            rating: 4.8,
-                            total_orders: 47,
-                            completed_orders: 45,
-                            daily_goal: 10,
-                            current_daily_orders: 3,
-                            status: "active"
-                        };
-                    } else {
-                        const data = await response.json();
-                        this.courierData = data.courier;
+                        throw new Error('Ошибка загрузки данных курьера');
                     }
                     
-                    this.displayProfileData();
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        this.courierData = data.courier;
+                        this.displayProfileData();
+                        this.updateStats();
+                        this.updateDailyGoal();
+                    } else {
+                        throw new Error(data.error || 'Курьер не зарегистрирован');
+                    }
                     
                 } catch (error) {
                     console.error('Ошибка загрузки данных курьера:', error);
@@ -717,66 +726,16 @@
                 }
             }
 
-            async loadOrders() {
-                try {
-                    const response = await fetch('/api/courier/orders');
-                    
-                    if (!response.ok) {
-                        throw new Error('Ошибка загрузки заказов');
-                    }
-                    
-                    const data = await response.json();
-                    
-                    if (data.success) {
-                        this.orders = data.orders || [];
-                        this.updateStats();
-                        this.updateDailyGoal();
-                    } else {
-                        throw new Error(data.error || 'Ошибка загрузки заказов');
-                    }
-                    
-                } catch (error) {
-                    console.error('Ошибка загрузки заказов:', error);
-                    // Используем демо-данные для статистики
-                    this.updateStatsWithDemoData();
-                }
-            }
-
             async loadMessages() {
                 try {
-                    const response = await fetch('/api/courier/messages');
+                    if (!this.currentUser) return;
+
+                    const userId = this.currentUser.id || this.currentUser.sub;
+                    const response = await fetch(`/api/courier/messages?user_id=${userId}`);
                     
                     if (!response.ok) {
-                        // Если endpoint не существует, используем демо-сообщения
-                        this.messages = [
-                            {
-                                id: 1,
-                                sender_name: "Поддержка",
-                                subject: "Добро пожаловать!",
-                                message: "Добро пожаловать в команду ФармаПлюс! Мы рады видеть вас в нашей команде.",
-                                message_type: "info",
-                                is_read: false,
-                                created_at: new Date().toISOString()
-                            },
-                            {
-                                id: 2,
-                                sender_name: "Администратор",
-                                subject: "Обновление правил",
-                                message: "Обратите внимание на обновленные правила доставки в приложении.",
-                                message_type: "warning",
-                                is_read: true,
-                                created_at: new Date(Date.now() - 86400000).toISOString()
-                            },
-                            {
-                                id: 3,
-                                sender_name: "Система",
-                                subject: "Новый заказ",
-                                message: "Вам назначен новый заказ #D-7842",
-                                message_type: "urgent",
-                                is_read: false,
-                                created_at: new Date(Date.now() - 3600000).toISOString()
-                            }
-                        ];
+                        // Используем демо-сообщения если endpoint не доступен
+                        this.messages = this.getDemoMessages();
                     } else {
                         const data = await response.json();
                         this.messages = data.messages || [];
@@ -786,25 +745,21 @@
                     
                 } catch (error) {
                     console.error('Ошибка загрузки сообщений:', error);
-                    this.showError('Не удалось загрузить сообщения');
+                    this.messages = this.getDemoMessages();
+                    this.displayMessages();
                 }
             }
 
             async loadChats() {
                 try {
-                    const response = await fetch('/api/courier/chats');
+                    if (!this.currentUser) return;
+
+                    const userId = this.currentUser.id || this.currentUser.sub;
+                    const response = await fetch(`/api/courier/chats?user_id=${userId}`);
                     
                     if (!response.ok) {
-                        // Если endpoint не существует, используем демо-чаты
-                        this.chats = [
-                            {
-                                id: 1,
-                                participant_name: "Поддержка",
-                                last_message: "Чем могу помочь?",
-                                last_message_at: new Date().toISOString(),
-                                unread_count: 0
-                            }
-                        ];
+                        // Используем демо-чаты если endpoint не доступен
+                        this.chats = this.getDemoChats();
                     } else {
                         const data = await response.json();
                         this.chats = data.chats || [];
@@ -812,7 +767,49 @@
                     
                 } catch (error) {
                     console.error('Ошибка загрузки чатов:', error);
+                    this.chats = this.getDemoChats();
                 }
+            }
+
+            getDemoMessages() {
+                return [
+                    {
+                        id: 1,
+                        subject: "Добро пожаловать в команду!",
+                        message: "Добро пожаловать в команду курьеров ФармаПлюс! Мы рады видеть вас в нашей команде.",
+                        message_type: "info",
+                        is_read: false,
+                        created_at: new Date().toISOString()
+                    },
+                    {
+                        id: 2,
+                        subject: "Обновление правил доставки",
+                        message: "Обратите внимание на обновленные правила доставки в приложении.",
+                        message_type: "warning",
+                        is_read: true,
+                        created_at: new Date(Date.now() - 86400000).toISOString()
+                    },
+                    {
+                        id: 3,
+                        subject: "Новый заказ доступен",
+                        message: "Вам доступен новый заказ для доставки.",
+                        message_type: "urgent",
+                        is_read: false,
+                        created_at: new Date(Date.now() - 3600000).toISOString()
+                    }
+                ];
+            }
+
+            getDemoChats() {
+                return [
+                    {
+                        id: 1,
+                        participant_name: "Поддержка ФармаПлюс",
+                        last_message: "Добро пожаловать в команду курьеров!",
+                        last_message_at: new Date().toISOString(),
+                        unread_count: 0
+                    }
+                ];
             }
 
             displayProfileData() {
@@ -822,7 +819,10 @@
                     profileCard.innerHTML = `
                         <div class="error-message">
                             <i class="fas fa-exclamation-triangle"></i>
-                            <div>Не удалось загрузить данные профиля</div>
+                            <div>Профиль курьера не найден</div>
+                            <button onclick="location.href='courier-register.html'" style="margin-top: 15px; padding: 10px 20px; background: #667eea; color: white; border: none; border-radius: 8px; cursor: pointer;">
+                                Зарегистрироваться как курьер
+                            </button>
                         </div>
                     `;
                     return;
@@ -830,10 +830,14 @@
 
                 profileCard.innerHTML = `
                     <div class="profile-avatar">
-                        <i class="fas fa-user"></i>
+                        <i class="fas fa-motorcycle"></i>
                     </div>
                     <div class="profile-name">${this.courierData.first_name} ${this.courierData.last_name}</div>
                     <div class="profile-id">ID: ${this.courierData.courier_code}</div>
+                    <div style="margin: 10px 0; padding: 8px 12px; background: rgba(76, 175, 80, 0.1); border-radius: 10px; color: #4CAF50; font-size: 14px;">
+                        <i class="fas fa-${this.courierData.vehicle_type === 'car' ? 'car' : 'bicycle'}"></i>
+                        ${this.courierData.vehicle_type === 'car' ? 'Автомобиль' : 'Велосипед'} ${this.courierData.vehicle_number ? `- ${this.courierData.vehicle_number}` : ''}
+                    </div>
                     
                     <div class="profile-contacts">
                         <div class="contact-item">
@@ -849,73 +853,70 @@
             }
 
             updateStats() {
-                const delivered = this.orders.filter(order => order.status === 'delivered').length;
-                const accepted = this.orders.filter(order => order.status === 'assigned').length;
-                const total = this.orders.length;
+                const statsGrid = document.getElementById('stats-grid');
                 
-                const statsGrid = document.getElementById('stats-grid');
-                statsGrid.innerHTML = `
-                    <div class="stat-card">
-                        <div class="stat-icon delivered">
-                            <i class="fas fa-check-circle"></i>
+                if (!this.courierData) {
+                    statsGrid.innerHTML = `
+                        <div class="stat-card">
+                            <div class="stat-icon delivered">
+                                <i class="fas fa-check-circle"></i>
+                            </div>
+                            <div class="stat-value">0</div>
+                            <div class="stat-label">Доставлено</div>
                         </div>
-                        <div class="stat-value">${delivered}</div>
-                        <div class="stat-label">Доставлено</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon accepted">
-                            <i class="fas fa-clock"></i>
+                        <div class="stat-card">
+                            <div class="stat-icon accepted">
+                                <i class="fas fa-clock"></i>
+                            </div>
+                            <div class="stat-value">0</div>
+                            <div class="stat-label">Принято</div>
                         </div>
-                        <div class="stat-value">${accepted}</div>
-                        <div class="stat-label">Принято</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon rating">
-                            <i class="fas fa-star"></i>
+                        <div class="stat-card">
+                            <div class="stat-icon rating">
+                                <i class="fas fa-star"></i>
+                            </div>
+                            <div class="stat-value">0.0</div>
+                            <div class="stat-label">Рейтинг</div>
                         </div>
-                        <div class="stat-value">${this.courierData?.rating?.toFixed(1) || '0.0'}</div>
-                        <div class="stat-label">Рейтинг</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon time">
-                            <i class="fas fa-bolt"></i>
+                        <div class="stat-card">
+                            <div class="stat-icon earnings">
+                                <i class="fas fa-ruble-sign"></i>
+                            </div>
+                            <div class="stat-value">0₽</div>
+                            <div class="stat-label">Заработок</div>
                         </div>
-                        <div class="stat-value">${total}</div>
-                        <div class="stat-label">Всего заказов</div>
-                    </div>
-                `;
-            }
+                    `;
+                    return;
+                }
 
-            updateStatsWithDemoData() {
-                const statsGrid = document.getElementById('stats-grid');
                 statsGrid.innerHTML = `
                     <div class="stat-card">
                         <div class="stat-icon delivered">
                             <i class="fas fa-check-circle"></i>
                         </div>
-                        <div class="stat-value">${this.courierData?.completed_orders || 0}</div>
+                        <div class="stat-value">${this.courierData.completed_orders || 0}</div>
                         <div class="stat-label">Доставлено</div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-icon accepted">
                             <i class="fas fa-clock"></i>
                         </div>
-                        <div class="stat-value">${(this.courierData?.total_orders || 0) - (this.courierData?.completed_orders || 0)}</div>
+                        <div class="stat-value">${(this.courierData.total_orders || 0) - (this.courierData.completed_orders || 0)}</div>
                         <div class="stat-label">Принято</div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-icon rating">
                             <i class="fas fa-star"></i>
                         </div>
-                        <div class="stat-value">${this.courierData?.rating?.toFixed(1) || '0.0'}</div>
+                        <div class="stat-value">${this.courierData.rating?.toFixed(1) || '5.0'}</div>
                         <div class="stat-label">Рейтинг</div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-icon time">
-                            <i class="fas fa-bolt"></i>
+                        <div class="stat-icon earnings">
+                            <i class="fas fa-ruble-sign"></i>
                         </div>
-                        <div class="stat-value">${this.courierData?.total_orders || 0}</div>
-                        <div class="stat-label">Всего заказов</div>
+                        <div class="stat-value">${this.courierData.total_earnings || 0}₽</div>
+                        <div class="stat-label">Заработок</div>
                     </div>
                 `;
             }
@@ -923,19 +924,19 @@
             updateDailyGoal() {
                 const current = this.courierData?.current_daily_orders || 0;
                 const target = this.courierData?.daily_goal || 10;
-                const progress = (current / target) * 100;
+                const progress = Math.min((current / target) * 100, 100);
                 
                 const dailyGoal = document.getElementById('daily-goal');
                 dailyGoal.innerHTML = `
                     <div class="goal-header">
-                        <div class="goal-title">Дневная норма</div>
+                        <div class="goal-title">Дневная норма доставок</div>
                         <div class="goal-progress">${current}/${target}</div>
                     </div>
                     <div class="progress-bar">
                         <div class="progress-fill" style="width: ${progress}%"></div>
                     </div>
                     <div class="goal-info">
-                        <span>Начало смены: 09:00</span>
+                        <span>Прогресс: ${Math.round(progress)}%</span>
                         <span>Цель: ${target} заказов</span>
                     </div>
                 `;
@@ -947,7 +948,7 @@
                 if (!this.messages || this.messages.length === 0) {
                     messagesSection.innerHTML = `
                         <div class="section-header">
-                            <div class="section-title">Сообщения</div>
+                            <div class="section-title">Сообщения системы</div>
                         </div>
                         <div style="text-align: center; padding: 40px 20px; color: #666;">
                             <i class="fas fa-envelope-open" style="font-size: 48px; margin-bottom: 15px; opacity: 0.5;"></i>
@@ -961,7 +962,7 @@
                 
                 let messagesHTML = `
                     <div class="section-header">
-                        <div class="section-title">Сообщения</div>
+                        <div class="section-title">Сообщения системы</div>
                         ${unreadCount > 0 ? `<div class="unread-badge">${unreadCount}</div>` : ''}
                     </div>
                     <div class="messages-list">
@@ -969,15 +970,15 @@
 
                 this.messages.forEach(message => {
                     const time = this.formatTime(new Date(message.created_at));
-                    const avatarIcon = this.getAvatarIcon(message.sender_name);
+                    const avatarIcon = this.getAvatarIcon(message.message_type);
                     
                     messagesHTML += `
                         <div class="message-item ${message.is_read ? '' : 'unread'}" onclick="profileManager.openMessage(${message.id})">
-                            <div class="message-avatar">
+                            <div class="message-avatar" style="background: ${this.getMessageColor(message.message_type)}">
                                 <i class="fas fa-${avatarIcon}"></i>
                             </div>
                             <div class="message-content">
-                                <div class="message-sender">${message.sender_name}</div>
+                                <div class="message-sender">Система ФармаПлюс</div>
                                 <div class="message-preview">${message.subject || message.message}</div>
                             </div>
                             <div class="message-time">${time}</div>
@@ -987,17 +988,37 @@
                 });
 
                 messagesHTML += `</div>`;
+
+                // Добавляем кнопку чата с поддержкой
+                messagesHTML += `
+                    <div style="margin-top: 20px; text-align: center;">
+                        <button onclick="profileManager.openSupportChat()" style="padding: 12px 24px; background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; border-radius: 12px; cursor: pointer; font-size: 14px;">
+                            <i class="fas fa-headset"></i> Чат с поддержкой
+                        </button>
+                    </div>
+                `;
+
                 messagesSection.innerHTML = messagesHTML;
             }
 
-            getAvatarIcon(senderName) {
+            getAvatarIcon(messageType) {
                 const icons = {
-                    'Поддержка': 'headset',
-                    'Администратор': 'user-shield',
-                    'Система': 'robot',
-                    'Оператор': 'user-tie'
+                    'info': 'info-circle',
+                    'warning': 'exclamation-triangle',
+                    'urgent': 'bell',
+                    'success': 'check-circle'
                 };
-                return icons[senderName] || 'user';
+                return icons[messageType] || 'envelope';
+            }
+
+            getMessageColor(messageType) {
+                const colors = {
+                    'info': '#2196F3',
+                    'warning': '#FF9800',
+                    'urgent': '#F44336',
+                    'success': '#4CAF50'
+                };
+                return colors[messageType] || '#667eea';
             }
 
             formatTime(date) {
@@ -1021,7 +1042,15 @@
                 this.displayMessages();
 
                 // Показываем содержимое сообщения
-                alert(`${message.sender_name}\n\n${message.message}`);
+                alert(`${message.subject}\n\n${message.message}`);
+            }
+
+            openSupportChat() {
+                if (this.chats.length > 0) {
+                    this.openChat(this.chats[0].id);
+                } else {
+                    alert('Чат с поддержкой временно недоступен');
+                }
             }
 
             openChat(chatId) {
@@ -1108,14 +1137,20 @@
                 if (!text || !this.currentChatId) return;
 
                 try {
-                    // Отправляем сообщение на сервер
+                    if (!this.currentUser) {
+                        alert('Ошибка: пользователь не авторизован');
+                        return;
+                    }
+
+                    const userId = this.currentUser.id || this.currentUser.sub;
                     const response = await fetch(`/api/courier/chats/${this.currentChatId}/messages`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
                         },
                         body: JSON.stringify({
-                            message: text
+                            message: text,
+                            user_id: userId
                         })
                     });
 
@@ -1154,6 +1189,7 @@
 
             logout() {
                 if (confirm('Вы уверены, что хотите выйти?')) {
+                    localStorage.removeItem('user');
                     window.location.href = 'main.html';
                 }
             }
@@ -1168,17 +1204,18 @@
 
                 // Загрузка данных при возвращении на страницу
                 document.addEventListener('visibilitychange', () => {
-                    if (!document.hidden) {
+                    if (!document.hidden && this.currentUser) {
                         this.loadCourierData();
-                        this.loadOrders();
                         this.loadMessages();
                     }
                 });
 
                 // Автообновление каждые 30 секунд
                 setInterval(() => {
-                    this.loadOrders();
-                    this.loadMessages();
+                    if (this.currentUser) {
+                        this.loadCourierData();
+                        this.loadMessages();
+                    }
                 }, 30000);
             }
 
@@ -1205,4 +1242,3 @@
     </script>
 </body>
 </html>
-
