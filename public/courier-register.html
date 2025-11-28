@@ -418,29 +418,72 @@
     </div>
 
     <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const loginForm = document.getElementById('login-form');
-        const loginError = document.getElementById('login-error');
-        const loginSuccess = document.getElementById('login-success');
-        const loginBtn = document.getElementById('login-btn');
-        const googleLoginBtn = document.getElementById('google-login-btn');
+    class CourierLogin {
+        constructor() {
+            this.loginForm = document.getElementById('login-form');
+            this.loginError = document.getElementById('login-error');
+            this.loginSuccess = document.getElementById('login-success');
+            this.loginBtn = document.getElementById('login-btn');
+            this.googleLoginBtn = document.getElementById('google-login-btn');
+            this.googleClient = null;
+            
+            this.init();
+        }
 
-        // Обычный логин
-        loginForm.addEventListener('submit', async function(e) {
+        init() {
+            this.setupEventListeners();
+            this.loadGoogleAuth();
+        }
+
+        setupEventListeners() {
+            // Обычный логин
+            this.loginForm.addEventListener('submit', (e) => this.handleLogin(e));
+            
+            // Google вход
+            this.googleLoginBtn.addEventListener('click', () => this.handleGoogleLogin());
+        }
+
+        async loadGoogleAuth() {
+            try {
+                const response = await fetch('/api/config');
+                const config = await response.json();
+                
+                if (config.googleClientId && config.googleClientId !== 'demo') {
+                    this.initGoogleAuth(config.googleClientId);
+                }
+            } catch (error) {
+                console.log('Google Auth config not available, using fallback');
+            }
+        }
+
+        initGoogleAuth(clientId) {
+            const script = document.createElement('script');
+            script.src = 'https://accounts.google.com/gsi/client';
+            script.async = true;
+            script.defer = true;
+            script.onload = () => {
+                this.googleClient = google;
+                this.googleClient.accounts.id.initialize({
+                    client_id: clientId,
+                    callback: (response) => this.handleGoogleCallback(response),
+                    auto_select: false
+                });
+            };
+            document.head.appendChild(script);
+        }
+
+        async handleLogin(e) {
             e.preventDefault();
             
             const username = document.getElementById('username').value.trim();
             const password = document.getElementById('password').value.trim();
             
-            clearErrors();
-            loginBtn.innerHTML = '<div class="loading"></div> Вход...';
-            loginBtn.disabled = true;
+            this.clearErrors();
+            this.setLoading(this.loginBtn, true);
             
-            // Валидация
             if (!username || !password) {
-                loginError.textContent = 'Заполните все поля.';
-                loginBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Войти';
-                loginBtn.disabled = false;
+                this.showError('Заполните все поля.');
+                this.setLoading(this.loginBtn, false);
                 return;
             }
             
@@ -459,69 +502,33 @@
                 const data = await response.json();
                 
                 if (response.ok && data.success) {
-                    loginSuccess.textContent = 'Вход выполнен успешно!';
-                    
-                    // Сохраняем данные пользователя
+                    this.showSuccess('Вход выполнен успешно!');
                     localStorage.setItem('user', JSON.stringify(data.user));
-                    
-                    // Проверяем, зарегистрирован ли пользователь как курьер
-                    await checkCourierStatus(data.user);
-                    
+                    await this.checkCourierStatus(data.user);
                 } else {
-                    loginError.textContent = data.error || 'Ошибка входа. Проверьте данные.';
-                    loginBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Войти';
-                    loginBtn.disabled = false;
+                    this.showError(data.error || 'Ошибка входа. Проверьте данные.');
+                    this.setLoading(this.loginBtn, false);
                 }
             } catch (error) {
-                loginError.textContent = 'Ошибка соединения с сервером. Попробуйте позже.';
+                this.showError('Ошибка соединения с сервером. Попробуйте позже.');
                 console.error('Login error:', error);
-                loginBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Войти';
-                loginBtn.disabled = false;
+                this.setLoading(this.loginBtn, false);
             }
-        });
+        }
 
-        // Google вход
-        googleLoginBtn.addEventListener('click', function() {
-            // Загружаем конфиг Google
-            loadGoogleAuth();
-        });
+        handleGoogleLogin() {
+            if (this.googleClient) {
+                this.googleClient.accounts.id.prompt();
+            } else {
+                // Fallback - открываем popup для ручного ввода Google данных
+                this.showGoogleFallback();
+            }
+        }
 
-        async function loadGoogleAuth() {
+        async handleGoogleCallback(response) {
             try {
-                const response = await fetch('/api/config');
-                const config = await response.json();
+                this.setLoading(this.googleLoginBtn, true);
                 
-                if (config.googleClientId && config.googleClientId !== 'demo') {
-                    initGoogleAuth(config.googleClientId);
-                } else {
-                    // Демо-режим Google авторизации
-                    demoGoogleAuth();
-                }
-            } catch (error) {
-                console.error('Error loading Google config:', error);
-                demoGoogleAuth();
-            }
-        }
-
-        function initGoogleAuth(clientId) {
-            // Инициализация Google Sign-In
-            const googleAuthScript = document.createElement('script');
-            googleAuthScript.src = 'https://accounts.google.com/gsi/client';
-            googleAuthScript.async = true;
-            googleAuthScript.defer = true;
-            document.head.appendChild(googleAuthScript);
-
-            googleAuthScript.onload = function() {
-                google.accounts.id.initialize({
-                    client_id: clientId,
-                    callback: handleGoogleAuth
-                });
-                google.accounts.id.prompt();
-            };
-        }
-
-        async function handleGoogleAuth(response) {
-            try {
                 const authResponse = await fetch('/api/auth/google', {
                     method: 'POST',
                     headers: {
@@ -538,86 +545,130 @@
                     if (data.user) {
                         // Пользователь уже существует
                         localStorage.setItem('user', JSON.stringify(data.user));
-                        await checkCourierStatus(data.user);
+                        this.showSuccess('Google вход выполнен!');
+                        await this.checkCourierStatus(data.user);
                     } else {
-                        // Новый пользователь - показываем форму регистрации
-                        showGoogleRegistration(data.user);
+                        // Новый пользователь
+                        this.showGoogleRegistration(data.user);
                     }
                 } else {
-                    loginError.textContent = 'Ошибка Google авторизации';
+                    this.showError('Ошибка Google авторизации');
+                    this.setLoading(this.googleLoginBtn, false);
                 }
             } catch (error) {
+                this.showError('Ошибка Google авторизации');
                 console.error('Google auth error:', error);
-                loginError.textContent = 'Ошибка Google авторизации';
+                this.setLoading(this.googleLoginBtn, false);
             }
         }
 
-        function demoGoogleAuth() {
-            // Демо-режим - создаем тестового пользователя
+        showGoogleFallback() {
+            const email = prompt('Введите ваш Google email:');
+            if (!email) return;
+
+            const name = prompt('Введите ваше имя:');
+            if (!name) return;
+
+            // Создаем демо-пользователя для Google
             const demoUser = {
                 id: 'google_' + Date.now(),
-                email: 'demo@example.com',
-                first_name: 'Демо',
-                last_name: 'Курьер',
-                avatar: 'https://via.placeholder.com/100'
+                email: email,
+                first_name: name.split(' ')[0] || name,
+                last_name: name.split(' ')[1] || '',
+                avatar: 'https://via.placeholder.com/100',
+                is_google: true
             };
             
             localStorage.setItem('user', JSON.stringify(demoUser));
-            checkCourierStatus(demoUser);
+            this.showSuccess('Демо-вход через Google выполнен!');
+            this.checkCourierStatus(demoUser);
         }
 
-        function showGoogleRegistration(userData) {
+        showGoogleRegistration(userData) {
             // Сохраняем данные Google для регистрации
             localStorage.setItem('google_user', JSON.stringify(userData));
+            this.showSuccess('Google авторизация успешна! Переход к регистрации...');
             
-            // Перенаправляем на страницу доп. информации
-            window.location.href = 'courier-register.html?google=true';
+            setTimeout(() => {
+                window.location.href = 'courier-register.html?google=true';
+            }, 1500);
         }
 
-        async function checkCourierStatus(user) {
+        async checkCourierStatus(user) {
             try {
                 const userId = user.id || user.sub;
+                if (!userId) {
+                    this.showError('Ошибка идентификации пользователя');
+                    return;
+                }
+
                 const response = await fetch(`/api/courier/profile?user_id=${userId}`);
                 
                 if (response.ok) {
                     const data = await response.json();
                     if (data.success && data.courier) {
-                        // Пользователь уже курьер - перенаправляем в панель
+                        // Пользователь уже курьер
                         localStorage.setItem('courier', JSON.stringify(data.courier));
-                        window.location.href = 'courier.html';
+                        this.showSuccess('Переход в панель курьера...');
+                        setTimeout(() => {
+                            window.location.href = 'courier.html';
+                        }, 1000);
                     } else {
-                        // Пользователь не курьер - перенаправляем на регистрацию
-                        window.location.href = 'courier-register.html';
+                        // Пользователь не курьер
+                        this.showSuccess('Переход к регистрации курьера...');
+                        setTimeout(() => {
+                            window.location.href = 'courier-register.html';
+                        }, 1000);
                     }
                 } else {
-                    // Ошибка - все равно перенаправляем на регистрацию
-                    window.location.href = 'courier-register.html';
+                    // Ошибка запроса - все равно перенаправляем на регистрацию
+                    this.showSuccess('Переход к регистрации курьера...');
+                    setTimeout(() => {
+                        window.location.href = 'courier-register.html';
+                    }, 1000);
                 }
             } catch (error) {
                 console.error('Error checking courier status:', error);
-                window.location.href = 'courier-register.html';
+                this.showSuccess('Переход к регистрации курьера...');
+                setTimeout(() => {
+                    window.location.href = 'courier-register.html';
+                }, 1000);
             }
         }
 
-        function clearErrors() {
-            loginError.textContent = '';
-            loginSuccess.textContent = '';
-        }
-
-        // Проверяем, если пользователь уже авторизован
-        async function checkExistingAuth() {
-            const userData = localStorage.getItem('user');
-            if (userData) {
-                try {
-                    const user = JSON.parse(userData);
-                    await checkCourierStatus(user);
-                } catch (e) {
-                    console.log('No valid user session');
+        setLoading(button, isLoading) {
+            if (isLoading) {
+                button.disabled = true;
+                button.innerHTML = '<div class="loading"></div> Загрузка...';
+            } else {
+                button.disabled = false;
+                if (button === this.loginBtn) {
+                    button.innerHTML = '<i class="fas fa-sign-in-alt"></i> Войти';
+                } else {
+                    button.innerHTML = '<i class="fab fa-google"></i> Войти через Google';
                 }
             }
         }
 
-        checkExistingAuth();
+        showError(message) {
+            this.loginError.textContent = message;
+            this.loginSuccess.textContent = '';
+        }
+
+        showSuccess(message) {
+            this.loginSuccess.textContent = message;
+            this.loginError.textContent = '';
+        }
+
+        clearErrors() {
+            this.loginError.textContent = '';
+            this.loginSuccess.textContent = '';
+        }
+    }
+
+    // Инициализация при загрузке страницы
+    document.addEventListener('DOMContentLoaded', function() {
+        new CourierLogin();
     });
     </script>
 </body>
