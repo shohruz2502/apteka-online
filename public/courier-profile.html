@@ -718,11 +718,11 @@
             <div class="auth-buttons">
                 <button class="auth-btn primary" onclick="profileManager.goToLogin()">
                     <i class="fas fa-sign-in-alt"></i>
-                    Войти в аккаунт
+                    Войти как курьер
                 </button>
-                <button class="auth-btn secondary" onclick="profileManager.goToRegister()">
-                    <i class="fas fa-user-plus"></i>
-                    Зарегистрироваться
+                <button class="auth-btn secondary" onclick="profileManager.goToMain()">
+                    <i class="fas fa-home"></i>
+                    На главную
                 </button>
             </div>
         </div>
@@ -742,14 +742,6 @@
                 <div class="loading">
                     <div class="loading-spinner"></div>
                     <div>Загрузка статистики...</div>
-                </div>
-            </div>
-
-            <!-- Дневная норма -->
-            <div class="daily-goal" id="daily-goal">
-                <div class="loading">
-                    <div class="loading-spinner"></div>
-                    <div>Загрузка данных...</div>
                 </div>
             </div>
 
@@ -810,10 +802,6 @@
                 this.messages = [];
                 this.chats = [];
                 this.currentChatId = null;
-                this.telegramConfig = {
-                    botToken: '7108250934:AAHvJ8p7F3YqJ6v9L7Vq9H6Z8X9wK2y1l3A', // Замените на ваш токен бота
-                    chatId: '6924527934' // Замените на ваш chat ID
-                };
                 
                 this.initialize();
             }
@@ -864,7 +852,6 @@
                     const response = await fetch(`/api/courier/profile?user_id=${userId}`);
                     
                     if (!response.ok) {
-                        // Если курьер не зарегистрирован, показываем соответствующее сообщение
                         this.showCourierNotRegistered();
                         return;
                     }
@@ -875,9 +862,8 @@
                         this.courierData = data.courier;
                         this.displayProfileData();
                         this.updateStats();
-                        this.updateDailyGoal();
                     } else {
-                        throw new Error(data.error || 'Курьер не зарегистрирован');
+                        this.showCourierNotRegistered();
                     }
                     
                 } catch (error) {
@@ -895,23 +881,26 @@
                     <div class="auth-title">Станьте курьером</div>
                     <div class="auth-text">Зарегистрируйтесь как курьер, чтобы начать принимать заказы</div>
                     <div class="auth-buttons" style="margin-top: 20px;">
-                        <button class="auth-btn primary" onclick="profileManager.goToCourierRegister()">
+                        <button class="auth-btn primary" onclick="profileManager.goToCourierLogin()">
                             <i class="fas fa-motorcycle"></i>
                             Стать курьером
                         </button>
                     </div>
                 `;
+                
+                // Скрываем статистику и сообщения если не курьер
+                document.getElementById('stats-grid').innerHTML = '';
+                document.getElementById('messages-section').innerHTML = '';
             }
 
             async loadMessages() {
                 try {
-                    if (!this.currentUser) return;
+                    if (!this.currentUser || !this.courierData) return;
 
                     const userId = this.currentUser.id || this.currentUser.sub;
                     const response = await fetch(`/api/courier/messages?user_id=${userId}`);
                     
                     if (!response.ok) {
-                        // Используем демо-сообщения если endpoint не доступен
                         this.messages = this.getDemoMessages();
                     } else {
                         const data = await response.json();
@@ -929,13 +918,12 @@
 
             async loadChats() {
                 try {
-                    if (!this.currentUser) return;
+                    if (!this.currentUser || !this.courierData) return;
 
                     const userId = this.currentUser.id || this.currentUser.sub;
                     const response = await fetch(`/api/courier/chats?user_id=${userId}`);
                     
                     if (!response.ok) {
-                        // Используем демо-чаты если endpoint не доступен
                         this.chats = this.getDemoChats();
                     } else {
                         const data = await response.json();
@@ -957,14 +945,6 @@
                         message_type: "info",
                         is_read: false,
                         created_at: new Date().toISOString()
-                    },
-                    {
-                        id: 2,
-                        subject: "Обновление правил доставки",
-                        message: "Обратите внимание на обновленные правила доставки в приложении.",
-                        message_type: "warning",
-                        is_read: true,
-                        created_at: new Date(Date.now() - 86400000).toISOString()
                     }
                 ];
             }
@@ -996,20 +976,32 @@
                     <div class="profile-id">ID: ${this.courierData.courier_code}</div>
                     <div style="margin: 10px 0; padding: 8px 12px; background: rgba(76, 175, 80, 0.1); border-radius: 10px; color: #4CAF50; font-size: 14px;">
                         <i class="fas fa-${this.courierData.vehicle_type === 'car' ? 'car' : 'bicycle'}"></i>
-                        ${this.courierData.vehicle_type === 'car' ? 'Автомобиль' : 'Велосипед'} ${this.courierData.vehicle_number ? `- ${this.courierData.vehicle_number}` : ''}
+                        ${this.getVehicleTypeText(this.courierData.vehicle_type)}
                     </div>
                     
                     <div class="profile-contacts">
                         <div class="contact-item">
-                            <i class="fas fa-phone"></i>
-                            <span>${this.courierData.phone}</span>
-                        </div>
-                        <div class="contact-item">
                             <i class="fas fa-envelope"></i>
                             <span>${this.courierData.email}</span>
                         </div>
+                        ${this.courierData.phone ? `
+                        <div class="contact-item">
+                            <i class="fas fa-phone"></i>
+                            <span>${this.courierData.phone}</span>
+                        </div>
+                        ` : ''}
                     </div>
                 `;
+            }
+
+            getVehicleTypeText(type) {
+                const types = {
+                    'bicycle': 'Велосипед',
+                    'scooter': 'Самокат',
+                    'motorcycle': 'Мотоцикл',
+                    'car': 'Автомобиль'
+                };
+                return types[type] || 'Велосипед';
             }
 
             updateStats() {
@@ -1045,29 +1037,8 @@
                         <div class="stat-icon earnings">
                             <i class="fas fa-ruble-sign"></i>
                         </div>
-                        <div class="stat-value">${this.courierData.total_earnings || 0}₽</div>
+                        <div class="stat-value">${Math.round(this.courierData.total_earnings || 0)}₽</div>
                         <div class="stat-label">Заработок</div>
-                    </div>
-                `;
-            }
-
-            updateDailyGoal() {
-                const current = this.courierData?.current_daily_orders || 0;
-                const target = this.courierData?.daily_goal || 10;
-                const progress = Math.min((current / target) * 100, 100);
-                
-                const dailyGoal = document.getElementById('daily-goal');
-                dailyGoal.innerHTML = `
-                    <div class="goal-header">
-                        <div class="goal-title">Дневная норма доставок</div>
-                        <div class="goal-progress">${current}/${target}</div>
-                    </div>
-                    <div class="progress-bar">
-                        <div class="progress-fill" style="width: ${progress}%"></div>
-                    </div>
-                    <div class="goal-info">
-                        <span>Прогресс: ${Math.round(progress)}%</span>
-                        <span>Цель: ${target} заказов</span>
                     </div>
                 `;
             }
@@ -1075,7 +1046,7 @@
             displayMessages() {
                 const messagesSection = document.getElementById('messages-section');
                 
-                if (!this.messages || this.messages.length === 0) {
+                if (!this.messages || this.messages.length === 0 || !this.courierData) {
                     messagesSection.innerHTML = `
                         <div class="section-header">
                             <div class="section-title">Сообщения системы</div>
@@ -1083,6 +1054,11 @@
                         <div style="text-align: center; padding: 40px 20px; color: #666;">
                             <i class="fas fa-envelope-open" style="font-size: 48px; margin-bottom: 15px; opacity: 0.5;"></i>
                             <div>Нет сообщений</div>
+                        </div>
+                        <div style="margin-top: 20px; text-align: center;">
+                            <button onclick="profileManager.openSupportChat()" style="padding: 12px 24px; background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; border-radius: 12px; cursor: pointer; font-size: 14px;">
+                                <i class="fas fa-headset"></i> Чат с поддержкой
+                            </button>
                         </div>
                     `;
                     return;
@@ -1176,6 +1152,11 @@
             }
 
             openSupportChat() {
+                if (!this.courierData) {
+                    this.showNotification('Сначала зарегистрируйтесь как курьер', 'error');
+                    return;
+                }
+
                 if (this.chats.length > 0) {
                     this.openChat(this.chats[0].id);
                 } else {
@@ -1260,13 +1241,18 @@
                         return;
                     }
 
+                    if (!this.courierData) {
+                        this.showNotification('Сначала зарегистрируйтесь как курьер', 'error');
+                        return;
+                    }
+
                     // Отправляем сообщение в Telegram
                     await this.sendToTelegram(text);
 
                     // Добавляем сообщение в историю
                     const newMessage = {
                         sender_type: 'courier',
-                        sender_name: this.courierData?.first_name || 'Курьер',
+                        sender_name: this.courierData.first_name,
                         message: text,
                         created_at: new Date().toISOString()
                     };
@@ -1294,36 +1280,36 @@
             }
 
             async sendToTelegram(message) {
-    try {
-        if (!this.currentUser) {
-            throw new Error('Пользователь не авторизован');
-        }
+                try {
+                    if (!this.currentUser) {
+                        throw new Error('Пользователь не авторизован');
+                    }
 
-        const userId = this.currentUser.id || this.currentUser.sub;
-        
-        const response = await fetch('/api/telegram/send-message', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                message: message,
-                user_id: userId
-            })
-        });
+                    const userId = this.currentUser.id || this.currentUser.sub;
+                    
+                    const response = await fetch('/api/telegram/send-message', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            message: message,
+                            user_id: userId
+                        })
+                    });
 
-        const data = await response.json();
+                    const data = await response.json();
 
-        if (!response.ok) {
-            throw new Error(data.error || 'Ошибка отправки сообщения');
-        }
+                    if (!response.ok) {
+                        throw new Error(data.error || 'Ошибка отправки сообщения');
+                    }
 
-        return data;
-    } catch (error) {
-        console.error('Ошибка отправки в Telegram:', error);
-        throw error;
-    }
-}
+                    return data;
+                } catch (error) {
+                    console.error('Ошибка отправки в Telegram:', error);
+                    throw error;
+                }
+            }
 
             showNotification(message, type = 'success') {
                 const notification = document.getElementById('notification');
@@ -1340,15 +1326,15 @@
             }
 
             goToLogin() {
-                window.location.href = 'register.html';
+                window.location.href = 'courier-login.html';
             }
 
-            goToRegister() {
-                window.location.href = 'register.html';
+            goToMain() {
+                window.location.href = 'main.html';
             }
 
-            goToCourierRegister() {
-                window.location.href = 'courier-register.html';
+            goToCourierLogin() {
+                window.location.href = 'courier-login.html';
             }
 
             openSettings() {
