@@ -72,6 +72,7 @@
             padding: 1rem;
             max-width: 600px;
             margin: 0 auto;
+            padding-bottom: 80px;
         }
         
         /* Профиль пользователя */
@@ -594,17 +595,6 @@
                 padding: 2rem;
             }
         }
-        
-        /* Поддержка iPhone X и новее */
-        @supports (padding: max(0px)) {
-            .container {
-                padding-bottom: max(1rem, env(safe-area-inset-bottom));
-            }
-            
-            .bottom-nav {
-                padding-bottom: max(0.8rem, env(safe-area-inset-bottom));
-            }
-        }
     </style>
 </head>
 <body>
@@ -856,7 +846,6 @@
 
         // Инициализация при загрузке страницы
         document.addEventListener("DOMContentLoaded", () => {
-            setupEventListeners();
             checkAuthStatus();
             updateCartBadge();
         });
@@ -868,10 +857,18 @@
             if (storedUser) {
                 try {
                     currentUser = JSON.parse(storedUser);
+                    console.log("Текущий пользователь:", currentUser);
+                    
+                    // Проверяем структуру пользователя
+                    if (!currentUser.id) {
+                        console.error("У пользователя нет ID");
+                        showUnauthorizedContent();
+                        return;
+                    }
+                    
                     originalUserData = { ...currentUser };
                     isGoogleUser = !!currentUser.google_id;
                     
-                    // Если у нас есть базовые данные пользователя, показываем их
                     displayUserData(currentUser);
                     showAuthorizedContent();
                     
@@ -891,19 +888,21 @@
         function showAuthorizedContent() {
             document.getElementById("unauthorized-state").style.display = "none";
             document.getElementById("authorized-content").style.display = "block";
+            document.getElementById("loading").style.display = "none";
         }
 
         // Показать контент для неавторизованного пользователя
         function showUnauthorizedContent() {
             document.getElementById("unauthorized-state").style.display = "block";
             document.getElementById("authorized-content").style.display = "none";
+            document.getElementById("loading").style.display = "none";
         }
 
         // Загрузка профиля с сервера
         async function loadProfile() {
             showLoading();
             try {
-                const response = await fetch("/api/auth/me", {
+                const response = await fetch(`/api/auth/me?user_id=${currentUser.id}`, {
                     method: "GET",
                     headers: {
                         "Content-Type": "application/json",
@@ -911,7 +910,6 @@
                 });
 
                 if (response.status === 401) {
-                    // Пользователь не авторизован
                     localStorage.removeItem("user");
                     showUnauthorizedContent();
                     return;
@@ -935,17 +933,14 @@
             } catch (error) {
                 console.error("Ошибка загрузки профиля:", error);
                 
-                // Если ошибка 401 (не авторизован), показываем форму входа
-                if (error.message.includes('401') || error.message.includes('Не авторизован')) {
+                // Если есть данные в localStorage, показываем их
+                if (currentUser && currentUser.id) {
+                    displayUserData(currentUser);
+                    showAuthorizedContent();
+                    showNotification("Используются локальные данные", "error");
+                } else {
                     localStorage.removeItem("user");
                     showUnauthorizedContent();
-                } else {
-                    showNotification("Ошибка загрузки профиля", "error");
-                    // Показываем данные из localStorage, даже если сервер недоступен
-                    if (currentUser) {
-                        displayUserData(currentUser);
-                        showAuthorizedContent();
-                    }
                 }
             } finally {
                 hideLoading();
@@ -954,11 +949,20 @@
 
         // Отображение данных пользователя
         function displayUserData(user) {
-            const displayName = 
-                `${user.first_name || ""} ${user.last_name || ""}`.trim() || 
-                user.username || 
-                "Пользователь";
-                
+            console.log("Отображение данных пользователя:", user);
+            
+            // Формируем отображаемое имя
+            let displayName = "Пользователь";
+            if (user.first_name && user.last_name) {
+                displayName = `${user.first_name} ${user.last_name}`;
+            } else if (user.full_name) {
+                displayName = user.full_name;
+            } else if (user.username) {
+                displayName = user.username;
+            } else if (user.email) {
+                displayName = user.email.split('@')[0];
+            }
+            
             document.getElementById("profile-display-name").innerHTML = displayName;
             document.getElementById("profile-display-email").textContent = user.email || "Не указан";
             document.getElementById("profile-display-phone").textContent = user.phone || "Не указан";
@@ -975,14 +979,19 @@
                 document.getElementById("change-password-btn").style.display = "block";
             }
 
-            if (user.avatar) {
-                document.getElementById("profile-avatar").innerHTML = `<img src="${user.avatar}" alt="Аватар">`;
+            // Аватар
+            if (user.avatar || user.avatar_url) {
+                const avatarUrl = user.avatar || user.avatar_url;
+                document.getElementById("profile-avatar").innerHTML = `<img src="${avatarUrl}" alt="Аватар">`;
             } else {
                 document.getElementById("profile-avatar").innerHTML = '<i class="fas fa-user" id="avatar-icon"></i>';
             }
 
             // Заполняем данные в разделе "Аккаунт"
-            const fullName = `${user.last_name || ""} ${user.first_name || ""} ${user.middle_name || ""}`.trim() || "Не указано";
+            const fullName = user.full_name || 
+                `${user.last_name || ""} ${user.first_name || ""} ${user.middle_name || ""}`.trim() || 
+                "Не указано";
+                
             document.getElementById("fullname-text").textContent = fullName;
             document.getElementById("account-username").textContent = user.username || "Не указан";
             document.getElementById("account-email").textContent = user.email || "Не указан";
@@ -1039,11 +1048,6 @@
                     return;
                 }
                 
-                if (!/^\+992[0-9]{9}$/.test(phone)) {
-                    showNotification("Введите корректный номер телефона Таджикистана (+992XXXXXXXXX)", "error");
-                    return;
-                }
-                
                 currentUser.phone = phone;
             }
             
@@ -1063,8 +1067,8 @@
                     user_id: currentUser.id,
                     first_name: currentUser.first_name,
                     last_name: currentUser.last_name,
-                    middle_name: currentUser.middle_name,
-                    phone: currentUser.phone,
+                    middle_name: currentUser.middle_name || "",
+                    phone: currentUser.phone || "",
                 };
 
                 const response = await fetch("/api/user/update-profile", {
@@ -1117,7 +1121,6 @@
             showLoading();
 
             try {
-                // В реальном приложении здесь должна быть загрузка на сервер
                 // Для демонстрации просто создаем URL для предпросмотра
                 const avatarUrl = URL.createObjectURL(file);
 
@@ -1141,7 +1144,6 @@
 
         // Смена пароля
         async function changePassword() {
-            // Для Google пользователей отключаем смену пароля
             if (isGoogleUser) {
                 showNotification("Для пользователей Google смена пароля недоступна", "error");
                 return;
@@ -1203,7 +1205,6 @@
 
         // Открытие модального окна смены пароля
         function openPasswordModal() {
-            // Для Google пользователей показываем сообщение
             if (isGoogleUser) {
                 showNotification("Для пользователей Google смена пароля недоступна", "error");
                 return;
@@ -1308,16 +1309,6 @@
             } catch (error) {
                 console.error("Ошибка получения корзины:", error);
             }
-        }
-
-        // Настройка обработчиков событий
-        function setupEventListeners() {
-            // Проверка изменений
-            window.addEventListener("storage", (e) => {
-                if (e.key === "user") {
-                    checkAuthStatus();
-                }
-            });
         }
 
         // Проверка изменений для кнопки сохранения
