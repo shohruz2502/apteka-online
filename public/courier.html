@@ -84,6 +84,82 @@
             padding: 0 15px;
         }
 
+        /* Карточка авторизации */
+        .auth-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px 25px;
+            margin: 20px 0;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            text-align: center;
+        }
+
+        .auth-icon {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            margin: 0 auto 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 32px;
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+        }
+
+        .auth-title {
+            font-size: 22px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .auth-text {
+            color: #666;
+            margin-bottom: 25px;
+            font-size: 15px;
+        }
+
+        .auth-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .auth-btn {
+            padding: 15px 20px;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            text-decoration: none;
+        }
+
+        .auth-btn.primary {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .auth-btn.secondary {
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+            border: 2px solid rgba(102, 126, 234, 0.3);
+        }
+
+        .auth-btn:active {
+            transform: scale(0.98);
+        }
+
         /* Статистика */
         .stats-container {
             display: grid;
@@ -495,56 +571,78 @@
 
     <!-- Основной контент -->
     <div class="container">
-        <!-- Статистика -->
-        <div class="stats-container">
-            <div class="stat-item">
-                <div class="stat-value" id="total-orders">0</div>
-                <div class="stat-label">Всего заказов</div>
+        <!-- Карточка авторизации -->
+        <div class="auth-card" id="auth-card">
+            <div class="auth-icon">
+                <i class="fas fa-user"></i>
             </div>
-            <div class="stat-item">
-                <div class="stat-value" id="new-orders">0</div>
-                <div class="stat-label">Новые</div>
-            </div>
-            <div class="stat-item">
-                <div class="stat-value" id="accepted-orders">0</div>
-                <div class="stat-label">Принятые</div>
-            </div>
-            <div class="stat-item">
-                <div class="stat-value" id="delivered-orders">0</div>
-                <div class="stat-label">Доставленные</div>
+            <div class="auth-title">Войдите в аккаунт</div>
+            <div class="auth-text">Для доступа к заказам необходимо авторизоваться</div>
+            <div class="auth-buttons">
+                <button class="auth-btn primary" onclick="courierManager.goToLogin()">
+                    <i class="fas fa-sign-in-alt"></i>
+                    Войти как курьер
+                </button>
+                <button class="auth-btn secondary" onclick="courierManager.goToMain()">
+                    <i class="fas fa-home"></i>
+                    На главную
+                </button>
             </div>
         </div>
 
-        <!-- Фильтры -->
-        <div class="filters-container">
-            <button class="filter-btn active" data-filter="all">Все заказы</button>
-            <button class="filter-btn" data-filter="new">Новые</button>
-            <button class="filter-btn" data-filter="accepted">Принятые</button>
-            <button class="filter-btn" data-filter="delivered">Доставленные</button>
-        </div>
-
-        <!-- Список заказов -->
-        <div class="orders-list" id="orders-list">
-            <!-- Заказы будут добавляться через JavaScript -->
-        </div>
-
-        <!-- Сообщение об отсутствии заказов -->
-        <div class="no-orders" id="no-orders" style="display: none">
-            <div class="no-orders-icon">
-                <i class="fas fa-box-open"></i>
+        <!-- Контент для авторизованных пользователей -->
+        <div id="authorized-content" style="display: none;">
+            <!-- Статистика -->
+            <div class="stats-container">
+                <div class="stat-item">
+                    <div class="stat-value" id="total-orders">0</div>
+                    <div class="stat-label">Всего заказов</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="new-orders">0</div>
+                    <div class="stat-label">Новые</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="accepted-orders">0</div>
+                    <div class="stat-label">Принятые</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="delivered-orders">0</div>
+                    <div class="stat-label">Доставленные</div>
+                </div>
             </div>
-            <h3>Нет доступных заказов</h3>
-            <p>Новые заказы появятся здесь автоматически</p>
-            <button class="reload-btn" id="reload-orders">
-                <i class="fas fa-redo"></i>
-                Обновить
-            </button>
-        </div>
 
-        <!-- Индикатор загрузки -->
-        <div class="loading" id="loading">
-            <div class="loading-spinner"></div>
-            <div>Загрузка заказов...</div>
+            <!-- Фильтры -->
+            <div class="filters-container">
+                <button class="filter-btn active" data-filter="all">Все заказы</button>
+                <button class="filter-btn" data-filter="new">Новые</button>
+                <button class="filter-btn" data-filter="my">Мои заказы</button>
+                <button class="filter-btn" data-filter="delivered">Доставленные</button>
+            </div>
+
+            <!-- Список заказов -->
+            <div class="orders-list" id="orders-list">
+                <!-- Заказы будут добавляться через JavaScript -->
+            </div>
+
+            <!-- Сообщение об отсутствии заказов -->
+            <div class="no-orders" id="no-orders" style="display: none">
+                <div class="no-orders-icon">
+                    <i class="fas fa-box-open"></i>
+                </div>
+                <h3>Нет доступных заказов</h3>
+                <p>Новые заказы появятся здесь автоматически</p>
+                <button class="reload-btn" id="reload-orders">
+                    <i class="fas fa-redo"></i>
+                    Обновить
+                </button>
+            </div>
+
+            <!-- Индикатор загрузки -->
+            <div class="loading" id="loading">
+                <div class="loading-spinner"></div>
+                <div>Загрузка заказов...</div>
+            </div>
         </div>
     </div>
 
@@ -562,396 +660,451 @@
 
     <script>
     class CourierManager {
-    constructor() {
-        this.orders = [];
-        this.filteredOrders = [];
-        this.currentFilter = 'all';
-        this.currentUser = null;
-        this.isAvailable = true;
-        
-        this.initialize();
-    }
+        constructor() {
+            this.orders = [];
+            this.filteredOrders = [];
+            this.currentFilter = 'all';
+            this.currentUser = null;
+            this.currentCourier = null;
+            this.isAvailable = true;
+            
+            this.initialize();
+        }
 
-    async initialize() {
-        await this.loadCurrentUser();
-        this.loadOrders();
-        this.setupEventListeners();
-        this.setupAutoRefresh();
-    }
+        async initialize() {
+            await this.checkAuth();
+            this.setupEventListeners();
+        }
 
-    async loadCurrentUser() {
-        const userData = localStorage.getItem('user');
-        if (userData) {
+        async checkAuth() {
             try {
-                this.currentUser = JSON.parse(userData);
-                console.log('Текущий пользователь:', this.currentUser);
-            } catch (e) {
-                console.error('Ошибка загрузки пользователя:', e);
-            }
-        }
-    }
-
-    async loadOrders() {
-        this.showLoading();
-        this.hideNoOrders();
-
-        // Проверяем, что пользователь загружен
-        if (!this.currentUser) {
-            await this.loadCurrentUser();
-        }
-
-        if (!this.currentUser) {
-            this.hideLoading();
-            this.showNoOrders();
-            alert('Пользователь не авторизован');
-            return;
-        }
-
-        const userId = this.currentUser.id || this.currentUser.sub;
-        if (!userId) {
-            this.hideLoading();
-            this.showNoOrders();
-            alert('Не удалось определить ID пользователя');
-            return;
-        }
-
-        try {
-            const response = await fetch(`/api/courier/orders?user_id=${encodeURIComponent(userId)}`);
-            
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            const data = await response.json();
-            console.log('Полученные заказы:', data);
-            
-            if (data.success) {
-                this.orders = data.orders || [];
-                this.applyFilter();
-                this.updateStats();
-                this.renderOrders();
+                const userData = localStorage.getItem('user');
+                const courierData = localStorage.getItem('courier');
                 
-                if (this.filteredOrders.length === 0) {
-                    this.showNoOrders();
+                if (userData && courierData) {
+                    this.currentUser = JSON.parse(userData);
+                    this.currentCourier = JSON.parse(courierData);
+                    this.showAuthorizedContent();
+                    this.loadOrders();
                 } else {
-                    this.hideNoOrders();
+                    this.showAuthCard();
                 }
-            } else {
-                throw new Error(data.error || 'Ошибка загрузки заказов');
+            } catch (error) {
+                console.error('Ошибка проверки авторизации:', error);
+                this.showAuthCard();
             }
-        } catch (error) {
-            console.error('Ошибка загрузки заказов:', error);
-            this.showNoOrders();
-            alert('Ошибка загрузки заказов: ' + error.message);
         }
 
-        this.hideLoading();
-    }
-
-    applyFilter() {
-        switch (this.currentFilter) {
-            case 'new':
-                this.filteredOrders = this.orders.filter(order => order.status === 'pending');
-                break;
-            case 'accepted':
-                this.filteredOrders = this.orders.filter(order => order.status === 'assigned');
-                break;
-            case 'delivered':
-                this.filteredOrders = this.orders.filter(order => order.status === 'delivered');
-                break;
-            default:
-                this.filteredOrders = this.orders;
-        }
-    }
-
-    updateStats() {
-        const total = this.orders.length;
-        const newOrders = this.orders.filter(order => order.status === 'pending').length;
-        const accepted = this.orders.filter(order => order.status === 'assigned').length;
-        const delivered = this.orders.filter(order => order.status === 'delivered').length;
-
-        document.getElementById('total-orders').textContent = total;
-        document.getElementById('new-orders').textContent = newOrders;
-        document.getElementById('accepted-orders').textContent = accepted;
-        document.getElementById('delivered-orders').textContent = delivered;
-    }
-
-    renderOrders() {
-        const container = document.getElementById('orders-list');
-        container.innerHTML = '';
-
-        this.filteredOrders.forEach(order => {
-            const orderElement = this.createOrderElement(order);
-            container.appendChild(orderElement);
-        });
-    }
-
-    createOrderElement(order) {
-        const orderDiv = document.createElement('div');
-        orderDiv.className = 'order-card';
-        
-        let statusClass = 'status-new';
-        let statusText = 'Новый';
-        
-        switch (order.status) {
-            case 'assigned':
-                statusClass = 'status-accepted';
-                statusText = 'Принят';
-                break;
-            case 'delivered':
-                statusClass = 'status-delivered';
-                statusText = 'Доставлен';
-                break;
-            case 'cancelled':
-                statusClass = 'status-cancelled';
-                statusText = 'Отменен';
-                break;
-            default:
-                statusClass = 'status-new';
-                statusText = 'Новый';
+        showAuthCard() {
+            document.getElementById('auth-card').style.display = 'block';
+            document.getElementById('authorized-content').style.display = 'none';
         }
 
-        let actionButton = '';
-        if (order.status === 'pending') {
-            actionButton = `<button class="action-btn btn-accept" onclick="courierManager.acceptOrder(${order.id})">Принять заказ</button>`;
-        } else if (order.status === 'assigned') {
-            actionButton = `<button class="action-btn btn-complete" onclick="courierManager.completeOrder(${order.id})">Завершить</button>`;
+        showAuthorizedContent() {
+            document.getElementById('auth-card').style.display = 'none';
+            document.getElementById('authorized-content').style.display = 'block';
         }
 
-        // Формируем HTML для товаров
-        const productsHtml = Array.isArray(order.products) && order.products.length > 0 
-            ? order.products.map(product => `
-                <div class="order-product">
-                    <div class="product-info">
-                        <div class="product-name">${this.escapeHtml(product.name || 'Товар')}</div>
-                        <div class="product-quantity">Количество: ${product.quantity || 1} × ${product.price || 0}₽</div>
-                    </div>
-                </div>
-            `).join('') 
-            : '<div class="product-name">Информация о товарах недоступна</div>';
-
-        orderDiv.innerHTML = `
-            <div class="order-header">
-                <div class="order-id">Заказ #${this.escapeHtml(order.order_code || order.id)}</div>
-                <div class="order-status ${statusClass}">${statusText}</div>
-            </div>
-            <div class="order-content">
-                ${productsHtml}
-                <div class="order-address">
-                    <div class="address-title">Адрес доставки:</div>
-                    <div class="address-text">${this.escapeHtml(order.address || 'Адрес не указан')}</div>
-                </div>
-                <div class="customer-info">
-                    <div class="address-title">Клиент:</div>
-                    <div class="address-text">${this.escapeHtml(order.customer_name || 'Не указан')} • ${this.escapeHtml(order.customer_phone || 'Телефон не указан')}</div>
-                </div>
-                <div class="order-footer">
-                    <div class="order-actions">
-                        ${actionButton}
-                    </div>
-                    <div class="order-total">
-                        Сумма: ${order.total_amount || 0}₽
-                    </div>
-                </div>
-                ${order.courier_name ? 
-                    `<div class="courier-info">Курьер: ${this.escapeHtml(order.courier_name)}</div>` : ''}
-            </div>
-        `;
-
-        return orderDiv;
-    }
-
-    escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
-
-    async acceptOrder(orderId) {
-        if (!this.isAvailable) {
-            alert('Сначала переведите себя в статус "Доступен"');
-            return;
-        }
-
-        if (!this.currentUser) {
-            alert('Ошибка: пользователь не авторизован');
-            return;
-        }
-
-        try {
-            const userId = this.currentUser.id || this.currentUser.sub;
-            if (!userId) {
-                alert('Ошибка: не удалось идентифицировать пользователя');
+        async loadOrders() {
+            if (!this.currentUser) {
+                this.showAuthCard();
                 return;
             }
 
-            const response = await fetch('/api/courier/orders/accept', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    order_id: orderId,
-                    user_id: userId
-                })
-            });
+            this.showLoading();
+            this.hideNoOrders();
 
-            const data = await response.json();
-            console.log('Ответ при принятии заказа:', data);
-
-            if (data.success) {
-                alert('Заказ успешно принят!');
-                this.loadOrders();
-            } else {
-                alert(data.error || 'Ошибка принятия заказа');
-            }
-        } catch (error) {
-            console.error('Ошибка принятия заказа:', error);
-            alert('Ошибка принятия заказа: ' + error.message);
-        }
-    }
-
-    async completeOrder(orderId) {
-        if (!this.currentUser) {
-            alert('Ошибка: пользователь не авторизован');
-            return;
-        }
-
-        try {
             const userId = this.currentUser.id || this.currentUser.sub;
             if (!userId) {
-                alert('Ошибка: не удалось идентифицировать пользователя');
+                this.hideLoading();
+                this.showNoOrders();
                 return;
             }
 
-            const response = await fetch('/api/courier/orders/complete', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    order_id: orderId,
-                    user_id: userId
-                })
+            try {
+                const response = await fetch(`/api/courier/orders?user_id=${encodeURIComponent(userId)}`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                console.log('Полученные заказы:', data);
+                
+                if (data.success) {
+                    this.orders = data.orders || [];
+                    this.applyFilter();
+                    this.updateStats();
+                    this.renderOrders();
+                    
+                    if (this.filteredOrders.length === 0) {
+                        this.showNoOrders();
+                    } else {
+                        this.hideNoOrders();
+                    }
+                } else {
+                    throw new Error(data.error || 'Ошибка загрузки заказов');
+                }
+            } catch (error) {
+                console.error('Ошибка загрузки заказов:', error);
+                this.showNoOrders();
+            }
+
+            this.hideLoading();
+        }
+
+        applyFilter() {
+            switch (this.currentFilter) {
+                case 'new':
+                    // Только новые заказы (не принятые)
+                    this.filteredOrders = this.orders.filter(order => order.status === 'pending');
+                    break;
+                case 'my':
+                    // Только заказы текущего курьера (принятые и доставленные)
+                    this.filteredOrders = this.orders.filter(order => 
+                        order.status === 'assigned' || order.status === 'delivered'
+                    );
+                    break;
+                case 'delivered':
+                    // Только доставленные заказы
+                    this.filteredOrders = this.orders.filter(order => order.status === 'delivered');
+                    break;
+                default:
+                    // Все заказы
+                    this.filteredOrders = this.orders;
+            }
+        }
+
+        updateStats() {
+            const total = this.orders.length;
+            const newOrders = this.orders.filter(order => order.status === 'pending').length;
+            const accepted = this.orders.filter(order => order.status === 'assigned').length;
+            const delivered = this.orders.filter(order => order.status === 'delivered').length;
+
+            document.getElementById('total-orders').textContent = total;
+            document.getElementById('new-orders').textContent = newOrders;
+            document.getElementById('accepted-orders').textContent = accepted;
+            document.getElementById('delivered-orders').textContent = delivered;
+        }
+
+        renderOrders() {
+            const container = document.getElementById('orders-list');
+            container.innerHTML = '';
+
+            this.filteredOrders.forEach(order => {
+                const orderElement = this.createOrderElement(order);
+                container.appendChild(orderElement);
+            });
+        }
+
+        createOrderElement(order) {
+            const orderDiv = document.createElement('div');
+            orderDiv.className = 'order-card';
+            
+            let statusClass = 'status-new';
+            let statusText = 'Новый';
+            
+            switch (order.status) {
+                case 'assigned':
+                    statusClass = 'status-accepted';
+                    statusText = 'Принят';
+                    break;
+                case 'delivered':
+                    statusClass = 'status-delivered';
+                    statusText = 'Доставлен';
+                    break;
+                case 'cancelled':
+                    statusClass = 'status-cancelled';
+                    statusText = 'Отменен';
+                    break;
+                default:
+                    statusClass = 'status-new';
+                    statusText = 'Новый';
+            }
+
+            let actionButton = '';
+            
+            // Проверяем, может ли текущий курьер выполнять действия с заказом
+            if (order.status === 'pending') {
+                // Новый заказ - можно принять
+                actionButton = `<button class="action-btn btn-accept" onclick="courierManager.acceptOrder(${order.id})">Принять заказ</button>`;
+            } else if (order.status === 'assigned') {
+                // Проверяем, принадлежит ли заказ текущему курьеру
+                if (this.isMyOrder(order)) {
+                    // Заказ принят текущим курьером - можно завершить
+                    actionButton = `<button class="action-btn btn-complete" onclick="courierManager.completeOrder(${order.id})">Завершить</button>`;
+                } else {
+                    // Заказ принят другим курьером - нельзя выполнять действия
+                    actionButton = `<button class="action-btn btn-accept" disabled>Занят другим курьером</button>`;
+                }
+            }
+
+            // Формируем HTML для товаров
+            const productsHtml = Array.isArray(order.products) && order.products.length > 0 
+                ? order.products.map(product => `
+                    <div class="order-product">
+                        <div class="product-info">
+                            <div class="product-name">${this.escapeHtml(product.name || 'Товар')}</div>
+                            <div class="product-quantity">Количество: ${product.quantity || 1} × ${product.price || 0}₽</div>
+                        </div>
+                    </div>
+                `).join('') 
+                : '<div class="product-name">Информация о товарах недоступна</div>';
+
+            orderDiv.innerHTML = `
+                <div class="order-header">
+                    <div class="order-id">Заказ #${this.escapeHtml(order.order_code || order.id)}</div>
+                    <div class="order-status ${statusClass}">${statusText}</div>
+                </div>
+                <div class="order-content">
+                    ${productsHtml}
+                    <div class="order-address">
+                        <div class="address-title">Адрес доставки:</div>
+                        <div class="address-text">${this.escapeHtml(order.address || 'Адрес не указан')}</div>
+                    </div>
+                    <div class="customer-info">
+                        <div class="address-title">Клиент:</div>
+                        <div class="address-text">${this.escapeHtml(order.customer_name || 'Не указан')} • ${this.escapeHtml(order.customer_phone || 'Телефон не указан')}</div>
+                    </div>
+                    <div class="order-footer">
+                        <div class="order-actions">
+                            ${actionButton}
+                        </div>
+                        <div class="order-total">
+                            Сумма: ${order.total_amount || 0}₽
+                        </div>
+                    </div>
+                    ${order.courier_name ? 
+                        `<div class="courier-info">Курьер: ${this.escapeHtml(order.courier_name)}</div>` : ''}
+                    ${this.isMyOrder(order) ? 
+                        `<div class="courier-info" style="color: #4CAF50;">✓ Это ваш заказ</div>` : ''}
+                </div>
+            `;
+
+            return orderDiv;
+        }
+
+        // Проверяет, принадлежит ли заказ текущему курьеру
+        isMyOrder(order) {
+            if (!this.currentCourier) return false;
+            
+            // Проверяем по courier_name или другим полям
+            if (order.courier_name && this.currentCourier.first_name) {
+                return order.courier_name.includes(this.currentCourier.first_name);
+            }
+            
+            // Дополнительная логика проверки принадлежности заказа
+            return order.status === 'assigned' || order.status === 'delivered';
+        }
+
+        escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        async acceptOrder(orderId) {
+            if (!this.isAvailable) {
+                alert('Сначала переведите себя в статус "Доступен"');
+                return;
+            }
+
+            if (!this.currentUser) {
+                alert('Ошибка: пользователь не авторизован');
+                return;
+            }
+
+            try {
+                const userId = this.currentUser.id || this.currentUser.sub;
+                if (!userId) {
+                    alert('Ошибка: не удалось идентифицировать пользователя');
+                    return;
+                }
+
+                const response = await fetch('/api/courier/orders/accept', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        order_id: orderId,
+                        user_id: userId
+                    })
+                });
+
+                const data = await response.json();
+                console.log('Ответ при принятии заказа:', data);
+
+                if (data.success) {
+                    alert('Заказ успешно принят!');
+                    this.loadOrders();
+                } else {
+                    alert(data.error || 'Ошибка принятия заказа');
+                }
+            } catch (error) {
+                console.error('Ошибка принятия заказа:', error);
+                alert('Ошибка принятия заказа: ' + error.message);
+            }
+        }
+
+        async completeOrder(orderId) {
+            if (!this.currentUser) {
+                alert('Ошибка: пользователь не авторизован');
+                return;
+            }
+
+            // Дополнительная проверка - убеждаемся, что заказ принадлежит текущему курьеру
+            const order = this.orders.find(o => o.id === orderId);
+            if (!order || !this.isMyOrder(order)) {
+                alert('Вы не можете завершить этот заказ, так как он не принадлежит вам');
+                return;
+            }
+
+            try {
+                const userId = this.currentUser.id || this.currentUser.sub;
+                if (!userId) {
+                    alert('Ошибка: не удалось идентифицировать пользователя');
+                    return;
+                }
+
+                const response = await fetch('/api/courier/orders/complete', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        order_id: orderId,
+                        user_id: userId
+                    })
+                });
+
+                const data = await response.json();
+                console.log('Ответ при завершении заказа:', data);
+
+                if (data.success) {
+                    alert('Заказ успешно завершен!');
+                    this.loadOrders();
+                } else {
+                    alert(data.error || 'Ошибка завершения заказа');
+                }
+            } catch (error) {
+                console.error('Ошибка завершения заказа:', error);
+                alert('Ошибка завершения заказа: ' + error.message);
+            }
+        }
+
+        setupEventListeners() {
+            // Фильтры
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                    e.target.classList.add('active');
+                    this.currentFilter = e.target.dataset.filter;
+                    this.applyFilter();
+                    this.renderOrders();
+                    
+                    if (this.filteredOrders.length === 0) {
+                        this.showNoOrders();
+                    } else {
+                        this.hideNoOrders();
+                    }
+                });
             });
 
-            const data = await response.json();
-            console.log('Ответ при завершении заказа:', data);
-
-            if (data.success) {
-                alert('Заказ успешно завершен!');
-                this.loadOrders();
-            } else {
-                alert(data.error || 'Ошибка завершения заказа');
-            }
-        } catch (error) {
-            console.error('Ошибка завершения заказа:', error);
-            alert('Ошибка завершения заказа: ' + error.message);
-        }
-    }
-
-    setupEventListeners() {
-        // Фильтры
-        document.querySelectorAll('.filter-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-                e.target.classList.add('active');
-                this.currentFilter = e.target.dataset.filter;
-                this.applyFilter();
-                this.renderOrders();
+            // Статус курьера
+            document.getElementById('courier-status').addEventListener('click', () => {
+                this.isAvailable = !this.isAvailable;
+                const statusElement = document.getElementById('courier-status');
                 
-                if (this.filteredOrders.length === 0) {
-                    this.showNoOrders();
+                if (this.isAvailable) {
+                    statusElement.classList.add('active');
+                    statusElement.classList.remove('offline');
+                    statusElement.innerHTML = '<i class="fas fa-circle"></i><span>Доступен</span>';
+                    this.updateCourierStatus('active');
                 } else {
-                    this.hideNoOrders();
+                    statusElement.classList.remove('active');
+                    statusElement.classList.add('offline');
+                    statusElement.innerHTML = '<i class="fas fa-circle"></i><span>Не доступен</span>';
+                    this.updateCourierStatus('offline');
                 }
             });
-        });
 
-        // Статус курьера
-        document.getElementById('courier-status').addEventListener('click', () => {
-            this.isAvailable = !this.isAvailable;
-            const statusElement = document.getElementById('courier-status');
-            
-            if (this.isAvailable) {
-                statusElement.classList.add('active');
-                statusElement.classList.remove('offline');
-                statusElement.innerHTML = '<i class="fas fa-circle"></i><span>Доступен</span>';
-                this.updateCourierStatus('active');
-            } else {
-                statusElement.classList.remove('active');
-                statusElement.classList.add('offline');
-                statusElement.innerHTML = '<i class="fas fa-circle"></i><span>Не доступен</span>';
-                this.updateCourierStatus('offline');
-            }
-        });
-
-        // Кнопка обновления
-        document.getElementById('reload-orders').addEventListener('click', () => {
-            this.loadOrders();
-        });
-    }
-
-    async updateCourierStatus(status) {
-        if (!this.currentUser) return;
-
-        try {
-            const userId = this.currentUser.id || this.currentUser.sub;
-            const response = await fetch('/api/courier/status', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    user_id: userId,
-                    status: status === 'active' ? 'active' : 'offline'
-                })
+            // Кнопка обновления
+            document.getElementById('reload-orders').addEventListener('click', () => {
+                this.loadOrders();
             });
+        }
 
-            const data = await response.json();
-            if (data.success) {
-                console.log('Статус курьера обновлен');
+        async updateCourierStatus(status) {
+            if (!this.currentUser) return;
+
+            try {
+                const userId = this.currentUser.id || this.currentUser.sub;
+                const response = await fetch('/api/courier/status', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        user_id: userId,
+                        status: status === 'active' ? 'active' : 'offline'
+                    })
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    console.log('Статус курьера обновлен');
+                }
+            } catch (error) {
+                console.error('Ошибка обновления статуса:', error);
             }
-        } catch (error) {
-            console.error('Ошибка обновления статуса:', error);
+        }
+
+        setupAutoRefresh() {
+            // Автообновление каждые 30 секунд
+            setInterval(() => {
+                if (this.currentUser) {
+                    this.loadOrders();
+                }
+            }, 30000);
+        }
+
+        showLoading() {
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('orders-list').style.display = 'none';
+            document.getElementById('no-orders').style.display = 'none';
+        }
+
+        hideLoading() {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('orders-list').style.display = 'flex';
+        }
+
+        showNoOrders() {
+            document.getElementById('no-orders').style.display = 'block';
+            document.getElementById('orders-list').style.display = 'none';
+            document.getElementById('loading').style.display = 'none';
+        }
+
+        hideNoOrders() {
+            document.getElementById('no-orders').style.display = 'none';
+            document.getElementById('orders-list').style.display = 'flex';
+        }
+
+        goToLogin() {
+            window.location.href = 'courier-register.html';
+        }
+
+        goToMain() {
+            window.location.href = 'main.html';
         }
     }
 
-    setupAutoRefresh() {
-        // Автообновление каждые 30 секунд
-        setInterval(() => {
-            this.loadOrders();
-        }, 30000);
-    }
-
-    showLoading() {
-        document.getElementById('loading').style.display = 'block';
-        document.getElementById('orders-list').style.display = 'none';
-        document.getElementById('no-orders').style.display = 'none';
-    }
-
-    hideLoading() {
-        document.getElementById('loading').style.display = 'none';
-        document.getElementById('orders-list').style.display = 'flex';
-    }
-
-    showNoOrders() {
-        document.getElementById('no-orders').style.display = 'block';
-        document.getElementById('orders-list').style.display = 'none';
-        document.getElementById('loading').style.display = 'none';
-    }
-
-    hideNoOrders() {
-        document.getElementById('no-orders').style.display = 'none';
-        document.getElementById('orders-list').style.display = 'flex';
-    }
-}
-
-// Инициализация при загрузке страницы
-let courierManager;
-document.addEventListener('DOMContentLoaded', function() {
-    courierManager = new CourierManager();
-});
-</script>
+    // Инициализация при загрузке страницы
+    let courierManager;
+    document.addEventListener('DOMContentLoaded', function() {
+        courierManager = new CourierManager();
+    });
+    </script>
 </body>
 </html>
