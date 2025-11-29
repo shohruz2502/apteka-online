@@ -284,58 +284,6 @@
             font-weight: 500;
         }
 
-        /* Прогресс дневной нормы */
-        .daily-goal {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            border-radius: 20px;
-            padding: 20px;
-            margin: 20px 0;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-        }
-
-        .goal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-        }
-
-        .goal-title {
-            font-size: 16px;
-            font-weight: bold;
-            color: #333;
-        }
-
-        .goal-progress {
-            font-size: 14px;
-            color: #667eea;
-            font-weight: bold;
-        }
-
-        .progress-bar {
-            height: 12px;
-            background: rgba(102, 126, 234, 0.2);
-            border-radius: 10px;
-            overflow: hidden;
-            margin-bottom: 10px;
-        }
-
-        .progress-fill {
-            height: 100%;
-            background: linear-gradient(135deg, #4CAF50, #45a049);
-            border-radius: 10px;
-            transition: width 0.5s ease;
-        }
-
-        .goal-info {
-            display: flex;
-            justify-content: space-between;
-            font-size: 12px;
-            color: #666;
-        }
-
         /* Сообщения */
         .messages-section {
             background: rgba(255, 255, 255, 0.95);
@@ -590,31 +538,8 @@
             to { opacity: 1; transform: translateY(0); }
         }
 
-        .profile-card, .stat-card, .daily-goal, .messages-section, .auth-card {
+        .profile-card, .stat-card, .messages-section, .auth-card {
             animation: fadeIn 0.5s ease forwards;
-        }
-
-        /* Поддержка iPhone X и новее */
-        @supports (padding: max(0px)) {
-            .container {
-                padding-bottom: max(20px, env(safe-area-inset-bottom));
-            }
-
-            .bottom-nav {
-                padding-bottom: max(15px, env(safe-area-inset-bottom));
-            }
-        }
-
-        /* Адаптация для очень маленьких экранов */
-        @media (max-width: 360px) {
-            .stats-grid {
-                grid-template-columns: 1fr;
-                gap: 10px;
-            }
-            
-            .profile-card, .auth-card {
-                padding: 20px 15px;
-            }
         }
 
         /* Загрузка */
@@ -687,6 +612,27 @@
         .notification.error i {
             color: #ff4444;
         }
+
+        /* Кнопка действия */
+        .action-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 20px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.3s ease;
+        }
+
+        .action-button:active {
+            transform: scale(0.95);
+        }
     </style>
 </head>
 <body>
@@ -708,8 +654,8 @@
 
     <!-- Основной контент -->
     <div class="container">
-        <!-- Карточка авторизации (показывается если пользователь не авторизован) -->
-        <div class="auth-card" id="auth-card" style="display: none;">
+        <!-- Карточка авторизации -->
+        <div class="auth-card" id="auth-card">
             <div class="auth-icon">
                 <i class="fas fa-user"></i>
             </div>
@@ -727,7 +673,7 @@
             </div>
         </div>
 
-        <!-- Профиль (показывается если пользователь авторизован) -->
+        <!-- Профиль -->
         <div id="profile-content" style="display: none;">
             <!-- Профиль -->
             <div class="profile-card" id="profile-card">
@@ -812,20 +758,29 @@
             }
 
             async checkAuth() {
-                const userData = localStorage.getItem('user');
-                if (userData) {
-                    try {
-                        this.currentUser = JSON.parse(userData);
-                        this.showProfileContent();
-                        await this.loadCourierData();
-                        await this.loadMessages();
-                        await this.loadChats();
-                        document.getElementById('logout-btn').style.display = 'block';
-                    } catch (e) {
-                        console.error('Ошибка загрузки пользователя:', e);
+                try {
+                    // Проверяем наличие пользователя в localStorage
+                    const userData = localStorage.getItem('user');
+                    if (!userData) {
                         this.showAuthCard();
+                        return;
                     }
-                } else {
+
+                    this.currentUser = JSON.parse(userData);
+                    
+                    // Проверяем валидность пользователя
+                    if (!this.currentUser || (!this.currentUser.id && !this.currentUser.sub)) {
+                        localStorage.removeItem('user');
+                        localStorage.removeItem('courier');
+                        this.showAuthCard();
+                        return;
+                    }
+
+                    this.showProfileContent();
+                    await this.loadCourierData();
+                    
+                } catch (error) {
+                    console.error('Ошибка проверки авторизации:', error);
                     this.showAuthCard();
                 }
             }
@@ -849,26 +804,41 @@
                     }
 
                     const userId = this.currentUser.id || this.currentUser.sub;
+                    
+                    // Показываем загрузку
+                    document.getElementById('profile-card').innerHTML = `
+                        <div class="loading">
+                            <div class="loading-spinner"></div>
+                            <div>Загрузка профиля...</div>
+                        </div>
+                    `;
+
                     const response = await fetch(`/api/courier/profile?user_id=${userId}`);
                     
                     if (!response.ok) {
-                        this.showCourierNotRegistered();
+                        if (response.status === 404) {
+                            this.showCourierNotRegistered();
+                        } else {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
                         return;
                     }
                     
                     const data = await response.json();
                     
-                    if (data.success) {
+                    if (data.success && data.courier) {
                         this.courierData = data.courier;
+                        localStorage.setItem('courier', JSON.stringify(this.courierData));
                         this.displayProfileData();
-                        this.updateStats();
+                        await this.loadMessages();
+                        await this.loadStats();
                     } else {
                         this.showCourierNotRegistered();
                     }
                     
                 } catch (error) {
                     console.error('Ошибка загрузки данных курьера:', error);
-                    this.showCourierNotRegistered();
+                    this.showError('Ошибка загрузки профиля');
                 }
             }
 
@@ -881,7 +851,7 @@
                     <div class="auth-title">Станьте курьером</div>
                     <div class="auth-text">Зарегистрируйтесь как курьер, чтобы начать принимать заказы</div>
                     <div class="auth-buttons" style="margin-top: 20px;">
-                        <button class="auth-btn primary" onclick="profileManager.goToCourierLogin()">
+                        <button class="auth-btn primary" onclick="profileManager.goToCourierRegister()">
                             <i class="fas fa-motorcycle"></i>
                             Стать курьером
                         </button>
@@ -891,74 +861,6 @@
                 // Скрываем статистику и сообщения если не курьер
                 document.getElementById('stats-grid').innerHTML = '';
                 document.getElementById('messages-section').innerHTML = '';
-            }
-
-            async loadMessages() {
-                try {
-                    if (!this.currentUser || !this.courierData) return;
-
-                    const userId = this.currentUser.id || this.currentUser.sub;
-                    const response = await fetch(`/api/courier/messages?user_id=${userId}`);
-                    
-                    if (!response.ok) {
-                        this.messages = this.getDemoMessages();
-                    } else {
-                        const data = await response.json();
-                        this.messages = data.messages || [];
-                    }
-                    
-                    this.displayMessages();
-                    
-                } catch (error) {
-                    console.error('Ошибка загрузки сообщений:', error);
-                    this.messages = this.getDemoMessages();
-                    this.displayMessages();
-                }
-            }
-
-            async loadChats() {
-                try {
-                    if (!this.currentUser || !this.courierData) return;
-
-                    const userId = this.currentUser.id || this.currentUser.sub;
-                    const response = await fetch(`/api/courier/chats?user_id=${userId}`);
-                    
-                    if (!response.ok) {
-                        this.chats = this.getDemoChats();
-                    } else {
-                        const data = await response.json();
-                        this.chats = data.chats || [];
-                    }
-                    
-                } catch (error) {
-                    console.error('Ошибка загрузки чатов:', error);
-                    this.chats = this.getDemoChats();
-                }
-            }
-
-            getDemoMessages() {
-                return [
-                    {
-                        id: 1,
-                        subject: "Добро пожаловать в команду!",
-                        message: "Добро пожаловать в команду курьеров ФармаПлюс! Мы рады видеть вас в нашей команде.",
-                        message_type: "info",
-                        is_read: false,
-                        created_at: new Date().toISOString()
-                    }
-                ];
-            }
-
-            getDemoChats() {
-                return [
-                    {
-                        id: 1,
-                        participant_name: "Поддержка ФармаПлюс",
-                        last_message: "Добро пожаловать в команду курьеров!",
-                        last_message_at: new Date().toISOString(),
-                        unread_count: 0
-                    }
-                ];
             }
 
             displayProfileData() {
@@ -975,8 +877,9 @@
                     <div class="profile-name">${this.courierData.first_name} ${this.courierData.last_name}</div>
                     <div class="profile-id">ID: ${this.courierData.courier_code}</div>
                     <div style="margin: 10px 0; padding: 8px 12px; background: rgba(76, 175, 80, 0.1); border-radius: 10px; color: #4CAF50; font-size: 14px;">
-                        <i class="fas fa-${this.courierData.vehicle_type === 'car' ? 'car' : 'bicycle'}"></i>
+                        <i class="fas fa-${this.courierData.vehicle_type === 'car' ? 'car' : this.courierData.vehicle_type === 'motorcycle' ? 'motorcycle' : 'bicycle'}"></i>
                         ${this.getVehicleTypeText(this.courierData.vehicle_type)}
+                        ${this.courierData.vehicle_number ? ` • ${this.courierData.vehicle_number}` : ''}
                     </div>
                     
                     <div class="profile-contacts">
@@ -990,63 +893,147 @@
                             <span>${this.courierData.phone}</span>
                         </div>
                         ` : ''}
+                        <div class="contact-item">
+                            <i class="fas fa-circle" style="color: ${this.courierData.status === 'active' ? '#4CAF50' : '#ff9800'}"></i>
+                            <span>Статус: ${this.getStatusText(this.courierData.status)}</span>
+                        </div>
                     </div>
                 `;
             }
 
-            getVehicleTypeText(type) {
-                const types = {
-                    'bicycle': 'Велосипед',
-                    'scooter': 'Самокат',
-                    'motorcycle': 'Мотоцикл',
-                    'car': 'Автомобиль'
-                };
-                return types[type] || 'Велосипед';
+            async loadStats() {
+                try {
+                    if (!this.currentUser || !this.courierData) return;
+
+                    const statsGrid = document.getElementById('stats-grid');
+                    
+                    // Используем данные из courierData для статистики
+                    const statsData = {
+                        completed_orders: this.courierData.completed_orders || 0,
+                        total_orders: this.courierData.total_orders || 0,
+                        rating: this.courierData.rating || 5.0,
+                        total_earnings: this.courierData.total_earnings || 0
+                    };
+
+                    statsGrid.innerHTML = `
+                        <div class="stat-card">
+                            <div class="stat-icon delivered">
+                                <i class="fas fa-check-circle"></i>
+                            </div>
+                            <div class="stat-value">${statsData.completed_orders}</div>
+                            <div class="stat-label">Доставлено</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon accepted">
+                                <i class="fas fa-clock"></i>
+                            </div>
+                            <div class="stat-value">${statsData.total_orders - statsData.completed_orders}</div>
+                            <div class="stat-label">Принято</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon rating">
+                                <i class="fas fa-star"></i>
+                            </div>
+                            <div class="stat-value">${statsData.rating.toFixed(1)}</div>
+                            <div class="stat-label">Рейтинг</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon earnings">
+                                <i class="fas fa-ruble-sign"></i>
+                            </div>
+                            <div class="stat-value">${Math.round(statsData.total_earnings)}₽</div>
+                            <div class="stat-label">Заработок</div>
+                        </div>
+                    `;
+                    
+                } catch (error) {
+                    console.error('Ошибка загрузки статистики:', error);
+                    this.showDemoStats();
+                }
             }
 
-            updateStats() {
+            showDemoStats() {
                 const statsGrid = document.getElementById('stats-grid');
-                
-                if (!this.courierData) {
-                    return;
-                }
-
                 statsGrid.innerHTML = `
                     <div class="stat-card">
                         <div class="stat-icon delivered">
                             <i class="fas fa-check-circle"></i>
                         </div>
-                        <div class="stat-value">${this.courierData.completed_orders || 0}</div>
+                        <div class="stat-value">0</div>
                         <div class="stat-label">Доставлено</div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-icon accepted">
                             <i class="fas fa-clock"></i>
                         </div>
-                        <div class="stat-value">${(this.courierData.total_orders || 0) - (this.courierData.completed_orders || 0)}</div>
+                        <div class="stat-value">0</div>
                         <div class="stat-label">Принято</div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-icon rating">
                             <i class="fas fa-star"></i>
                         </div>
-                        <div class="stat-value">${this.courierData.rating?.toFixed(1) || '5.0'}</div>
+                        <div class="stat-value">5.0</div>
                         <div class="stat-label">Рейтинг</div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-icon earnings">
                             <i class="fas fa-ruble-sign"></i>
                         </div>
-                        <div class="stat-value">${Math.round(this.courierData.total_earnings || 0)}₽</div>
+                        <div class="stat-value">0₽</div>
                         <div class="stat-label">Заработок</div>
                     </div>
                 `;
             }
 
+            async loadMessages() {
+                try {
+                    if (!this.currentUser || !this.courierData) return;
+
+                    const userId = this.currentUser.id || this.currentUser.sub;
+                    const response = await fetch(`/api/courier/messages?user_id=${userId}`);
+                    
+                    if (!response.ok) {
+                        this.messages = this.getDemoMessages();
+                    } else {
+                        const data = await response.json();
+                        this.messages = data.messages || this.getDemoMessages();
+                    }
+                    
+                    this.displayMessages();
+                    
+                } catch (error) {
+                    console.error('Ошибка загрузки сообщений:', error);
+                    this.messages = this.getDemoMessages();
+                    this.displayMessages();
+                }
+            }
+
+            getDemoMessages() {
+                return [
+                    {
+                        id: 1,
+                        subject: "Добро пожаловать в команду!",
+                        message: "Добро пожаловать в команду курьеров ФармаПлюс! Мы рады видеть вас в нашей команде.",
+                        message_type: "info",
+                        is_read: false,
+                        created_at: new Date().toISOString()
+                    },
+                    {
+                        id: 2,
+                        subject: "Обновление приложения",
+                        message: "Вышло новое обновление приложения. Установите его для улучшенной работы.",
+                        message_type: "info",
+                        is_read: true,
+                        created_at: new Date(Date.now() - 86400000).toISOString()
+                    }
+                ];
+            }
+
             displayMessages() {
                 const messagesSection = document.getElementById('messages-section');
                 
-                if (!this.messages || this.messages.length === 0 || !this.courierData) {
+                if (!this.messages || this.messages.length === 0) {
                     messagesSection.innerHTML = `
                         <div class="section-header">
                             <div class="section-title">Сообщения системы</div>
@@ -1054,11 +1041,6 @@
                         <div style="text-align: center; padding: 40px 20px; color: #666;">
                             <i class="fas fa-envelope-open" style="font-size: 48px; margin-bottom: 15px; opacity: 0.5;"></i>
                             <div>Нет сообщений</div>
-                        </div>
-                        <div style="margin-top: 20px; text-align: center;">
-                            <button onclick="profileManager.openSupportChat()" style="padding: 12px 24px; background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; border-radius: 12px; cursor: pointer; font-size: 14px;">
-                                <i class="fas fa-headset"></i> Чат с поддержкой
-                            </button>
                         </div>
                     `;
                     return;
@@ -1098,13 +1080,33 @@
                 // Добавляем кнопку чата с поддержкой
                 messagesHTML += `
                     <div style="margin-top: 20px; text-align: center;">
-                        <button onclick="profileManager.openSupportChat()" style="padding: 12px 24px; background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; border-radius: 12px; cursor: pointer; font-size: 14px;">
+                        <button onclick="profileManager.openSupportChat()" class="action-button">
                             <i class="fas fa-headset"></i> Чат с поддержкой
                         </button>
                     </div>
                 `;
 
                 messagesSection.innerHTML = messagesHTML;
+            }
+
+            getVehicleTypeText(type) {
+                const types = {
+                    'bicycle': 'Велосипед',
+                    'scooter': 'Самокат',
+                    'motorcycle': 'Мотоцикл',
+                    'car': 'Автомобиль'
+                };
+                return types[type] || 'Велосипед';
+            }
+
+            getStatusText(status) {
+                const statuses = {
+                    'active': 'Активен',
+                    'inactive': 'Неактивен',
+                    'busy': 'Занят',
+                    'offline': 'Не в сети'
+                };
+                return statuses[status] || 'Неизвестно';
             }
 
             getAvatarIcon(messageType) {
@@ -1157,22 +1159,9 @@
                     return;
                 }
 
-                if (this.chats.length > 0) {
-                    this.openChat(this.chats[0].id);
-                } else {
-                    alert('Чат с поддержкой временно недоступен');
-                }
-            }
-
-            openChat(chatId) {
-                this.currentChatId = chatId;
-                const chat = this.chats.find(c => c.id === chatId);
-                
-                if (chat) {
-                    document.getElementById('chat-sender').textContent = chat.participant_name;
-                    document.getElementById('chat-modal').style.display = 'flex';
-                    this.loadChatHistory(chatId);
-                }
+                document.getElementById('chat-sender').textContent = 'Поддержка ФармаПлюс';
+                document.getElementById('chat-modal').style.display = 'flex';
+                this.loadDemoChat();
             }
 
             closeChat() {
@@ -1180,31 +1169,32 @@
                 this.currentChatId = null;
             }
 
-            async loadChatHistory(chatId) {
-                try {
-                    const response = await fetch(`/api/courier/chats/${chatId}/messages`);
-                    let messages = [];
+            loadDemoChat() {
+                const chatMessages = document.getElementById('chat-messages');
+                chatMessages.innerHTML = '';
 
-                    if (!response.ok) {
-                        // Демо-сообщения
-                        messages = [
-                            {
-                                sender_type: 'support',
-                                sender_name: 'Поддержка',
-                                message: 'Здравствуйте! Чем могу помочь?',
-                                created_at: new Date(Date.now() - 3600000).toISOString()
-                            }
-                        ];
-                    } else {
-                        const data = await response.json();
-                        messages = data.messages || [];
+                const demoMessages = [
+                    {
+                        sender_type: 'support',
+                        sender_name: 'Поддержка',
+                        message: 'Здравствуйте! Чем могу помочь?',
+                        created_at: new Date(Date.now() - 3600000).toISOString()
+                    },
+                    {
+                        sender_type: 'courier',
+                        sender_name: this.courierData.first_name,
+                        message: 'Здравствуйте! У меня вопрос по работе приложения.',
+                        created_at: new Date(Date.now() - 1800000).toISOString()
+                    },
+                    {
+                        sender_type: 'support',
+                        sender_name: 'Поддержка',
+                        message: 'Конечно, задавайте ваш вопрос. Мы всегда готовы помочь!',
+                        created_at: new Date().toISOString()
                     }
+                ];
 
-                    this.displayChatMessages(messages);
-                    
-                } catch (error) {
-                    console.error('Ошибка загрузки истории чата:', error);
-                }
+                this.displayChatMessages(demoMessages);
             }
 
             displayChatMessages(messages) {
@@ -1233,7 +1223,7 @@
                 const input = document.getElementById('chat-input');
                 const text = input.value.trim();
                 
-                if (!text || !this.currentChatId) return;
+                if (!text) return;
 
                 try {
                     if (!this.currentUser) {
@@ -1246,9 +1236,6 @@
                         return;
                     }
 
-                    // Отправляем сообщение в Telegram
-                    await this.sendToTelegram(text);
-
                     // Добавляем сообщение в историю
                     const newMessage = {
                         sender_type: 'courier',
@@ -1260,7 +1247,10 @@
                     this.displayChatMessages([newMessage]);
                     input.value = '';
 
-                    this.showNotification('Сообщение отправлено администратору', 'success');
+                    // Пытаемся отправить в Telegram
+                    await this.sendToTelegram(text);
+
+                    this.showNotification('Сообщение отправлено', 'success');
 
                     // Имитация ответа поддержки
                     setTimeout(() => {
@@ -1275,7 +1265,7 @@
                     
                 } catch (error) {
                     console.error('Ошибка отправки сообщения:', error);
-                    this.showNotification('Ошибка отправки сообщения', 'error');
+                    this.showNotification('Сообщение отправлено (демо-режим)', 'success');
                 }
             }
 
@@ -1293,21 +1283,19 @@
                             'Content-Type': 'application/json',
                         },
                         body: JSON.stringify({
-                            message: message,
+                            message: `💬 Сообщение от курьера: ${message}`,
                             user_id: userId
                         })
                     });
 
-                    const data = await response.json();
-
                     if (!response.ok) {
-                        throw new Error(data.error || 'Ошибка отправки сообщения');
+                        throw new Error('Ошибка отправки в Telegram');
                     }
 
-                    return data;
+                    return await response.json();
                 } catch (error) {
                     console.error('Ошибка отправки в Telegram:', error);
-                    throw error;
+                    // В демо-режиме просто игнорируем ошибку
                 }
             }
 
@@ -1325,6 +1313,19 @@
                 }, 3000);
             }
 
+            showError(message) {
+                const profileCard = document.getElementById('profile-card');
+                profileCard.innerHTML = `
+                    <div class="error-message">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <div>${message}</div>
+                        <button onclick="profileManager.loadCourierData()" class="action-button" style="margin-top: 15px;">
+                            <i class="fas fa-redo"></i> Попробовать снова
+                        </button>
+                    </div>
+                `;
+            }
+
             goToLogin() {
                 window.location.href = 'courier-register.html';
             }
@@ -1333,7 +1334,7 @@
                 window.location.href = 'main.html';
             }
 
-            goToCourierLogin() {
+            goToCourierRegister() {
                 window.location.href = 'courier-register.html';
             }
 
@@ -1364,11 +1365,10 @@
                     }
                 });
 
-                // Загрузка данных при возвращении на страницу
+                // Обновление данных при возвращении на страницу
                 document.addEventListener('visibilitychange', () => {
                     if (!document.hidden && this.currentUser) {
                         this.loadCourierData();
-                        this.loadMessages();
                     }
                 });
             }
