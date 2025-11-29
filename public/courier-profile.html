@@ -633,6 +633,11 @@
         .action-button:active {
             transform: scale(0.95);
         }
+
+        .support-disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
     </style>
 </head>
 <body>
@@ -640,12 +645,9 @@
     <div class="header">
         <h1>Профиль курьера</h1>
         <div class="header-actions">
-            <button class="icon-btn" onclick="profileManager.openSettings()">
+            <a href="courier-settings.html" class="icon-btn">
                 <i class="fas fa-cog"></i>
-            </button>
-            <button class="icon-btn" onclick="profileManager.logout()" id="logout-btn" style="display: none;">
-                <i class="fas fa-sign-out-alt"></i>
-            </button>
+            </a>
         </div>
     </div>
 
@@ -748,6 +750,7 @@
                 this.messages = [];
                 this.chats = [];
                 this.currentChatId = null;
+                this.lastSentMessage = null;
                 
                 this.initialize();
             }
@@ -759,26 +762,18 @@
 
             async checkAuth() {
                 try {
-                    // Проверяем наличие пользователя в localStorage
                     const userData = localStorage.getItem('user');
-                    if (!userData) {
-                        this.showAuthCard();
-                        return;
-                    }
-
-                    this.currentUser = JSON.parse(userData);
+                    const courierData = localStorage.getItem('courier');
                     
-                    // Проверяем валидность пользователя
-                    if (!this.currentUser || (!this.currentUser.id && !this.currentUser.sub)) {
-                        localStorage.removeItem('user');
-                        localStorage.removeItem('courier');
+                    if (userData && courierData) {
+                        this.currentUser = JSON.parse(userData);
+                        this.courierData = JSON.parse(courierData);
+                        this.showProfileContent();
+                        await this.loadCourierData();
+                        await this.loadMessages();
+                    } else {
                         this.showAuthCard();
-                        return;
                     }
-
-                    this.showProfileContent();
-                    await this.loadCourierData();
-                    
                 } catch (error) {
                     console.error('Ошибка проверки авторизации:', error);
                     this.showAuthCard();
@@ -788,13 +783,11 @@
             showAuthCard() {
                 document.getElementById('auth-card').style.display = 'block';
                 document.getElementById('profile-content').style.display = 'none';
-                document.getElementById('logout-btn').style.display = 'none';
             }
 
             showProfileContent() {
                 document.getElementById('auth-card').style.display = 'none';
                 document.getElementById('profile-content').style.display = 'block';
-                document.getElementById('logout-btn').style.display = 'block';
             }
 
             async loadCourierData() {
@@ -830,7 +823,6 @@
                         this.courierData = data.courier;
                         localStorage.setItem('courier', JSON.stringify(this.courierData));
                         this.displayProfileData();
-                        await this.loadMessages();
                         await this.loadStats();
                     } else {
                         this.showCourierNotRegistered();
@@ -911,7 +903,7 @@
                     const statsData = {
                         completed_orders: this.courierData.completed_orders || 0,
                         total_orders: this.courierData.total_orders || 0,
-                        rating: this.courierData.rating || 5.0,
+                        rating: parseFloat(this.courierData.rating) || 5.0, // Исправление ошибки с рейтингом
                         total_earnings: this.courierData.total_earnings || 0
                     };
 
@@ -1043,6 +1035,17 @@
                             <div>Нет сообщений</div>
                         </div>
                     `;
+                    
+                    // Добавляем кнопку чата с поддержкой (только для зарегистрированных курьеров)
+                    if (this.courierData) {
+                        messagesSection.innerHTML += `
+                            <div style="margin-top: 20px; text-align: center;">
+                                <button onclick="profileManager.openSupportChat()" class="action-button">
+                                    <i class="fas fa-headset"></i> Чат с поддержкой
+                                </button>
+                            </div>
+                        `;
+                    }
                     return;
                 }
 
@@ -1077,14 +1080,24 @@
 
                 messagesHTML += `</div>`;
 
-                // Добавляем кнопку чата с поддержкой
-                messagesHTML += `
-                    <div style="margin-top: 20px; text-align: center;">
-                        <button onclick="profileManager.openSupportChat()" class="action-button">
-                            <i class="fas fa-headset"></i> Чат с поддержкой
-                        </button>
-                    </div>
-                `;
+                // Добавляем кнопку чата с поддержкой (только для зарегистрированных курьеров)
+                if (this.courierData) {
+                    messagesHTML += `
+                        <div style="margin-top: 20px; text-align: center;">
+                            <button onclick="profileManager.openSupportChat()" class="action-button">
+                                <i class="fas fa-headset"></i> Чат с поддержкой
+                            </button>
+                        </div>
+                    `;
+                } else {
+                    messagesHTML += `
+                        <div style="margin-top: 20px; text-align: center;">
+                            <button class="action-button support-disabled" disabled>
+                                <i class="fas fa-headset"></i> Доступно после регистрации
+                            </button>
+                        </div>
+                    `;
+                }
 
                 messagesSection.innerHTML = messagesHTML;
             }
@@ -1179,18 +1192,6 @@
                         sender_name: 'Поддержка',
                         message: 'Здравствуйте! Чем могу помочь?',
                         created_at: new Date(Date.now() - 3600000).toISOString()
-                    },
-                    {
-                        sender_type: 'courier',
-                        sender_name: this.courierData.first_name,
-                        message: 'Здравствуйте! У меня вопрос по работе приложения.',
-                        created_at: new Date(Date.now() - 1800000).toISOString()
-                    },
-                    {
-                        sender_type: 'support',
-                        sender_name: 'Поддержка',
-                        message: 'Конечно, задавайте ваш вопрос. Мы всегда готовы помочь!',
-                        created_at: new Date().toISOString()
                     }
                 ];
 
@@ -1225,6 +1226,12 @@
                 
                 if (!text) return;
 
+                // Проверка на дублирование сообщения
+                if (this.lastSentMessage === text) {
+                    this.showNotification('Вы уже отправили это сообщение', 'error');
+                    return;
+                }
+
                 try {
                     if (!this.currentUser) {
                         this.showNotification('Ошибка: пользователь не авторизован', 'error');
@@ -1246,11 +1253,12 @@
 
                     this.displayChatMessages([newMessage]);
                     input.value = '';
+                    this.lastSentMessage = text;
 
-                    // Пытаемся отправить в Telegram
+                    // Отправляем сообщение в Telegram с ID курьера
                     await this.sendToTelegram(text);
 
-                    this.showNotification('Сообщение отправлено', 'success');
+                    this.showNotification('Сообщение отправлено администратору', 'success');
 
                     // Имитация ответа поддержки
                     setTimeout(() => {
@@ -1265,7 +1273,7 @@
                     
                 } catch (error) {
                     console.error('Ошибка отправки сообщения:', error);
-                    this.showNotification('Сообщение отправлено (демо-режим)', 'success');
+                    this.showNotification('Ошибка отправки сообщения', 'error');
                 }
             }
 
@@ -1275,27 +1283,43 @@
                         throw new Error('Пользователь не авторизован');
                     }
 
+                    if (!this.courierData) {
+                        throw new Error('Курьер не зарегистрирован');
+                    }
+
                     const userId = this.currentUser.id || this.currentUser.sub;
+                    const courierId = this.courierData.courier_code;
                     
+                    // Формируем сообщение с ID курьера
+                    const telegramMessage = `📱 *Сообщение от курьера*\n\n` +
+                                           `🆔 *ID курьера:* ${courierId}\n` +
+                                           `👤 *Имя:* ${this.courierData.first_name} ${this.courierData.last_name}\n` +
+                                           `📞 *Телефон:* ${this.courierData.phone || 'Не указан'}\n` +
+                                           `📧 *Email:* ${this.courierData.email}\n\n` +
+                                           `💬 *Сообщение:* ${message}\n\n` +
+                                           `⏰ ${new Date().toLocaleString('ru-RU')}`;
+
                     const response = await fetch('/api/telegram/send-message', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
                         },
                         body: JSON.stringify({
-                            message: `💬 Сообщение от курьера: ${message}`,
+                            message: telegramMessage,
                             user_id: userId
                         })
                     });
 
+                    const data = await response.json();
+
                     if (!response.ok) {
-                        throw new Error('Ошибка отправки в Telegram');
+                        throw new Error(data.error || 'Ошибка отправки сообщения');
                     }
 
-                    return await response.json();
+                    return data;
                 } catch (error) {
                     console.error('Ошибка отправки в Telegram:', error);
-                    // В демо-режиме просто игнорируем ошибку
+                    throw error;
                 }
             }
 
@@ -1336,25 +1360,6 @@
 
             goToCourierRegister() {
                 window.location.href = 'courier-register.html';
-            }
-
-            openSettings() {
-                if (!this.currentUser) {
-                    this.showNotification('Сначала войдите в аккаунт', 'error');
-                    return;
-                }
-                alert('Настройки профиля будут доступны в следующем обновлении');
-            }
-
-            logout() {
-                if (confirm('Вы уверены, что хотите выйти?')) {
-                    localStorage.removeItem('user');
-                    localStorage.removeItem('courier');
-                    this.currentUser = null;
-                    this.courierData = null;
-                    this.showAuthCard();
-                    this.showNotification('Вы успешно вышли из аккаунта', 'success');
-                }
             }
 
             setupEventListeners() {
