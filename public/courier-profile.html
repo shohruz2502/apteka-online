@@ -856,42 +856,52 @@
             }
 
             displayProfileData() {
-                const profileCard = document.getElementById('profile-card');
-                
-                if (!this.courierData) {
-                    return;
-                }
+    const profileCard = document.getElementById('profile-card');
+    
+    if (!this.courierData) {
+        return;
+    }
 
-                profileCard.innerHTML = `
-                    <div class="profile-avatar">
-                        <i class="fas fa-motorcycle"></i>
-                    </div>
-                    <div class="profile-name">${this.courierData.first_name} ${this.courierData.last_name}</div>
-                    <div class="profile-id">ID: ${this.courierData.courier_code}</div>
-                    <div style="margin: 10px 0; padding: 8px 12px; background: rgba(76, 175, 80, 0.1); border-radius: 10px; color: #4CAF50; font-size: 14px;">
-                        <i class="fas fa-${this.courierData.vehicle_type === 'car' ? 'car' : this.courierData.vehicle_type === 'motorcycle' ? 'motorcycle' : 'bicycle'}"></i>
-                        ${this.getVehicleTypeText(this.courierData.vehicle_type)}
-                        ${this.courierData.vehicle_number ? ` • ${this.courierData.vehicle_number}` : ''}
-                    </div>
-                    
-                    <div class="profile-contacts">
-                        <div class="contact-item">
-                            <i class="fas fa-envelope"></i>
-                            <span>${this.courierData.email}</span>
-                        </div>
-                        ${this.courierData.phone ? `
-                        <div class="contact-item">
-                            <i class="fas fa-phone"></i>
-                            <span>${this.courierData.phone}</span>
-                        </div>
-                        ` : ''}
-                        <div class="contact-item">
-                            <i class="fas fa-circle" style="color: ${this.courierData.status === 'active' ? '#4CAF50' : '#ff9800'}"></i>
-                            <span>Статус: ${this.getStatusText(this.courierData.status)}</span>
-                        </div>
-                    </div>
-                `;
-            }
+    // Безопасное получение данных
+    const firstName = this.courierData.first_name || 'Имя не указано';
+    const lastName = this.courierData.last_name || 'Фамилия не указана';
+    const courierCode = this.courierData.courier_code || 'Не назначен';
+    const vehicleType = this.courierData.vehicle_type || 'bicycle';
+    const vehicleNumber = this.courierData.vehicle_number || '';
+    const email = this.courierData.email || 'Не указан';
+    const phone = this.courierData.phone || '';
+    const status = this.courierData.status || 'inactive';
+
+    profileCard.innerHTML = `
+        <div class="profile-avatar">
+            <i class="fas fa-motorcycle"></i>
+        </div>
+        <div class="profile-name">${firstName} ${lastName}</div>
+        <div class="profile-id">ID: ${courierCode}</div>
+        <div style="margin: 10px 0; padding: 8px 12px; background: rgba(76, 175, 80, 0.1); border-radius: 10px; color: #4CAF50; font-size: 14px;">
+            <i class="fas fa-${vehicleType === 'car' ? 'car' : vehicleType === 'motorcycle' ? 'motorcycle' : 'bicycle'}"></i>
+            ${this.getVehicleTypeText(vehicleType)}
+            ${vehicleNumber ? ` • ${vehicleNumber}` : ''}
+        </div>
+        
+        <div class="profile-contacts">
+            <div class="contact-item">
+                <i class="fas fa-envelope"></i>
+                <span>${email}</span>
+            </div>
+            ${phone ? `
+            <div class="contact-item">
+                <i class="fas fa-phone"></i>
+                <span>${phone}</span>
+            </div>
+            ` : ''}
+            <div class="contact-item">
+                <i class="fas fa-circle" style="color: ${status === 'active' ? '#4CAF50' : '#ff9800'}"></i>
+                <span>Статус: ${this.getStatusText(status)}</span>
+            </div>
+        </div>
+    `;
+}
 
             async loadStats() {
                 try {
@@ -1221,107 +1231,120 @@
             }
 
             async sendMessage() {
-                const input = document.getElementById('chat-input');
-                const text = input.value.trim();
-                
-                if (!text) return;
+    const input = document.getElementById('chat-input');
+    const text = input.value.trim();
+    
+    if (!text) return;
 
-                // Проверка на дублирование сообщения
-                if (this.lastSentMessage === text) {
-                    this.showNotification('Вы уже отправили это сообщение', 'error');
-                    return;
-                }
+    // Проверка на дублирование сообщения
+    if (this.lastSentMessage === text) {
+        this.showNotification('Вы уже отправили это сообщение', 'error');
+        return;
+    }
 
-                try {
-                    if (!this.currentUser) {
-                        this.showNotification('Ошибка: пользователь не авторизован', 'error');
-                        return;
-                    }
+    try {
+        if (!this.currentUser) {
+            this.showNotification('Ошибка: пользователь не авторизован', 'error');
+            return;
+        }
 
-                    if (!this.courierData) {
-                        this.showNotification('Сначала зарегистрируйтесь как курьер', 'error');
-                        return;
-                    }
+        if (!this.courierData) {
+            this.showNotification('Сначала зарегистрируйтесь как курьер', 'error');
+            return;
+        }
 
-                    // Добавляем сообщение в историю
-                    const newMessage = {
-                        sender_type: 'courier',
-                        sender_name: this.courierData.first_name,
-                        message: text,
-                        created_at: new Date().toISOString()
-                    };
+        // Добавляем сообщение в историю
+        const newMessage = {
+            sender_type: 'courier',
+            sender_name: this.courierData.first_name || 'Курьер',
+            message: text,
+            created_at: new Date().toISOString()
+        };
 
-                    this.displayChatMessages([newMessage]);
-                    input.value = '';
-                    this.lastSentMessage = text;
+        this.displayChatMessages([newMessage]);
+        input.value = '';
+        this.lastSentMessage = text;
 
-                    // Отправляем сообщение в Telegram с ID курьера
-                    await this.sendToTelegram(text);
+        // Отправляем сообщение в Telegram с ID курьера
+        await this.sendToTelegram(text);
 
-                    this.showNotification('Сообщение отправлено администратору', 'success');
+        this.showNotification('Сообщение отправлено администратору', 'success');
 
-                    // Имитация ответа поддержки
-                    setTimeout(() => {
-                        const replyMessage = {
-                            sender_type: 'support',
-                            sender_name: 'Поддержка',
-                            message: 'Спасибо за сообщение! Мы ответим вам в ближайшее время.',
-                            created_at: new Date().toISOString()
-                        };
-                        this.displayChatMessages([replyMessage]);
-                    }, 2000);
-                    
-                } catch (error) {
-                    console.error('Ошибка отправки сообщения:', error);
-                    this.showNotification('Ошибка отправки сообщения', 'error');
-                }
-            }
+        // Имитация ответа поддержки
+        setTimeout(() => {
+            const replyMessage = {
+                sender_type: 'support',
+                sender_name: 'Поддержка',
+                message: 'Спасибо за сообщение! Мы ответим вам в ближайшее время.',
+                created_at: new Date().toISOString()
+            };
+            this.displayChatMessages([replyMessage]);
+        }, 2000);
+        
+    } catch (error) {
+        console.error('Ошибка отправки сообщения:', error);
+        
+        // Более информативное сообщение об ошибке
+        let errorMessage = 'Ошибка отправки сообщения';
+        if (error.message.includes('first_name') || error.message.includes('column')) {
+            errorMessage = 'Ошибка данных профиля. Пожалуйста, обновите информацию в профиле.';
+        }
+        
+        this.showNotification(errorMessage, 'error');
+    }
+}
 
             async sendToTelegram(message) {
-                try {
-                    if (!this.currentUser) {
-                        throw new Error('Пользователь не авторизован');
-                    }
+    try {
+        if (!this.currentUser) {
+            throw new Error('Пользователь не авторизован');
+        }
 
-                    if (!this.courierData) {
-                        throw new Error('Курьер не зарегистрирован');
-                    }
+        if (!this.courierData) {
+            throw new Error('Курьер не зарегистрирован');
+        }
 
-                    const userId = this.currentUser.id || this.currentUser.sub;
-                    const courierId = this.courierData.courier_code;
-                    
-                    // Формируем сообщение с ID курьера
-                    const telegramMessage = `📱 *Сообщение от курьера*\n\n` +
-                                           `🆔 *ID курьера:* ${courierId}\n` +
-                                           `👤 *Имя:* ${this.courierData.first_name} ${this.courierData.last_name}\n` +
-                                           `📞 *Телефон:* ${this.courierData.phone || 'Не указан'}\n` +
-                                           `📧 *Email:* ${this.courierData.email}\n\n` +
-                                           `💬 *Сообщение:* ${message}\n\n` +
-                                           `⏰ ${new Date().toLocaleString('ru-RU')}`;
+        const userId = this.currentUser.id || this.currentUser.sub;
+        const courierId = this.courierData.courier_code;
+        
+        // Безопасное получение данных курьера
+        const firstName = this.courierData.first_name || 'Не указано';
+        const lastName = this.courierData.last_name || 'Не указано';
+        const phone = this.courierData.phone || 'Не указан';
+        const email = this.courierData.email || 'Не указан';
+        
+        // Формируем сообщение с ID курьера
+        const telegramMessage = `📱 *Сообщение от курьера*\n\n` +
+                               `🆔 *ID курьера:* ${courierId}\n` +
+                               `👤 *Имя:* ${firstName} ${lastName}\n` +
+                               `📞 *Телефон:* ${phone}\n` +
+                               `📧 *Email:* ${email}\n\n` +
+                               `💬 *Сообщение:* ${message}\n\n` +
+                               `⏰ ${new Date().toLocaleString('ru-RU')}`;
 
-                    const response = await fetch('/api/telegram/send-message', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            message: telegramMessage,
-                            user_id: userId
-                        })
-                    });
+        const response = await fetch('/api/telegram/send-message', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                message: telegramMessage,
+                user_id: userId
+            })
+        });
 
-                    const data = await response.json();
+        const data = await response.json();
 
-                    if (!response.ok) {
-                        throw new Error(data.error || 'Ошибка отправки сообщения');
-                    }
+        if (!response.ok) {
+            throw new Error(data.error || 'Ошибка отправки сообщения');
+        }
 
-                    return data;
-                } catch (error) {
-                    console.error('Ошибка отправки в Telegram:', error);
-                    throw error;
-                }
-            }
+        return data;
+    } catch (error) {
+        console.error('Ошибка отправки в Telegram:', error);
+        throw error;
+    }
+}
 
             showNotification(message, type = 'success') {
                 const notification = document.getElementById('notification');
