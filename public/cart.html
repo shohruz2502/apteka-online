@@ -352,7 +352,7 @@
         line-height: 1.5;
       }
 
-      /* Auth Warning - УЛУЧШЕННЫЙ ДИЗАЙН */
+      /* Auth Warning */
       .auth-warning {
         text-align: center;
         padding: 2.5rem 1.5rem;
@@ -859,7 +859,17 @@
     </div>
 
     <script>
-      // Элементы DOM
+      // ==================== КОНФИГУРАЦИЯ ====================
+      const API_BASE = window.location.hostname === 'localhost' 
+        ? 'http://localhost:3000/api' 
+        : '/api';
+
+      // ==================== ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ====================
+      let cartItems = [];
+      let currentUser = null;
+      let isLoading = false;
+
+      // ==================== ЭЛЕМЕНТЫ DOM ====================
       const cartItemsDiv = document.getElementById("cart-items");
       const totalAmountDiv = document.getElementById("total-amount");
       const itemsCountDiv = document.getElementById("items-count");
@@ -873,36 +883,45 @@
       const authWarning = document.getElementById("auth-warning");
       const cartBadge = document.getElementById("cart-badge");
 
-      let cartItems = [];
-      let currentUser = null;
-
-      // ИСПРАВЛЕННАЯ проверка авторизации - поддержка Google пользователей
+      // ==================== ПРОВЕРКА АВТОРИЗАЦИИ ====================
       function checkAuth() {
         const userData = localStorage.getItem("user");
         
-        if (userData) {
-          try {
-            const user = JSON.parse(userData);
-            // ИСПРАВЛЕНИЕ: Поддержка Google пользователей (id или sub)
-            if (user && (user.id || user.sub)) {
-              currentUser = user;
-              return true;
-            }
-          } catch (e) {
-            console.warn("Не удалось распарсить user из localStorage:", e);
-          }
+        if (!userData) {
+          console.log("Нет данных пользователя в localStorage");
+          return false;
         }
         
-        return false;
+        try {
+          const user = JSON.parse(userData);
+          console.log("Данные пользователя из localStorage:", user);
+          
+          // ИСПРАВЛЕННАЯ проверка: поддерживаем все форматы ID
+          if (user && (user.id || user.sub || user.google_id)) {
+            currentUser = user;
+            console.log("Пользователь авторизован:", currentUser);
+            return true;
+          } else {
+            console.warn("У пользователя нет ID:", user);
+            localStorage.removeItem("user");
+            return false;
+          }
+        } catch (e) {
+          console.error("Ошибка парсинга user из localStorage:", e);
+          localStorage.removeItem("user");
+          return false;
+        }
       }
 
-      // Получение ID пользователя (поддержка Google)
+      // Получение ID пользователя (поддержка всех форматов)
       function getUserId() {
         if (!currentUser) return null;
-        return currentUser.id || currentUser.sub;
+        
+        // Приоритет: 1) ID от сервера, 2) Google sub, 3) Google ID
+        return currentUser.id || currentUser.sub || currentUser.google_id;
       }
 
-      // Показать/скрыть элементы
+      // ==================== УПРАВЛЕНИЕ ОТОБРАЖЕНИЕМ ====================
       function showLoading() {
         loading.style.display = "flex";
         cartContent.style.display = "none";
@@ -920,6 +939,7 @@
         loading.style.display = "none";
         emptyCart.style.display = "none";
         authWarning.style.display = "none";
+        updateCartBadge();
       }
 
       function showEmptyCart() {
@@ -935,6 +955,7 @@
         loading.style.display = "none";
         cartContent.style.display = "none";
         emptyCart.style.display = "none";
+        updateCartBadge(0);
       }
 
       function showError(message) {
@@ -956,8 +977,12 @@
         successMessage.style.display = "none";
       }
 
-      // Обновление бейджа корзины
-      function updateCartBadge(count) {
+      // ==================== БЕЙДЖ КОРЗИНЫ ====================
+      function updateCartBadge(count = null) {
+        if (count === null) {
+          count = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+        }
+        
         if (count > 0) {
           cartBadge.textContent = count > 99 ? "99+" : count;
           cartBadge.style.display = "flex";
@@ -966,10 +991,14 @@
         }
       }
 
-      // Загрузка корзины
+      // ==================== ЗАГРУЗКА КОРЗИНЫ ====================
       async function loadCart() {
+        if (isLoading) return;
+        isLoading = true;
+        
         if (!checkAuth()) {
           showAuthWarning();
+          isLoading = false;
           return;
         }
 
@@ -982,13 +1011,22 @@
             throw new Error("Не удалось определить ID пользователя");
           }
 
-          const response = await fetch(`/api/cart?user_id=${userId}`);
+          console.log("Загружаем корзину для пользователя ID:", userId);
+          
+          // ИСПРАВЛЕННЫЙ URL с правильным параметром
+          const response = await fetch(`${API_BASE}/cart?user_id=${userId}`);
+
+          if (response.status === 401 || response.status === 404) {
+            // Пользователь не авторизован или корзина не найдена
+            throw new Error("Корзина не найдена или доступ запрещен");
+          }
 
           if (!response.ok) {
-            throw new Error("Ошибка загрузки корзины");
+            throw new Error(`HTTP error! status: ${response.status}`);
           }
 
           const data = await response.json();
+          console.log("Данные корзины с сервера:", data);
 
           if (data.success) {
             cartItems = data.items || [];
@@ -1001,18 +1039,26 @@
               showCartContent();
             }
           } else {
-            throw new Error(data.error || "Неизвестная ошибка");
+            throw new Error(data.error || "Неизвестная ошибка сервера");
           }
         } catch (error) {
           console.error("Ошибка загрузки корзины:", error);
-          showError(error.message);
-          showEmptyCart();
+          
+          if (error.message.includes("Корзина не найдена")) {
+            // Если корзина не найдена, показываем пустую
+            cartItems = [];
+            showEmptyCart();
+          } else {
+            showError(error.message);
+            showEmptyCart();
+          }
         } finally {
+          isLoading = false;
           hideLoading();
         }
       }
 
-      // Отрисовка корзины
+      // ==================== ОТРИСОВКА КОРЗИНЫ ====================
       function renderCart() {
         cartItemsDiv.innerHTML = "";
 
@@ -1022,6 +1068,7 @@
 
           const cartItem = document.createElement("div");
           cartItem.className = "cart-item";
+          cartItem.dataset.itemId = item.id;
 
           cartItem.innerHTML = `
             <div class="cart-item-header">
@@ -1039,7 +1086,7 @@
                   <i class="fas fa-minus"></i>
                 </button>
                 <input type="number" class="quantity-input" value="${item.quantity}" min="1" 
-                       onchange="updateQuantity(${item.id}, parseInt(this.value))">
+                       onchange="updateQuantity(${item.id}, parseInt(this.value) || 1)">
                 <button class="quantity-btn" onclick="updateQuantity(${item.id}, ${item.quantity + 1})">
                   <i class="fas fa-plus"></i>
                 </button>
@@ -1057,14 +1104,14 @@
         });
       }
 
-      // Обновление итогов
+      // ==================== ОБНОВЛЕНИЕ ИТОГОВ ====================
       function updateCartSummary() {
         const total = cartItems.reduce(
-          (sum, item) => sum + item.price * item.quantity,
+          (sum, item) => sum + (parseFloat(item.price) || 0) * (parseInt(item.quantity) || 0),
           0
         );
         const itemsCount = cartItems.reduce(
-          (sum, item) => sum + item.quantity,
+          (sum, item) => sum + (parseInt(item.quantity) || 0),
           0
         );
 
@@ -1073,9 +1120,12 @@
         updateCartBadge(itemsCount);
       }
 
-      // Обновление количества
+      // ==================== ОБНОВЛЕНИЕ КОЛИЧЕСТВА ====================
       async function updateQuantity(itemId, newQuantity) {
+        if (isLoading) return;
+        
         if (newQuantity < 1) newQuantity = 1;
+        if (newQuantity > 99) newQuantity = 99;
 
         hideMessages();
 
@@ -1085,7 +1135,9 @@
             throw new Error("Не удалось определить ID пользователя");
           }
 
-          const response = await fetch(`/api/cart/${itemId}`, {
+          console.log(`Обновление количества: itemId=${itemId}, quantity=${newQuantity}, userId=${userId}`);
+
+          const response = await fetch(`${API_BASE}/cart/${itemId}`, {
             method: "PUT",
             headers: {
               "Content-Type": "application/json",
@@ -1116,12 +1168,15 @@
         } catch (error) {
           console.error("Ошибка обновления количества:", error);
           showError(error.message);
-          loadCart();
+          // Перезагружаем корзину для синхронизации
+          await loadCart();
         }
       }
 
-      // Удаление товара
+      // ==================== УДАЛЕНИЕ ТОВАРА ====================
       async function removeItem(itemId) {
+        if (isLoading) return;
+        
         if (!confirm("Вы уверены, что хотите удалить товар из корзины?")) {
           return;
         }
@@ -1134,7 +1189,7 @@
             throw new Error("Не удалось определить ID пользователя");
           }
 
-          const response = await fetch(`/api/cart/${itemId}`, {
+          const response = await fetch(`${API_BASE}/cart/${itemId}`, {
             method: "DELETE",
             headers: {
               "Content-Type": "application/json",
@@ -1167,12 +1222,14 @@
         } catch (error) {
           console.error("Ошибка удаления товара:", error);
           showError(error.message);
-          loadCart();
+          await loadCart();
         }
       }
 
-      // Очистка корзины
+      // ==================== ОЧИСТКА КОРЗИНЫ ====================
       async function clearCart() {
+        if (isLoading) return;
+        
         if (!confirm("Вы уверены, что хотите очистить всю корзину?")) {
           return;
         }
@@ -1185,7 +1242,7 @@
             throw new Error("Не удалось определить ID пользователя");
           }
 
-          const response = await fetch("/api/cart", {
+          const response = await fetch(`${API_BASE}/cart`, {
             method: "DELETE",
             headers: {
               "Content-Type": "application/json",
@@ -1214,8 +1271,10 @@
         }
       }
 
-      // Оформление заказа
-      function checkout() {
+      // ==================== ОФОРМЛЕНИЕ ЗАКАЗА ====================
+      async function checkout() {
+        if (isLoading) return;
+        
         if (cartItems.length === 0) {
           showError("Корзина пуста");
           return;
@@ -1227,33 +1286,77 @@
           return;
         }
 
-        showSuccess("Функция оформления заказа будет реализована в ближайшее время");
+        hideMessages();
 
-        setTimeout(() => {
-          alert("Функция оформления заказа находится в разработке. Спасибо за ваш заказ!");
-        }, 500);
+        try {
+          const userId = getUserId();
+          if (!userId) {
+            throw new Error("Не удалось определить ID пользователя");
+          }
+
+          showSuccess("Оформление заказа...");
+
+          const response = await fetch(`${API_BASE}/orders`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              user_id: userId,
+              items: cartItems,
+              total: cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0)
+            }),
+          });
+
+          const data = await response.json();
+
+          if (response.ok && data.success) {
+            showSuccess("Заказ успешно оформлен!");
+            
+            // Очищаем корзину после успешного заказа
+            setTimeout(async () => {
+              await clearCart();
+              // Можно добавить редирект на страницу заказов
+              // window.location.href = "orders.html";
+            }, 2000);
+          } else {
+            throw new Error(data.error || "Ошибка оформления заказа");
+          }
+        } catch (error) {
+          console.error("Ошибка оформления заказа:", error);
+          showError(error.message);
+        }
       }
 
-      // Обработчики событий
+      // ==================== ОБРАБОТЧИКИ СОБЫТИЙ ====================
       checkoutBtn.addEventListener("click", checkout);
       clearCartBtn.addEventListener("click", clearCart);
 
-      // Обработка изменения ориентации экрана
+      // Обновление при изменении размера окна
       window.addEventListener("resize", function () {
         if (cartItems.length > 0) {
           renderCart();
         }
       });
 
-      // Инициализация
-      document.addEventListener("DOMContentLoaded", loadCart);
-
-      // Обработка изменения авторизации
+      // Обработка изменения авторизации в других вкладках
       window.addEventListener("storage", function (e) {
         if (e.key === "user") {
+          console.log("Данные пользователя изменены в другой вкладке");
           loadCart();
         }
       });
+
+      // ==================== ИНИЦИАЛИЗАЦИЯ ====================
+      document.addEventListener("DOMContentLoaded", () => {
+        console.log("Инициализация корзины...");
+        loadCart();
+      });
+
+      // ==================== ГЛОБАЛЬНЫЕ ФУНКЦИИ ====================
+      // Делаем функции доступными глобально для обработчиков onclick
+      window.updateQuantity = updateQuantity;
+      window.removeItem = removeItem;
     </script>
   </body>
 </html>
