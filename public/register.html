@@ -595,6 +595,11 @@
                         <input type="password" id="confirm-password" placeholder="Повторите пароль" required>
                     </div>
                     
+                    <div class="form-group">
+                        <label for="phone">Телефон (необязательно)</label>
+                        <input type="tel" id="phone" placeholder="+992 XXX XX XX XX">
+                    </div>
+                    
                     <div class="error-message" id="register-error"></div>
                     <div class="success-message" id="register-success"></div>
                     
@@ -658,6 +663,11 @@
                 </div>
                 
                 <div class="form-group">
+                    <label for="google-phone">Телефон (необязательно)</label>
+                    <input type="tel" id="google-phone" placeholder="+992 XXX XX XX XX">
+                </div>
+                
+                <div class="form-group">
                     <label for="google-password">Пароль (необязательно)</label>
                     <input type="password" id="google-password" placeholder="Пароль для входа через email">
                     <div class="optional-note">Можно оставить пустым, если будете входить только через Google</div>
@@ -680,11 +690,14 @@
     <script>
         const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:3000/api' : '/api';
         let googleUserData = null;
-        let googleAuthScriptLoaded = false;
+        let googleClientId = null;
 
         document.addEventListener('DOMContentLoaded', function() {
             // Проверяем, если пользователь уже авторизован
             checkExistingAuth();
+
+            // Получаем конфигурацию Google
+            loadGoogleConfig();
 
             // Элементы DOM
             const stepLogin = document.getElementById('step-login');
@@ -724,13 +737,155 @@
                     try {
                         const user = JSON.parse(userData);
                         if (user && (user.id || user.sub || user.google_id)) {
-                            // Пользователь уже авторизован - показываем success экран
                             showUserSuccessScreen(user);
                         }
                     } catch (e) {
                         console.error('Error parsing user data:', e);
                         localStorage.removeItem('user');
                     }
+                }
+            }
+
+            // Загрузка конфигурации Google
+            async function loadGoogleConfig() {
+                try {
+                    console.log('Загрузка конфигурации Google...');
+                    const response = await fetch(`${API_BASE}/config/google`);
+                    
+                    if (!response.ok) {
+                        throw new Error('Ошибка получения конфигурации');
+                    }
+                    
+                    const config = await response.json();
+                    
+                    if (config.success && config.googleClientId && config.googleClientId !== 'not-configured') {
+                        googleClientId = config.googleClientId;
+                        console.log('Google Client ID получен:', googleClientId.substring(0, 20) + '...');
+                        loadGoogleScript();
+                    } else {
+                        console.warn('Google OAuth не настроен на сервере');
+                        disableGoogleButtons();
+                    }
+                } catch (error) {
+                    console.error('Ошибка загрузки конфигурации Google:', error);
+                    disableGoogleButtons();
+                }
+            }
+
+            // Загрузка Google Identity Services скрипта
+            function loadGoogleScript() {
+                if (window.google && window.google.accounts) {
+                    console.log('Google Identity Services уже загружен');
+                    return;
+                }
+                
+                const script = document.createElement('script');
+                script.src = 'https://accounts.google.com/gsi/client';
+                script.async = true;
+                script.defer = true;
+                
+                script.onload = () => {
+                    console.log('✅ Google Identity Services loaded');
+                    initializeGoogleAuth();
+                };
+                
+                script.onerror = () => {
+                    console.error('❌ Failed to load Google Identity Services');
+                    disableGoogleButtons();
+                };
+                
+                document.head.appendChild(script);
+            }
+
+            // Инициализация Google авторизации
+            function initializeGoogleAuth() {
+                if (!window.google || !window.google.accounts || !googleClientId) {
+                    console.error('Google API не доступен');
+                    disableGoogleButtons();
+                    return;
+                }
+
+                try {
+                    // Инициализируем Google Identity Services
+                    google.accounts.id.initialize({
+                        client_id: googleClientId,
+                        callback: handleGoogleSignIn,
+                        auto_select: false,
+                        cancel_on_tap_outside: true,
+                        context: 'signin'
+                    });
+
+                    console.log('✅ Google auth инициализирован');
+                    
+                    // Восстанавливаем кнопки Google
+                    const googleBtns = document.querySelectorAll('.btn-google');
+                    googleBtns.forEach(btn => {
+                        btn.disabled = false;
+                        btn.style.opacity = '1';
+                    });
+                    
+                } catch (error) {
+                    console.error('Ошибка инициализации Google auth:', error);
+                    disableGoogleButtons();
+                }
+            }
+
+            // Отключение кнопок Google
+            function disableGoogleButtons() {
+                const googleBtns = document.querySelectorAll('.btn-google');
+                googleBtns.forEach(btn => {
+                    btn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Google авторизация недоступна';
+                    btn.disabled = true;
+                    btn.style.opacity = '0.6';
+                    btn.title = 'Google OAuth не настроен на сервере';
+                });
+            }
+
+            // Обработчик Google Sign-In
+            async function handleGoogleSignIn(response) {
+                console.log('Google sign-in response received');
+                
+                const submitBtn = event?.target || googleLoginBtn;
+                const originalHtml = submitBtn.innerHTML;
+                
+                try {
+                    // Показываем загрузку
+                    submitBtn.innerHTML = '<div class="loading" style="border-color: #333;"></div> Обработка...';
+                    submitBtn.disabled = true;
+                    
+                    // Отправляем credential на сервер для проверки
+                    const serverResponse = await fetch(`${API_BASE}/auth/google`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ credential: response.credential })
+                    });
+
+                    const data = await serverResponse.json();
+                    
+                    if (!serverResponse.ok) {
+                        throw new Error(data.error || 'Ошибка Google авторизации');
+                    }
+                    
+                    console.log('Google auth response:', data);
+                    
+                    if (data.exists) {
+                        // Существующий пользователь - сразу логиним
+                        console.log('Google: Существующий пользователь', data.user);
+                        saveUserAndRedirect(data.user);
+                    } else {
+                        // Новый пользователь - сохраняем данные и показываем модалку
+                        console.log('Google: Новый пользователь', data.user);
+                        googleUserData = data.user;
+                        showGoogleCompleteModal();
+                    }
+                    
+                } catch (error) {
+                    console.error('Google auth error:', error);
+                    showError(error.message || 'Ошибка авторизации через Google');
+                    
+                    // Восстанавливаем кнопку
+                    submitBtn.innerHTML = originalHtml;
+                    submitBtn.disabled = false;
                 }
             }
 
@@ -792,154 +947,6 @@
                 modalError.style.display = 'none';
             }
 
-            // Загрузка Google скрипта
-            function loadGoogleScript() {
-                if (googleAuthScriptLoaded) return;
-                
-                const script = document.createElement('script');
-                script.src = 'https://accounts.google.com/gsi/client';
-                script.async = true;
-                script.defer = true;
-                
-                script.onload = () => {
-                    googleAuthScriptLoaded = true;
-                    console.log('Google Identity Services loaded');
-                };
-                
-                script.onerror = () => {
-                    console.error('Failed to load Google Identity Services');
-                    showGoogleError();
-                };
-                
-                document.head.appendChild(script);
-            }
-
-            // Показать ошибку Google
-            function showGoogleError() {
-                const googleBtns = document.querySelectorAll('.btn-google');
-                googleBtns.forEach(btn => {
-                    btn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Google авторизация недоступна';
-                    btn.disabled = true;
-                    btn.style.opacity = '0.6';
-                });
-            }
-
-            // Инициализация Google авторизации
-            async function initGoogleAuth(context = 'signin') {
-                try {
-                    // Загружаем скрипт если еще не загружен
-                    loadGoogleScript();
-                    
-                    // Получаем конфигурацию с сервера
-                    const response = await fetch(`${API_BASE}/config/google`);
-                    const config = await response.json();
-                    
-                    if (!config.googleClientId || config.googleClientId === 'not-configured') {
-                        showError('Google авторизация временно недоступна');
-                        return false;
-                    }
-
-                    // Ждем загрузки скрипта
-                    await waitForGoogleScript();
-                    
-                    // Инициализируем Google
-                    google.accounts.id.initialize({
-                        client_id: config.googleClientId,
-                        callback: handleGoogleSignIn,
-                        context: context
-                    });
-                    
-                    return true;
-                } catch (error) {
-                    console.error('Google auth init error:', error);
-                    showError('Ошибка инициализации Google авторизации');
-                    return false;
-                }
-            }
-
-            // Ожидание загрузки Google скрипта
-            function waitForGoogleScript() {
-                return new Promise((resolve, reject) => {
-                    if (googleAuthScriptLoaded) {
-                        resolve();
-                        return;
-                    }
-                    
-                    let attempts = 0;
-                    const checkInterval = setInterval(() => {
-                        attempts++;
-                        if (window.google && window.google.accounts) {
-                            clearInterval(checkInterval);
-                            googleAuthScriptLoaded = true;
-                            resolve();
-                        } else if (attempts > 10) {
-                            clearInterval(checkInterval);
-                            reject(new Error('Google script timeout'));
-                        }
-                    }, 100);
-                });
-            }
-
-            // Обработчик Google Sign-In - ОСНОВНОЙ ИСПРАВЛЕННЫЙ КОД
-            async function handleGoogleSignIn(response) {
-                try {
-                    const credential = response.credential;
-                    
-                    // Отправляем credential на сервер для проверки
-                    const serverResponse = await fetch(`${API_BASE}/auth/google`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ credential: credential })
-                    });
-
-                    const data = await serverResponse.json();
-                    
-                    if (!serverResponse.ok) {
-                        throw new Error(data.error || 'Ошибка Google авторизации');
-                    }
-                    
-                    if (data.exists) {
-                        // Существующий пользователь - сразу логиним
-                        console.log('Google: Существующий пользователь', data.user);
-                        saveUserAndRedirect(data.user);
-                    } else {
-                        // Новый пользователь - сохраняем данные и показываем модалку
-                        console.log('Google: Новый пользователь', data.user);
-                        googleUserData = data.user;
-                        showGoogleCompleteModal();
-                    }
-                    
-                } catch (error) {
-                    console.error('Google auth error:', error);
-                    showError(error.message || 'Ошибка авторизации через Google');
-                }
-            }
-
-            // Сохранить пользователя и перенаправить
-            function saveUserAndRedirect(userData) {
-                // Форматируем данные пользователя для хранения
-                const user = {
-                    id: userData.id,
-                    sub: userData.sub || userData.google_id, // Google ID
-                    google_id: userData.google_id,
-                    email: userData.email,
-                    first_name: userData.first_name || userData.given_name,
-                    last_name: userData.last_name || userData.family_name,
-                    full_name: userData.full_name || userData.name,
-                    username: userData.username,
-                    phone: userData.phone || '',
-                    avatar: userData.avatar || userData.avatar_url || userData.picture,
-                    auth_method: 'google'
-                };
-
-                // Сохраняем в localStorage
-                localStorage.setItem('user', JSON.stringify(user));
-                console.log('Пользователь сохранен в localStorage:', user);
-
-                // Показываем success экран
-                showUserSuccessScreen(user);
-            }
-
             // Показать модальное окно для доп. данных
             function showGoogleCompleteModal() {
                 // Автозаполнение логина из email
@@ -947,9 +954,48 @@
                 const usernameBase = email.split('@')[0].replace(/[^a-zA-Z0-9]/g, '');
                 document.getElementById('google-username').value = usernameBase;
                 
+                // Автозаполнение имени и фамилии если есть
+                if (googleUserData.given_name) {
+                    document.getElementById('first-name').value = googleUserData.given_name;
+                }
+                if (googleUserData.family_name) {
+                    document.getElementById('last-name').value = googleUserData.family_name;
+                }
+                
                 // Показываем модальное окно
                 googleModal.style.display = 'flex';
                 clearErrors();
+            }
+
+            // Сохранить пользователя и перенаправить
+            async function saveUserAndRedirect(userData) {
+                try {
+                    // Форматируем данные пользователя для хранения
+                    const user = {
+                        id: userData.id,
+                        username: userData.username,
+                        email: userData.email,
+                        first_name: userData.first_name || userData.given_name || '',
+                        last_name: userData.last_name || userData.family_name || '',
+                        full_name: userData.full_name || userData.name || '',
+                        phone: userData.phone || '',
+                        avatar: userData.avatar || userData.avatar_url || userData.picture || '',
+                        google_id: userData.google_id,
+                        auth_method: userData.auth_method || 'google',
+                        created_at: userData.created_at
+                    };
+
+                    // Сохраняем в localStorage
+                    localStorage.setItem('user', JSON.stringify(user));
+                    console.log('Пользователь сохранен в localStorage:', user);
+
+                    // Показываем success экран
+                    showUserSuccessScreen(user);
+                    
+                } catch (error) {
+                    console.error('Ошибка сохранения пользователя:', error);
+                    showError('Ошибка сохранения данных пользователя');
+                }
             }
 
             // Завершение регистрации через Google
@@ -958,6 +1004,7 @@
                 
                 const submitBtn = document.getElementById('google-complete-btn');
                 const username = document.getElementById('google-username').value.trim();
+                const phone = document.getElementById('google-phone').value.trim();
                 const password = document.getElementById('google-password').value;
                 
                 // Валидация
@@ -976,17 +1023,18 @@
                     submitBtn.innerHTML = '<div class="loading" style="border-color: white;"></div> Регистрация...';
                     submitBtn.disabled = true;
                     
-                    const response = await fetch(`${API_BASE}/register`, {
+                    const response = await fetch(`${API_BASE}/auth/google/complete`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             google_id: googleUserData.google_id,
                             email: googleUserData.email,
-                            full_name: googleUserData.full_name,
                             username: username,
-                            password: password || null, // Пароль опциональный
-                            avatar_url: googleUserData.avatar_url,
-                            auth_method: 'google'
+                            password: password || null,
+                            first_name: googleUserData.given_name || '',
+                            last_name: googleUserData.family_name || '',
+                            phone: phone || null,
+                            avatar: googleUserData.picture || ''
                         })
                     });
 
@@ -1005,7 +1053,7 @@
                     
                 } catch (error) {
                     console.error('Google complete error:', error);
-                    showModalError(error.message);
+                    showModalError(error.message || 'Ошибка завершения регистрации');
                     
                     // Восстанавливаем кнопку
                     submitBtn.innerHTML = '<i class="fas fa-check"></i> Завершить регистрацию';
@@ -1013,7 +1061,7 @@
                 }
             }
 
-            // Обработка формы входа - ОСНОВНОЙ ИСПРАВЛЕННЫЙ КОД
+            // Обработка формы входа
             loginForm.addEventListener('submit', async function(e) {
                 e.preventDefault();
                 
@@ -1026,7 +1074,7 @@
                 submitBtn.disabled = true;
                 
                 try {
-                    const response = await fetch(`${API_BASE}/login`, {
+                    const response = await fetch(`${API_BASE}/auth/login`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ 
@@ -1058,7 +1106,7 @@
                 }
             });
 
-            // Обработка формы регистрации - ОСНОВНОЙ ИСПРАВЛЕННЫЙ КОД
+            // Обработка формы регистрации
             registerForm.addEventListener('submit', async function(e) {
                 e.preventDefault();
                 
@@ -1068,6 +1116,7 @@
                 const email = document.getElementById('register-email').value.trim();
                 const password = document.getElementById('register-password').value;
                 const confirmPassword = document.getElementById('confirm-password').value;
+                const phone = document.getElementById('phone').value.trim();
                 const submitBtn = document.getElementById('register-btn');
                 
                 clearErrors();
@@ -1093,8 +1142,14 @@
                     return;
                 }
                 
+                if (!validateEmail(email)) {
+                    registerError.textContent = 'Введите корректный email';
+                    resetRegisterButton(submitBtn);
+                    return;
+                }
+                
                 try {
-                    const response = await fetch(`${API_BASE}/register`, {
+                    const response = await fetch(`${API_BASE}/auth/register`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
@@ -1103,7 +1158,7 @@
                             username: username,
                             email: email,
                             password: password,
-                            auth_method: 'email'
+                            phone: phone || null
                         })
                     });
                     
@@ -1113,34 +1168,12 @@
                         throw new Error(data.error || 'Ошибка регистрации');
                     }
                     
-                    registerSuccess.textContent = 'Регистрация успешна! Выполняется вход...';
+                    // Сохраняем пользователя
+                    console.log('Регистрация успешна:', data.user);
+                    localStorage.setItem('user', JSON.stringify(data.user));
                     
-                    // Автоматический вход после регистрации
-                    setTimeout(async () => {
-                        try {
-                            const loginResponse = await fetch(`${API_BASE}/login`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ username, password })
-                            });
-                            
-                            const loginData = await loginResponse.json();
-                            
-                            if (loginResponse.ok) {
-                                // Сохраняем пользователя
-                                console.log('Автовход после регистрации:', loginData.user);
-                                localStorage.setItem('user', JSON.stringify(loginData.user));
-                                
-                                // Показываем success экран
-                                showUserSuccessScreen(loginData.user);
-                            } else {
-                                throw new Error(loginData.error);
-                            }
-                        } catch (error) {
-                            registerError.textContent = error.message || 'Ошибка автоматического входа';
-                            resetRegisterButton(submitBtn);
-                        }
-                    }, 1000);
+                    // Показываем success экран
+                    showUserSuccessScreen(data.user);
                     
                 } catch (error) {
                     console.error('Register error:', error);
@@ -1148,6 +1181,12 @@
                     resetRegisterButton(submitBtn);
                 }
             });
+
+            // Валидация email
+            function validateEmail(email) {
+                const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                return re.test(email);
+            }
 
             // Сброс кнопки регистрации
             function resetRegisterButton(btn) {
@@ -1181,17 +1220,41 @@
             }
 
             // Обработчики кнопок Google
-            googleLoginBtn.addEventListener('click', async function() {
-                const success = await initGoogleAuth('signin');
-                if (success) {
+            googleLoginBtn.addEventListener('click', function(e) {
+                if (!googleClientId) {
+                    showError('Google авторизация не настроена');
+                    return;
+                }
+                
+                if (!window.google || !window.google.accounts) {
+                    showError('Google сервис не загружен. Попробуйте обновить страницу.');
+                    return;
+                }
+                
+                try {
                     google.accounts.id.prompt();
+                } catch (error) {
+                    console.error('Google prompt error:', error);
+                    showError('Ошибка запуска Google авторизации');
                 }
             });
 
-            googleRegisterBtn.addEventListener('click', async function() {
-                const success = await initGoogleAuth('signup');
-                if (success) {
+            googleRegisterBtn.addEventListener('click', function(e) {
+                if (!googleClientId) {
+                    showError('Google авторизация не настроена');
+                    return;
+                }
+                
+                if (!window.google || !window.google.accounts) {
+                    showError('Google сервис не загружен. Попробуйте обновить страницу.');
+                    return;
+                }
+                
+                try {
                     google.accounts.id.prompt();
+                } catch (error) {
+                    console.error('Google prompt error:', error);
+                    showError('Ошибка запуска Google авторизации');
                 }
             });
 
@@ -1212,8 +1275,14 @@
                 }
             });
 
-            // Загружаем Google скрипт при старте
-            loadGoogleScript();
+            // Проверяем доступность Google Client ID каждые 5 секунд (для разработки)
+            if (window.location.hostname === 'localhost') {
+                setInterval(() => {
+                    if (!googleClientId && !document.querySelector('.btn-google').disabled) {
+                        loadGoogleConfig();
+                    }
+                }, 5000);
+            }
         });
     </script>
 </body>
