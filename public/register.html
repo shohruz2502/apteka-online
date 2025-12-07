@@ -6,6 +6,7 @@
     <title>Вход и регистрация - ФармаПлюс</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
+        /* Стили остаются без изменений, копируйте их как есть */
         :root {
             --primary: #2196F3;
             --primary-dark: #1976D2;
@@ -694,6 +695,9 @@
         let googleAuthInitialized = false;
 
         document.addEventListener('DOMContentLoaded', function() {
+            // Сначала проверяем OAuth callback в URL
+            checkForOAuthCallback();
+
             // Проверяем, если пользователь уже авторизован
             checkExistingAuth();
 
@@ -731,6 +735,29 @@
             const registerError = document.getElementById('register-error');
             const registerSuccess = document.getElementById('register-success');
 
+            // Проверка OAuth callback в URL
+            function checkForOAuthCallback() {
+                const hash = window.location.hash.substring(1);
+                const params = new URLSearchParams(hash);
+                const accessToken = params.get('access_token');
+                const idToken = params.get('id_token');
+                const error = params.get('error');
+                
+                if (accessToken || error) {
+                    // Убираем токен из URL
+                    history.replaceState(null, null, window.location.pathname + window.location.search);
+                    
+                    if (error) {
+                        showError('Ошибка Google авторизации: ' + error);
+                    } else if (accessToken) {
+                        handleGoogleAuthSuccess({
+                            access_token: accessToken,
+                            id_token: idToken
+                        });
+                    }
+                }
+            }
+
             // Проверяем, если пользователь уже авторизован
             function checkExistingAuth() {
                 const userData = localStorage.getItem('user');
@@ -763,7 +790,7 @@
                         googleClientId = config.googleClientId;
                         console.log('✅ Google Client ID получен');
                         
-                        // Используем альтернативный метод для Google авторизации
+                        // Включаем кнопки Google
                         initGoogleAuthAlternative();
                     } else {
                         console.warn('Google OAuth не настроен на сервере');
@@ -775,10 +802,9 @@
                 }
             }
 
-            // Альтернативная инициализация Google Auth (без FedCM проблем)
+            // Альтернативная инициализация Google Auth
             function initGoogleAuthAlternative() {
                 try {
-                    // Создаем ручную Google OAuth логику
                     console.log('✅ Используем альтернативный метод Google авторизации');
                     
                     // Восстанавливаем кнопки Google
@@ -786,7 +812,8 @@
                     googleBtns.forEach(btn => {
                         btn.disabled = false;
                         btn.style.opacity = '1';
-                        btn.innerHTML = '<i class="fab fa-google" style="color: #DB4437;"></i> Продолжить с Google';
+                        btn.innerHTML = '<i class="fab fa-google" style="color: #DB4437;"></i> ' + 
+                            (btn.id === 'google-register-btn' ? 'Зарегистрироваться через Google' : 'Продолжить с Google');
                     });
                     
                     googleAuthInitialized = true;
@@ -808,25 +835,22 @@
                 });
             }
 
-            // Ручной Google OAuth flow
-            async function handleManualGoogleAuth() {
+            // Google OAuth через redirect (без popup)
+            function handleGoogleRedirectAuth() {
                 if (!googleClientId) {
                     showError('Google авторизация не настроена');
                     return;
                 }
 
                 try {
-                    // Используем popup для Google OAuth
-                    const width = 500;
-                    const height = 600;
-                    const left = (window.screen.width - width) / 2;
-                    const top = (window.screen.height - height) / 2;
+                    // Создаем уникальный state для защиты от CSRF
+                    const state = 'google_' + Date.now() + '_' + Math.random().toString(36).substr(2);
+                    sessionStorage.setItem('google_oauth_state', state);
                     
-                    // Создаем URL для OAuth
+                    // Создаем URL для Google OAuth с response_type=token (implicit flow)
                     const redirectUri = encodeURIComponent(window.location.origin);
                     const scope = encodeURIComponent('email profile openid');
                     const responseType = 'token';
-                    const state = Math.random().toString(36).substring(7);
                     
                     const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
                         `client_id=${googleClientId}` +
@@ -836,55 +860,10 @@
                         `&state=${state}` +
                         `&prompt=select_account`;
                     
-                    console.log('Открываем Google OAuth popup...');
+                    console.log('Перенаправляем на Google OAuth...');
                     
-                    // Открываем popup
-                    const popup = window.open(
-                        authUrl,
-                        'google_auth',
-                        `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes,status=yes`
-                    );
-                    
-                    if (!popup) {
-                        showError('Пожалуйста, разрешите всплывающие окна для Google авторизации');
-                        return;
-                    }
-                    
-                    // Слушаем сообщения от popup
-                    const messageListener = function(event) {
-                        // Проверяем origin
-                        if (event.origin !== window.location.origin) return;
-                        
-                        if (event.data && event.data.type === 'google_auth_result') {
-                            console.log('Получены данные от Google OAuth:', event.data);
-                            
-                            if (event.data.success) {
-                                // Обрабатываем полученный токен
-                                handleGoogleAuthSuccess(event.data);
-                            } else {
-                                showError(event.data.error || 'Ошибка Google авторизации');
-                            }
-                            
-                            // Закрываем popup
-                            if (popup && !popup.closed) {
-                                popup.close();
-                            }
-                            
-                            // Убираем слушатель
-                            window.removeEventListener('message', messageListener);
-                        }
-                    };
-                    
-                    window.addEventListener('message', messageListener);
-                    
-                    // Проверяем закрытие popup
-                    const checkPopup = setInterval(function() {
-                        if (popup.closed) {
-                            clearInterval(checkPopup);
-                            window.removeEventListener('message', messageListener);
-                            console.log('Google OAuth popup закрыт');
-                        }
-                    }, 500);
+                    // Перенаправляем пользователя
+                    window.location.href = authUrl;
                     
                 } catch (error) {
                     console.error('Ошибка Google авторизации:', error);
@@ -895,37 +874,38 @@
             // Обработка успешной Google авторизации
             async function handleGoogleAuthSuccess(authData) {
                 try {
-                    // Если есть access_token, получаем данные пользователя
-                    if (authData.access_token) {
-                        const userInfo = await getUserInfoFromGoogle(authData.access_token);
-                        console.log('Данные пользователя от Google:', userInfo);
-                        
-                        // Отправляем на сервер для проверки
-                        const serverResponse = await fetch(`${API_BASE}/auth/google`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ credential: authData.id_token || authData.access_token })
-                        });
+                    // Получаем данные пользователя
+                    const userInfo = await getUserInfoFromGoogle(authData.access_token);
+                    console.log('Данные пользователя от Google:', userInfo);
+                    
+                    // Отправляем на сервер для проверки
+                    const serverResponse = await fetch(`${API_BASE}/auth/google`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            credential: authData.id_token || authData.access_token,
+                            access_token: authData.access_token
+                        })
+                    });
 
-                        const data = await serverResponse.json();
-                        
-                        if (!serverResponse.ok) {
-                            throw new Error(data.error || 'Ошибка Google авторизации');
-                        }
-                        
-                        if (data.exists) {
-                            // Существующий пользователь
-                            console.log('Google: Существующий пользователь', data.user);
-                            saveUserAndRedirect(data.user);
-                        } else {
-                            // Новый пользователь
-                            console.log('Google: Новый пользователь', data.user);
-                            googleUserData = {
-                                ...data.user,
-                                ...userInfo
-                            };
-                            showGoogleCompleteModal();
-                        }
+                    const data = await serverResponse.json();
+                    
+                    if (!serverResponse.ok) {
+                        throw new Error(data.error || 'Ошибка Google авторизации');
+                    }
+                    
+                    if (data.exists) {
+                        // Существующий пользователь
+                        console.log('Google: Существующий пользователь', data.user);
+                        saveUserAndRedirect(data.user);
+                    } else {
+                        // Новый пользователь
+                        console.log('Google: Новый пользователь', data.user);
+                        googleUserData = {
+                            ...data.user,
+                            ...userInfo
+                        };
+                        showGoogleCompleteModal();
                     }
                 } catch (error) {
                     console.error('Ошибка обработки Google данных:', error);
@@ -1295,7 +1275,7 @@
                     return;
                 }
                 
-                handleManualGoogleAuth();
+                handleGoogleRedirectAuth();
             });
 
             googleRegisterBtn.addEventListener('click', function(e) {
@@ -1304,7 +1284,7 @@
                     return;
                 }
                 
-                handleManualGoogleAuth();
+                handleGoogleRedirectAuth();
             });
 
             // Обработчик завершения Google регистрации
