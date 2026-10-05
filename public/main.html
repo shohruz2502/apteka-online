@@ -1,0 +1,3646 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Journal - Электронный журнал посещаемости</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #2c3e50;
+            --secondary: #34495e;
+            --success: #27ae60;
+            --danger: #e74c3c;
+            --warning: #f39c12;
+            --light: #ecf0f1;
+            --dark: #2c3e50;
+            --gray: #7f8c8d;
+            --border: #bdc3c7;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: var(--dark);
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+            overflow: hidden;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        /* Header */
+        header {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            color: white;
+            padding: 20px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .header-left h1 {
+            font-size: 26px;
+            margin-bottom: 5px;
+            font-weight: 700;
+        }
+
+        .header-left p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            background: rgba(255,255,255,0.15);
+            padding: 12px 18px;
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+        }
+
+        .user-role {
+            background: var(--success);
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .btn {
+            padding: 10px 18px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: white;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-logout {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.3);
+        }
+
+        .btn-logout:hover {
+            background: rgba(255,255,255,0.3);
+            transform: translateY(-2px);
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-warning {
+            background: var(--warning);
+            color: white;
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            background: var(--light);
+            border-bottom: 1px solid var(--border);
+            padding: 0 20px;
+        }
+
+        .tab {
+            padding: 18px 30px;
+            background: transparent;
+            color: var(--gray);
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 15px;
+            border-bottom: 3px solid transparent;
+            font-weight: 500;
+        }
+
+        .tab:hover {
+            color: var(--primary);
+            background: rgba(255,255,255,0.5);
+        }
+
+        .tab.active {
+            color: var(--primary);
+            border-bottom-color: var(--primary);
+            background: white;
+            font-weight: 600;
+        }
+
+        .tab-content {
+            display: none;
+            padding: 30px;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Calendar */
+        .calendar-section {
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 25px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+        }
+
+        .calendar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .current-date {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--dark);
+        }
+
+        .calendar-nav {
+            display: flex;
+            gap: 12px;
+        }
+
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 2px;
+            background: var(--border);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .calendar-day-header {
+            padding: 15px 10px;
+            text-align: center;
+            font-weight: 700;
+            color: var(--dark);
+            font-size: 13px;
+            background: var(--light);
+        }
+
+        .calendar-day {
+            padding: 15px 10px;
+            text-align: center;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: none;
+            font-size: 15px;
+            position: relative;
+            min-height: 70px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .calendar-day:hover {
+            background: #e3f2fd;
+            transform: scale(1.05);
+            z-index: 1;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .calendar-day.selected {
+            background: var(--primary);
+            color: white;
+            transform: scale(1.05);
+            z-index: 1;
+        }
+
+        .calendar-day.today {
+            background: #fff3cd;
+            font-weight: 700;
+            border: 2px solid var(--warning);
+        }
+
+        .calendar-day.weekend {
+            background: #f8f9fa;
+            color: var(--danger);
+        }
+
+        .calendar-day.has-data::after {
+            content: '';
+            position: absolute;
+            bottom: 8px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 8px;
+            height: 8px;
+            background: var(--success);
+            border-radius: 50%;
+        }
+
+        .calendar-day.absent-data::after {
+            background: var(--danger);
+        }
+
+        .calendar-day.readonly {
+            background: #f8f9fa;
+            color: var(--gray);
+            cursor: not-allowed;
+        }
+
+        .calendar-day.readonly:hover {
+            background: #f8f9fa;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .day-number {
+            font-size: 18px;
+            font-weight: 700;
+        }
+
+        .day-stats {
+            font-size: 11px;
+            margin-top: 4px;
+            opacity: 0.8;
+            font-weight: 600;
+        }
+
+        /* Filters */
+        .filters {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 20px;
+            margin-bottom: 25px;
+            align-items: end;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .filter-group label {
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: var(--dark);
+            font-size: 15px;
+        }
+
+        .filter-select {
+            padding: 12px 15px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 15px;
+            background: white;
+            transition: all 0.3s ease;
+        }
+
+        .filter-select:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(44, 62, 80, 0.1);
+            outline: none;
+        }
+
+        /* Students Grid */
+        .students-container {
+            max-height: 600px;
+            overflow-y: auto;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+        }
+
+        /* Стили для карточек студентов */
+        .student-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.08);
+            padding: 20px;
+            margin-bottom: 15px;
+            border-left: 5px solid var(--primary);
+            transition: all 0.3s ease;
+            
+        }
+
+        .student-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+            
+        }
+
+        .student-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 15px;
+        }
+
+        .student-name {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--dark);
+            margin-bottom: 8px;
+        }
+
+        .student-details {
+            color: var(--gray);
+            font-size: 13px;
+        }
+
+        .attendance-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .status-present {
+            background: rgba(39, 174, 96, 0.15);
+            color: var(--success);
+            border: 1px solid rgba(39, 174, 96, 0.3);
+        }
+
+        .status-absent {
+            background: rgba(231, 76, 60, 0.15);
+            color: var(--danger);
+            border: 1px solid rgba(231, 76, 60, 0.3);
+        }
+
+        .status-unknown {
+            background: rgba(127, 140, 141, 0.15);
+            color: var(--gray);
+            border: 1px solid rgba(127, 140, 141, 0.3);
+        }
+
+        /* Почасовой учет */
+        .hourly-controls {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 8px;
+            margin-top: 15px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+        }
+        
+        .hour-label {
+            font-size: 11px;
+            text-align: center;
+            margin-bottom: 8px;
+            color: var(--gray);
+            font-weight: 700;
+        }
+        
+        .hour-btn {
+            padding: 8px 10px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 12px;
+            min-height: 32px;
+            font-weight: 600;
+        }
+        
+        .hour-btn.present {
+            background: var(--success);
+            color: white;
+            border-color: var(--success);
+        }
+        
+        .hour-btn.absent {
+            background: var(--danger);
+            color: white;
+            border-color: var(--danger);
+        }
+        
+        .hour-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .hour-btn:not(:disabled):hover {
+            transform: translateY(-2px);
+            box-shadow: 0 3px 8px rgba(0,0,0,0.15);
+        }
+        
+        .hour-summary {
+            font-size: 12px;
+            margin-top: 12px;
+            text-align: center;
+            color: var(--dark);
+            font-weight: 700;
+        }
+        
+        .hourly-stats {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 8px;
+        }
+        
+        .hours-present {
+            color: var(--success);
+        }
+        
+        .hours-absent {
+            color: var(--danger);
+        }
+
+        /* Weekly Report */
+        .week-report {
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            margin-top: 25px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+        }
+
+        .week-report-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .week-nav {
+            display: flex;
+            gap: 12px;
+        }
+
+        .current-week {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--dark);
+        }
+
+        .report-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+
+        .report-table th {
+            background: var(--light);
+            padding: 10px 6px;
+            text-align: center;
+            font-weight: 700;
+            color: var(--dark);
+            border: 1px solid var(--border);
+        }
+
+        .report-table td {
+            padding: 6px 4px;
+            text-align: center;
+            border: 1px solid var(--border);
+        }
+
+        .student-name-cell {
+            text-align: left;
+            font-weight: 700;
+            background: var(--light);
+            padding: 12px 15px;
+            min-width: 180px;
+            position: sticky;
+            left: 0;
+        }
+
+        .present-cell {
+            background: #d4edda;
+            color: #155724;
+            font-weight: 700;
+        }
+
+        .absent-cell {
+            background: #f8d7da;
+            color: #721c24;
+            font-weight: 700;
+        }
+
+        .unknown-cell {
+            background: #fff3cd;
+            color: #856404;
+            font-weight: 600;
+        }
+
+        .day-nb-cell {
+            background: #fdecea;
+            color: #c0392b;
+            font-weight: 700;
+            text-align: center;
+        }
+
+        .day-nb-cell.zero {
+            background: #eef9f1;
+            color: #27ae60;
+        }
+
+        .total-cell {
+            background: var(--primary);
+            color: white;
+            font-weight: 700;
+            text-align: center;
+        }
+
+        /* Notifications */
+        .notification {
+            position: fixed;
+            top: 25px;
+            right: 25px;
+            padding: 15px 20px;
+            border-radius: 10px;
+            color: white;
+            font-weight: 600;
+            z-index: 1000;
+            transform: translateX(400px);
+            transition: all 0.4s ease;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.15);
+            backdrop-filter: blur(10px);
+        }
+
+        .notification.show {
+            transform: translateX(0);
+        }
+
+        .notification.success {
+            background: rgba(39, 174, 96, 0.95);
+        }
+
+        .notification.error {
+            background: rgba(231, 76, 60, 0.95);
+        }
+
+        .notification.warning {
+            background: rgba(243, 156, 18, 0.95);
+        }
+
+        /* Save Button */
+        .save-section {
+            margin-top: 25px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border);
+            text-align: center;
+        }
+
+        .loading {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        /* Online Status */
+        .online-status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 12px;
+            font-size: 13px;
+        }
+        
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--success);
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        
+        .status-indicator.offline {
+            background: var(--danger);
+            animation: none;
+        }
+        
+        /* Modals */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.6);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.4s ease;
+            backdrop-filter: blur(5px);
+        }
+        
+        .modal-overlay.show {
+            opacity: 1;
+            visibility: visible;
+        }
+        
+        .modal {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            width: 90%;
+            max-width: 600px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.25);
+            transform: translateY(-30px) scale(0.95);
+            transition: all 0.4s ease;
+        }
+        
+        .modal-overlay.show .modal {
+            transform: translateY(0) scale(1);
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .modal-title {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--dark);
+        }
+        
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: var(--gray);
+            transition: all 0.3s ease;
+        }
+        
+        .modal-close:hover {
+            color: var(--danger);
+            transform: rotate(90deg);
+        }
+        
+        .modal-body {
+            margin-bottom: 25px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: var(--dark);
+            font-size: 15px;
+        }
+        
+        .form-control {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 15px;
+            transition: all 0.3s ease;
+        }
+        
+        .form-control:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(44, 62, 80, 0.1);
+            outline: none;
+        }
+        
+        textarea.form-control {
+            min-height: 140px;
+            resize: vertical;
+        }
+        
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border);
+        }
+        
+        /* Add Student Button */
+        .add-student-section {
+            margin-top: 25px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border);
+            text-align: center;
+        }
+        
+        .add-student-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            background: var(--success);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 15px;
+            transition: all 0.3s ease;
+            font-weight: 600;
+        }
+        
+        .add-student-btn:hover {
+            background: #219653;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(39, 174, 96, 0.3);
+        }
+
+        /* Статистика */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+
+        .stat-card {
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+            transition: all 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+        }
+
+        .stat-value {
+            font-size: 28px;
+            font-weight: 800;
+            color: var(--primary);
+            margin-bottom: 8px;
+        }
+
+        .stat-label {
+            font-size: 13px;
+            color: var(--gray);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Group Selector */
+        .group-selector {
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 25px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+        }
+
+        .group-filters {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 20px;
+            align-items: end;
+        }
+
+        /* Students Grid Layout */
+        .students-grid-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 20px;
+            padding: 20px;
+        }
+
+        /* Batch Add Students */
+        .batch-add-section {
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 25px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+        }
+
+        .batch-controls {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 20px;
+            align-items: end;
+            margin-bottom: 20px;
+        }
+
+        .students-preview {
+            max-height: 220px;
+            overflow-y: auto;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 15px;
+            background: #f8f9fa;
+            margin-bottom: 20px;
+        }
+
+        .student-preview-item {
+            padding: 8px 0;
+            border-bottom: 1px solid #e9ecef;
+            font-size: 13px;
+        }
+
+        .student-preview-item:last-child {
+            border-bottom: none;
+        }
+
+        /* Edit Mode Indicator */
+        .edit-mode-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 15px;
+            background: var(--warning);
+            color: white;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 700;
+            margin-left: 15px;
+            animation: pulse 2s infinite;
+        }
+
+        /* Blacklist */
+        .blacklist-section {
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 25px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+        }
+
+        .blacklist-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .blacklist-card {
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+            transition: all 0.3s ease;
+        }
+
+        .blacklist-card.danger {
+            border-left: 5px solid var(--danger);
+        }
+
+        .blacklist-card.warning {
+            border-left: 5px solid var(--warning);
+        }
+
+        .blacklist-card.info {
+            border-left: 5px solid var(--primary);
+        }
+
+        .blacklist-student {
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            background: #f8f9fa;
+            border-left: 5px solid var(--danger);
+        }
+
+        .blacklist-student.warning {
+            border-left-color: var(--warning);
+        }
+
+        .blacklist-student.info {
+            border-left-color: var(--primary);
+        }
+
+        .blacklist-student-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 15px;
+        }
+
+        .blacklist-student-hours {
+            font-size: 22px;
+            font-weight: 700;
+            color: var(--danger);
+            white-space: nowrap;
+        }
+
+        .blacklist-student.warning .blacklist-student-hours {
+            color: var(--warning);
+        }
+
+        /* Reason cells */
+        .reason-cell {
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .reason-cell:hover {
+            background: #f8f9fa;
+        }
+
+        .reason-valid {
+            background: rgba(39, 174, 96, 0.1);
+            color: #155724;
+        }
+
+        .reason-invalid {
+            background: rgba(231, 76, 60, 0.1);
+            color: #721c24;
+        }
+
+        /* Адаптивность */
+        @media (max-width: 768px) {
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .filters {
+                grid-template-columns: 1fr;
+            }
+            
+            .group-filters {
+                grid-template-columns: 1fr;
+            }
+            
+            .batch-controls {
+                grid-template-columns: 1fr;
+            }
+            
+            .students-grid-cards {
+                grid-template-columns: 1fr;
+            }
+            
+            .hourly-controls {
+                grid-template-columns: repeat(3, 1fr);
+            }
+            
+            .report-table {
+                font-size: 10px;
+            }
+            
+            .tabs {
+                flex-direction: column;
+            }
+            
+            .tab {
+                width: 100%;
+                text-align: center;
+            }
+            
+            .blacklist-stats {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Добавьте этот стиль в существующие CSS правила */
+.report-table td:not(.student-name-cell) {
+    border-right: 1px solid var(--border);
+}
+
+.report-table td.last-hour-of-day {
+    border-right: 2px solid var(--dark) !important;
+}
+
+.report-table th:not(:first-child) {
+    border-right: 1px solid var(--border);
+}
+
+.report-table th.day-separator {
+    border-right: 2px solid var(--dark) !important;
+}
+
+/* Quick Actions */
+.quick-actions {
+    margin-top: 15px;
+    padding: 12px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+}
+
+.quick-actions-title {
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: var(--dark);
+    text-align: center;
+}
+
+.quick-actions-buttons {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+}
+
+.btn-mark-all-present, .btn-mark-all-absent {
+    flex: 1;
+    padding: 8px 12px;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.btn-mark-all-present {
+    background: var(--success);
+}
+
+.btn-mark-all-absent {
+    background: var(--danger);
+}
+
+.btn-mark-all-present:disabled, .btn-mark-all-absent:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Причины пропусков в карточке студента */
+.absence-reason-controls {
+    display: flex;
+    gap: 10px;
+    margin-top: 15px;
+    justify-content: center;
+}
+
+.absence-reason-btn {
+    flex: 1;
+    padding: 10px 12px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.absence-reason-btn.valid {
+    background: var(--success);
+    color: white;
+}
+
+.absence-reason-btn.invalid {
+    background: var(--danger);
+    color: white;
+}
+
+.absence-reason-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.absence-reason-btn:not(:disabled):hover {
+    transform: translateY(-2px);
+    box-shadow: 0 3px 8px rgba(0,0,0,0.15);
+}
+
+.absence-reason-indicator {
+    font-size: 11px;
+    margin-top: 8px;
+    text-align: center;
+    font-weight: 600;
+    padding: 4px 8px;
+    border-radius: 4px;
+}
+
+.absence-reason-indicator.valid {
+    background: rgba(39, 174, 96, 0.15);
+    color: var(--success);
+}
+
+.absence-reason-indicator.invalid {
+    background: rgba(231, 76, 60, 0.15);
+    color: var(--danger);
+}
+
+.absence-reason-indicator.none {
+    background: rgba(127, 140, 141, 0.15);
+    color: var(--gray);
+}
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-left">
+                <h1>📒 Smart Journal</h1>
+                <p>Система учета посещений студентов</p>
+                <div class="online-status">
+                    <div class="status-indicator" id="statusIndicator"></div>
+                    <span id="statusText">Синхронизация...</span>
+                </div>
+            </div>
+            <div class="user-info">
+                <span id="userName">Администратор системы</span>
+                <span class="user-role" id="userRole">Администратор</span>
+                <button class="btn btn-logout" id="logoutBtn">Выйти</button>
+            </div>
+        </header>
+
+        <div class="tabs">
+            <button class="tab active" data-page="daily">📅 Ежедневный учет</button>
+            <button class="tab" data-page="weekly">📊 Недельный отчет</button>
+            <button class="tab" data-page="students">👥 Управление студентами</button>
+            <button class="tab" data-page="absence">📝 Пропуски учеников</button>
+            <button class="tab" data-page="blacklist">⚠️ НБ учеников</button>
+        </div>
+
+        <!-- Daily Attendance Page -->
+        <div id="dailyPage" class="tab-content active">
+            <div class="calendar-section">
+                <div class="calendar-header">
+                    <div class="current-date" id="currentDate"></div>
+                    <div class="calendar-nav">
+                        <button class="btn" id="prevMonth">◀ Предыдущий</button>
+                        <button class="btn btn-primary" id="todayBtn">Сегодня</button>
+                        <button class="btn" id="nextMonth">Следующий ▶</button>
+                    </div>
+                </div>
+                <div class="calendar-grid" id="calendarGrid"></div>
+            </div>
+
+            <div class="group-selector">
+                <div class="group-filters">
+                    <div class="filter-group">
+                        <label>Выберите профессию:</label>
+                        <select class="filter-select" id="professionSelect">
+                            <option value="">Все профессии</option>
+                        </select>
+                    </div>
+                    <div>
+                        <button class="btn btn-primary" id="applyFilterBtn">Применить фильтр</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="filters">
+                <div class="filter-group">
+                    <label>Дата: <span id="selectedDateDisplay"></span></label>
+                </div>
+                <div id="editModeContainer">
+                    <button class="btn btn-warning" id="editModeBtn">
+                        ✏️ Режим редактирования
+                    </button>
+                    <span id="editModeIndicator" class="edit-mode-indicator" style="display: none;">Режим редактирования активен</span>
+                </div>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value" id="dailyTotalStudents">0</div>
+                    <div class="stat-label">Всего студентов</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="dailyPresent">0</div>
+                    <div class="stat-label">Присутствуют</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="dailyAbsent">0</div>
+                    <div class="stat-label">Отсутствуют</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="dailyAttendance">0%</div>
+                    <div class="stat-label">Посещаемость</div>
+                </div>
+            </div>
+
+            <div class="save-section" id="saveSection">
+                <button class="btn btn-success" id="saveAttendanceBtn">💾 Сохранить посещаемость</button>
+            </div>
+
+            <div class="students-container">
+                <div class="students-grid-cards" id="studentsGrid"></div>
+            </div>
+        </div>
+
+        <!-- Weekly Report Page -->
+        <div id="weeklyPage" class="tab-content">
+            <div class="week-report-header">
+                <div class="current-week" id="currentWeekRange"></div>
+                <div class="week-nav">
+                    <button class="btn" id="prevWeek">◀ Предыдущая</button>
+                    <button class="btn" id="nextWeek">Следующая ▶</button>
+                </div>
+            </div>
+
+            <div class="group-selector">
+                <div class="group-filters">
+                    <div class="filter-group">
+                        <label>Выберите профессию:</label>
+                        <select class="filter-select" id="weeklyProfessionSelect">
+                            <option value="">Все профессии</option>
+                        </select>
+                    </div>
+                    <div>
+                        <button class="btn btn-primary" id="weeklyApplyFilterBtn">Применить фильтр</button>
+                        <button class="btn btn-success" id="exportNBExcelBtn">📥 Скачать Excel</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value" id="weeklyTotalStudents">0</div>
+                    <div class="stat-label">Всего студентов</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="weeklyAvgAttendance">0%</div>
+                    <div class="stat-label">Средняя посещаемость</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="weeklyTotalPresent">0</div>
+                    <div class="stat-label">Всего присутствовало</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="weeklyTotalAbsent">0</div>
+                    <div class="stat-label">Всего отсутствовало</div>
+                </div>
+            </div>
+
+            <div class="week-report">
+                <div style="margin-bottom: 12px; display: flex; gap: 16px; flex-wrap: wrap; font-size: 13px;">
+                    <span><strong style="color:#155724;">Б</strong> — был</span>
+                    <span><strong style="color:#721c24;">НБ</strong> — не был</span>
+                    <span><strong style="color:#856404;">—</strong> — не отмечен</span>
+                </div>
+                <div id="weeklyTableContainer" style="overflow-x: auto;">
+                    <table class="report-table" id="weeklyTable">
+                        <thead id="weeklyTableHead"></thead>
+                        <tbody id="weeklyTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Students Management Page -->
+        <div id="studentsPage" class="tab-content">
+            <div class="batch-add-section">
+                <h3>Добавление студентов группами</h3>
+                <div class="batch-controls">
+                    <div class="filter-group">
+                        <label>Профессия:</label>
+                        <select class="filter-select" id="batchProfessionSelect" required>
+                            <option value="">Выберите профессию</option>
+                        </select>
+                    </div>
+                    <div>
+                        <button class="btn btn-success" id="addMultipleStudentsBtn">+ Добавить студентов</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="filters">
+                <div class="filter-group">
+                    <h3>Управление студентами</h3>
+                </div>
+                <div>
+                    <button class="btn btn-success" id="addStudentBtn">+ Добавить студента</button>
+                </div>
+            </div>
+
+            <div class="students-container">
+                <div class="students-grid-cards" id="studentsTableBody"></div>
+            </div>
+        </div>
+
+        <!-- Absence Reasons Page -->
+        <div id="absencePage" class="tab-content">
+            <div class="week-report-header">
+                <div class="current-week" id="absenceCurrentWeekRange"></div>
+                <div class="week-nav">
+                    <button class="btn" id="absencePrevWeek">◀ Предыдущая</button>
+                    <button class="btn" id="absenceNextWeek">Следующая ▶</button>
+                </div>
+            </div>
+
+            <div class="group-selector">
+                <div class="group-filters">
+                    <div class="filter-group">
+                        <label>Выберите профессию:</label>
+                        <select class="filter-select" id="absenceProfessionSelect">
+                            <option value="">Все профессии</option>
+                        </select>
+                    </div>
+                    <div>
+                        <button class="btn btn-primary" id="absenceApplyFilterBtn">Применить фильтр</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="filters">
+                <div class="filter-group">
+                    <h3>Управление причинами пропусков</h3>
+                    <p style="color: var(--gray); font-size: 14px; margin-top: 5px;">
+                        Только администратор может изменять причины пропусков
+                    </p>
+                </div>
+            </div>
+
+            <div class="week-report">
+                <div id="absenceTableContainer" style="overflow-x: auto;">
+                    <table class="report-table" id="absenceTable">
+                        <thead id="absenceTableHead"></thead>
+                        <tbody id="absenceTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Blacklist Page -->
+        <div id="blacklistPage" class="tab-content">
+            <div class="week-report-header">
+                <div class="current-week" id="blacklistPeriodRange">Январь 2026 — Май 2026</div>
+                <div class="week-nav">
+                    <button class="btn" id="blacklistPrevPeriod" type="button">◀ Предыдущий период</button>
+                    <button class="btn" id="blacklistNextPeriod" type="button" style="display: none;">Следующий период ▶</button>
+                </div>
+            </div>
+
+            <div class="group-selector">
+                <div class="group-filters">
+                    <div class="filter-group">
+                        <label>Выберите профессию:</label>
+                        <select class="filter-select" id="blacklistProfessionSelect">
+                            <option value="">Все профессии</option>
+                        </select>
+                    </div>
+                    <div>
+                        <button class="btn btn-primary" id="blacklistApplyFilterBtn">Применить фильтр</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="blacklist-stats">
+                <div class="blacklist-card danger">
+                    <div class="stat-value" id="blacklistCount">0</div>
+                    <div class="stat-label">С 20+ часами НБ</div>
+                </div>
+                <div class="blacklist-card warning">
+                    <div class="stat-value" id="warningCount">0</div>
+                    <div class="stat-label">На грани (15–19 ч.)</div>
+                </div>
+                <div class="blacklist-card info">
+                    <div class="stat-value" id="totalAbsenceHours">0</div>
+                    <div class="stat-label">Часов НБ за период</div>
+                </div>
+            </div>
+
+            <div class="blacklist-section">
+                <h3 style="margin-bottom: 20px;">Черный список студентов</h3>
+                <div id="blacklistStudents"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="notification" class="notification"></div>
+    
+    <!-- Add Student Modal -->
+    <div id="addStudentModal" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Добавить нового студента</h3>
+                <button class="modal-close" id="closeAddStudentModal">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="studentName">ФИО студента:</label>
+                    <input type="text" id="studentName" class="form-control" placeholder="Введите полное имя">
+                </div>
+                <div class="form-group">
+                    <label for="studentProfession">Профессия:</label>
+                    <select id="studentProfession" class="form-control" required>
+                        <option value="">Выберите профессию</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn" id="cancelAddStudent">Отмена</button>
+                <button class="btn btn-success" id="confirmAddStudent">Добавить студента</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Multiple Students Modal -->
+    <div id="addMultipleStudentsModal" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Добавить несколько студентов</h3>
+                <button class="modal-close" id="closeMultipleStudentsModal">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="multipleStudentsNames">Список студентов (по одному на строку, максимум 33):</label>
+                    <textarea id="multipleStudentsNames" class="form-control" placeholder="Введите ФИО студентов, каждое с новой строки"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Профессия: <span id="selectedProfessionName"></span></label>
+                    <input type="hidden" id="multipleStudentsProfession">
+                </div>
+                <div class="students-preview" id="multipleStudentsPreview"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn" id="cancelMultipleStudents">Отмена</button>
+                <button class="btn btn-success" id="confirmMultipleStudents">Добавить всех студентов</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Reason Modal -->
+    <div id="editReasonModal" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Изменение причины пропуска</h3>
+                <button class="modal-close" id="closeEditReasonModal">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="reasonStudentName">Студент:</label>
+                    <input type="text" id="reasonStudentName" class="form-control" readonly>
+                </div>
+                <div class="form-group">
+                    <label for="reasonDate">Дата:</label>
+                    <input type="text" id="reasonDate" class="form-control" readonly>
+                </div>
+                <div class="form-group">
+                    <label for="reasonHour">Час:</label>
+                    <input type="text" id="reasonHour" class="form-control" readonly>
+                </div>
+                <div class="form-group">
+                    <label>Причина пропуска:</label>
+                    <div style="display: flex; gap: 10px; margin-top: 10px;">
+                        <button class="btn btn-success" id="setValidReason">Уважительная</button>
+                        <button class="btn btn-danger" id="setInvalidReason">Неуважительная</button>
+                    </div>
+                </div>
+                <input type="hidden" id="reasonStudentId">
+                <input type="hidden" id="reasonDateStr">
+                <input type="hidden" id="reasonHourNum">
+            </div>
+            <div class="modal-footer">
+                <button class="btn" id="cancelEditReason">Отмена</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <script>
+        // ===== ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ И КОНСТАНТЫ =====
+        let currentUser = null;
+        let students = [];
+        let attendance = {};
+        let hourlyAttendance = {};
+        let absenceReasons = {}; // Хранит причины пропусков
+        let currentDate = new Date();
+        let selectedDate = new Date();
+        let currentWeekStart = new Date();
+        const DAYS_IN_WEEK = 6;
+        const HOURS_PER_DAY = 5;
+        const NB_LIST_THRESHOLD = 20; // Минимум часов НБ для отображения в списке
+        const NB_WARNING_THRESHOLD = 15; // Порог «на грани» (15–19 часов)
+        const BLACKLIST_PERIODS = [
+            { label: 'Январь 2026 — Май 2026', start: '2026-01-01', end: '2026-05-31' },
+            { label: 'Сентябрь 2025 — Декабрь 2025', start: '2025-09-01', end: '2025-12-31' }
+        ];
+        let blacklistPeriodIndex = 0;
+        const API_BASE = '/api';
+        let editMode = false;
+        let savedDays = {}; // Хранит информацию о сохраненных днях для дежурного
+        
+        // Список профессий
+        const professions = [
+            { id: '1-260101-00-a', name: '1-260101-00 – Идораи давлатӣ (а)', course: 1 },
+            { id: '1-250107', name: '1-250107 – Иқтисодиёт ва идора дар корхона', course: 1 },
+            { id: '1-270101-10', name: '1-270101-10 Иқтисодиёт ва ташкили истеҳсолот', course: 1 },
+            { id: '1-260101-00-b', name: '1-260101-00 – Идора давлатӣ (б)', course: 1 },
+            { id: '1-400103', name: '1-400103 – Зеҳни сунъӣ', course: 1 },
+            { id: '1-08010107', name: '1-08010107 – Таълими касбӣ (информатика)', course: 1 },
+            { id: '1-40010202', name: '1-40010202 – Техналогия ва низоми иттилооти дар иқтисодиёт', course: 1 },
+            { id: '2-260101-00', name: '2-260101-00 – Идораи давлатӣ', course: 2 },
+            { id: '2-260202', name: '2-260202 – Менеҷмент', course: 2 },
+            { id: '2-270101-10', name: '2-270101-10 – Иқтисодиёт ва ташкили истеҳсолот (дар соҳаи энергетика)', course: 2 },
+            { id: '2-31030103', name: '2-31030103 – Математика (фаъолияти иқтисодӣ)', course: 2 },
+            { id: '2-40010202', name: '2-40010202 – Техналогия ва низоми иттилоот дар иқтисодиёт', course: 2 },
+            { id: '2-400103', name: '2-400103 – Зеҳни сунъӣ', course: 2 },
+            { id: '3-260101-00', name: '3-260101-00 – Идораи давлатӣ', course: 3 },
+            { id: '3-40010202', name: '3-40010202 – Техналогия ва низоми иттилооти дар иқтисодиёт', course: 3 },
+            { id: '3-400103', name: '3-400103 – Зеҳни сунъӣ', course: 3 }
+        ];
+
+        // WebSocket соединение
+        const socket = io();
+
+        // ===== ИНИЦИАЛИЗАЦИЯ ПРИЛОЖЕНИЯ =====
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Initializing application...');
+            loadUserData();
+            setupEventListeners();
+            setupSocketListeners();
+            initializeApp();
+        });
+
+        function loadUserData() {
+            const userData = localStorage.getItem('currentUser');
+            if (userData) {
+                currentUser = JSON.parse(userData);
+                updateUIForUserRole();
+            } else {
+                window.location.href = 'index.html';
+            }
+        }
+
+        function updateUIForUserRole() {
+            document.getElementById('userName').textContent = currentUser.name;
+            document.getElementById('userRole').textContent = getRoleDisplayName(currentUser.role);
+            
+            // Для дежурного скрываем кнопку редактирования и показываем специальный режим
+            if (currentUser.role === 'dezhur') {
+                document.getElementById('editModeContainer').style.display = 'none';
+            }
+        }
+
+        function getRoleDisplayName(role) {
+            const roles = {
+                'admin': 'Администратор',
+                'dekan': 'Декан', 
+                'dezhur': 'Дежурный',
+                'teacher': 'Преподаватель'
+            };
+            return roles[role] || 'Пользователь';
+        }
+
+        function initializeApp() {
+            populateProfessionSelects();
+            calculateCurrentWeek();
+            generateCalendar();
+            updateDateDisplay();
+            updateWeekDisplay();
+            updateAbsenceWeekDisplay();
+            loadStudents();
+            loadAttendance();
+            loadSavedDays();
+            loadAbsenceReasons(); // Добавлен вызов загрузки причин пропусков
+        }
+
+        // ===== НОВЫЕ ФУНКЦИИ ДЛЯ РАБОТЫ С ПРИЧИНАМИ ПРОПУСКОВ =====
+
+        async function loadAbsenceReasons() {
+            try {
+                const response = await fetch(`${API_BASE}/absence-reasons`);
+                if (response.ok) {
+                    absenceReasons = await response.json();
+                    console.log('✅ Причины пропусков загружены');
+                } else {
+                    absenceReasons = {};
+                    console.log('❌ Причины пропусков не загружены');
+                }
+            } catch (error) {
+                console.error('Error loading absence reasons:', error);
+                absenceReasons = {};
+            }
+        }
+
+        async function saveAbsenceReason(studentId, date, hour, reason) {
+            try {
+                const reasonData = {
+                    studentId: studentId,
+                    date: date,
+                    hour: hour,
+                    reason: reason
+                };
+
+                const response = await fetch(`${API_BASE}/absence-reasons`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(reasonData)
+                });
+
+                if (response.ok) {
+                    if (!absenceReasons[date]) absenceReasons[date] = {};
+                    if (!absenceReasons[date][studentId]) absenceReasons[date][studentId] = {};
+                    
+                    if (reason === null) {
+                        delete absenceReasons[date][studentId][hour];
+                    } else {
+                        absenceReasons[date][studentId][hour] = reason;
+                    }
+                    
+                    socket.emit('absence_reason_updated', reasonData);
+                    return true;
+                } else {
+                    showNotification('Ошибка сохранения причины', 'error');
+                    return false;
+                }
+            } catch (error) {
+                console.error('Error saving absence reason:', error);
+                showNotification('Ошибка соединения с сервером', 'error');
+                return false;
+            }
+        }
+
+        // ===== ЧЕРНЫЙ СПИСОК / НБ ПО ПЕРИОДАМ =====
+
+        function getBlacklistPeriod() {
+            return BLACKLIST_PERIODS[blacklistPeriodIndex];
+        }
+
+        function isDateInBlacklistPeriod(dateStr) {
+            const period = getBlacklistPeriod();
+            return dateStr >= period.start && dateStr <= period.end;
+        }
+
+        function getStudentAbsenceHoursInPeriod(studentId) {
+            let hours = 0;
+            Object.keys(hourlyAttendance).forEach(date => {
+                if (!isDateInBlacklistPeriod(date)) return;
+                const dailyData = hourlyAttendance[date][studentId];
+                if (!dailyData) return;
+                Object.values(dailyData).forEach(status => {
+                    if (status === 'absent') hours++;
+                });
+            });
+            return hours;
+        }
+
+        function updateBlacklistPeriodDisplay() {
+            const period = getBlacklistPeriod();
+            document.getElementById('blacklistPeriodRange').textContent = period.label;
+
+            const prevBtn = document.getElementById('blacklistPrevPeriod');
+            const nextBtn = document.getElementById('blacklistNextPeriod');
+            prevBtn.style.display = blacklistPeriodIndex < BLACKLIST_PERIODS.length - 1 ? '' : 'none';
+            nextBtn.style.display = blacklistPeriodIndex > 0 ? '' : 'none';
+        }
+
+        function navigateBlacklistPeriod(direction) {
+            const newIndex = blacklistPeriodIndex + direction;
+            if (newIndex < 0 || newIndex >= BLACKLIST_PERIODS.length) return;
+            blacklistPeriodIndex = newIndex;
+            updateBlacklistPeriodDisplay();
+            updateBlacklist();
+        }
+
+        function updateBlacklist() {
+            const blacklistStudentsEl = document.getElementById('blacklistStudents');
+            const professionFilter = document.getElementById('blacklistProfessionSelect').value;
+            const period = getBlacklistPeriod();
+
+            updateBlacklistPeriodDisplay();
+
+            const sectionTitle = document.querySelector('#blacklistPage .blacklist-section h3');
+            if (sectionTitle) {
+                sectionTitle.textContent = `НБ учеников (20+ часов) — ${period.label}`;
+            }
+
+            const filteredStudents = students.filter(student => {
+                if (professionFilter && student.group !== professionFilter) return false;
+                return true;
+            });
+
+            const studentsWithNb = filteredStudents
+                .map(student => ({
+                    student,
+                    hours: getStudentAbsenceHoursInPeriod(student.id)
+                }))
+                .filter(item => item.hours >= NB_LIST_THRESHOLD)
+                .sort((a, b) => b.hours - a.hours);
+
+            if (studentsWithNb.length === 0) {
+                blacklistStudentsEl.innerHTML = `
+                    <div class="blacklist-student info">
+                        <div style="text-align: center; padding: 20px;">
+                            <h4>Нет студентов с 20+ часами НБ</h4>
+                            <p>За период ${period.label} никто не набрал 20 и более часов пропусков</p>
+                            <p style="font-size: 12px; color: var(--gray); margin-top: 10px;">
+                                Порог отображения: ${NB_LIST_THRESHOLD} часов
+                            </p>
+                        </div>
+                    </div>
+                `;
+            } else {
+                blacklistStudentsEl.innerHTML = studentsWithNb.map(({ student, hours }) => {
+                    const professionName = professions.find(p => p.id === student.group)?.name || student.group;
+                    const cardClass = hours >= 36 ? '' : ' warning';
+                    return `
+                        <div class="blacklist-student${cardClass}">
+                            <div class="blacklist-student-header">
+                                <div>
+                                    <div style="font-weight: 700; font-size: 16px;">${student.name}</div>
+                                    <div style="font-size: 13px; color: var(--gray); margin-top: 4px;">${professionName}</div>
+                                </div>
+                                <div class="blacklist-student-hours">${hours} ч.</div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            updateBlacklistStats();
+        }
+
+        function updateBlacklistStats() {
+            const professionFilter = document.getElementById('blacklistProfessionSelect').value;
+
+            const filteredStudents = students.filter(student => {
+                if (professionFilter && student.group !== professionFilter) return false;
+                return true;
+            });
+
+            let nbListCount = 0;
+            let warningCount = 0;
+            let totalAbsenceHours = 0;
+
+            filteredStudents.forEach(student => {
+                const studentAbsenceHours = getStudentAbsenceHoursInPeriod(student.id);
+                totalAbsenceHours += studentAbsenceHours;
+
+                if (studentAbsenceHours >= NB_LIST_THRESHOLD) {
+                    nbListCount++;
+                } else if (studentAbsenceHours >= NB_WARNING_THRESHOLD) {
+                    warningCount++;
+                }
+            });
+
+            document.getElementById('blacklistCount').textContent = nbListCount;
+            document.getElementById('warningCount').textContent = warningCount;
+            document.getElementById('totalAbsenceHours').textContent = totalAbsenceHours;
+        }
+
+        // ===== ОБНОВЛЕННАЯ ФУНКЦИЯ ДЛЯ ВКЛАДКИ ПРОПУСКОВ =====
+
+        function updateAbsenceWeekDisplay() {
+            const weekEnd = new Date(currentWeekStart);
+            weekEnd.setDate(currentWeekStart.getDate() + 5);
+            
+            const options = { day: 'numeric', month: 'long' };
+            const startStr = currentWeekStart.toLocaleDateString('ru-RU', options);
+            const endStr = weekEnd.toLocaleDateString('ru-RU', options);
+            
+            document.getElementById('absenceCurrentWeekRange').textContent = `${startStr} - ${endStr}`;
+        }
+
+        function navigateAbsenceWeeks(weeks) {
+            currentWeekStart.setDate(currentWeekStart.getDate() + (weeks * 7));
+            updateWeekDisplay();
+            updateAbsenceWeekDisplay();
+            renderWeeklyTable();
+            renderAbsenceTable();
+        }
+
+        // ===== СУЩЕСТВУЮЩИЕ ФУНКЦИИ (без изменений) =====
+
+        function populateProfessionSelects() {
+            const selects = [
+                'professionSelect',
+                'weeklyProfessionSelect', 
+                'batchProfessionSelect',
+                'studentProfession',
+                'absenceProfessionSelect',
+                'blacklistProfessionSelect'
+            ];
+            
+            selects.forEach(selectId => {
+                const select = document.getElementById(selectId);
+                select.innerHTML = '<option value="">Все профессии</option>';
+                
+                professions.forEach(prof => {
+                    const option = document.createElement('option');
+                    option.value = prof.id;
+                    option.textContent = prof.name;
+                    select.appendChild(option);
+                });
+            });
+        }
+
+        function calculateCurrentWeek() {
+            const today = new Date();
+            const dayOfWeek = today.getDay();
+            const diff = today.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+            currentWeekStart = new Date(today.setDate(diff));
+        }
+
+        // ===== РАБОТА С API =====
+
+        async function loadStudents() {
+            try {
+                showNotification('Загрузка студентов...', 'warning');
+                const response = await fetch(`${API_BASE}/students`);
+                if (response.ok) {
+                    students = await response.json();
+                    renderStudentsGrid();
+                    renderWeeklyTable();
+                    renderStudentsTable();
+                    renderAbsenceTable();
+                    updateStats();
+                    updateBlacklist();
+                    showNotification('Студенты загружены', 'success');
+                } else {
+                    throw new Error('Failed to load students');
+                }
+            } catch (error) {
+                console.error('Error loading students:', error);
+                showNotification('Ошибка загрузки студентов', 'error');
+                loadDemoStudents();
+            }
+        }
+
+        async function loadAttendance() {
+            try {
+                const response = await fetch(`${API_BASE}/attendance`);
+                if (response.ok) {
+                    const data = await response.json();
+                    attendance = data.daily || {};
+                    hourlyAttendance = data.hourly || {};
+                    renderStudentsGrid();
+                    renderWeeklyTable();
+                    renderAbsenceTable();
+                    updateStats();
+                    updateBlacklist();
+                } else {
+                    attendance = {};
+                    hourlyAttendance = {};
+                }
+            } catch (error) {
+                console.error('Error loading attendance:', error);
+                attendance = {};
+                hourlyAttendance = {};
+            }
+        }
+
+        async function loadSavedDays() {
+            try {
+                const response = await fetch(`${API_BASE}/saved-days`);
+                if (response.ok) {
+                    savedDays = await response.json();
+                } else {
+                    savedDays = {};
+                }
+            } catch (error) {
+                console.error('Error loading saved days:', error);
+                savedDays = {};
+            }
+        }
+
+        async function saveAttendance(studentId, date, status, hour = null) {
+            try {
+                const attendanceData = {
+                    studentId: studentId,
+                    date: date,
+                    status: status,
+                    hour: hour
+                };
+
+                const response = await fetch(`${API_BASE}/attendance`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(attendanceData)
+                });
+
+                if (response.ok) {
+                    // Обновляем локальные данные
+                    if (hour !== null && hour !== undefined) {
+                        if (!hourlyAttendance[date]) hourlyAttendance[date] = {};
+                        if (!hourlyAttendance[date][studentId]) hourlyAttendance[date][studentId] = {};
+                        
+                        if (status === 'unknown') {
+                            delete hourlyAttendance[date][studentId][hour];
+                        } else {
+                            hourlyAttendance[date][studentId][hour] = status;
+                        }
+                    }
+                    
+                    socket.emit('attendance_updated', attendanceData);
+                    return true;
+                } else {
+                    showNotification('Ошибка сохранения посещаемости', 'error');
+                    return false;
+                }
+            } catch (error) {
+                console.error('Error saving attendance:', error);
+                showNotification('Ошибка соединения с сервером', 'error');
+                return false;
+            }
+        }
+
+        async function saveAllAttendanceForDay() {
+            try {
+                const dateStr = formatDate(selectedDate);
+                const professionFilter = document.getElementById('professionSelect').value;
+                
+                const response = await fetch(`${API_BASE}/save-day`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        date: dateStr,
+                        profession: professionFilter,
+                        savedBy: currentUser.id
+                    })
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    savedDays[dateStr] = savedDays[dateStr] || {};
+                    savedDays[dateStr][professionFilter] = true;
+                    
+                    socket.emit('day_saved', { date: dateStr, profession: professionFilter });
+                    showNotification('Посещаемость успешно сохранена и заблокирована', 'success');
+                    renderStudentsGrid();
+                    return true;
+                } else {
+                    showNotification('Ошибка сохранения посещаемости', 'error');
+                    return false;
+                }
+            } catch (error) {
+                console.error('Error saving attendance for day:', error);
+                showNotification('Ошибка соединения с сервером', 'error');
+                return false;
+            }
+        }
+
+        async function addStudent(studentData) {
+            try {
+                const response = await fetch(`${API_BASE}/students`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(studentData)
+                });
+
+                if (response.ok) {
+                    const newStudent = await response.json();
+                    students.push(newStudent);
+                    renderStudentsGrid();
+                    renderWeeklyTable();
+                    renderStudentsTable();
+                    renderAbsenceTable();
+                    updateStats();
+                    updateBlacklist();
+                    
+                    socket.emit('student_added', newStudent);
+                    showNotification('Студент успешно добавлен', 'success');
+                    return true;
+                } else {
+                    const errorText = await response.text();
+                    showNotification('Ошибка добавления студента: ' + errorText, 'error');
+                    return false;
+                }
+            } catch (error) {
+                console.error('Error adding student:', error);
+                showNotification('Ошибка соединения с сервером', 'error');
+                return false;
+            }
+        }
+
+        async function addMultipleStudents(studentsList) {
+            try {
+                const response = await fetch(`${API_BASE}/students/batch`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ students: studentsList })
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    await loadStudents();
+                    showNotification(`Успешно добавлено ${result.added} студентов`, 'success');
+                    return true;
+                } else {
+                    const errorText = await response.text();
+                    showNotification('Ошибка при добавлении студентов: ' + errorText, 'error');
+                    return false;
+                }
+            } catch (error) {
+                console.error('Error adding multiple students:', error);
+                showNotification('Ошибка соединения с сервером', 'error');
+                return false;
+            }
+        }
+
+        async function deleteStudent(studentId) {
+            if (!confirm('Вы уверены, что хотите удалить этого студента?')) {
+                return false;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/students/${studentId}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    students = students.filter(s => s.id !== studentId);
+                    renderStudentsGrid();
+                    renderWeeklyTable();
+                    renderStudentsTable();
+                    renderAbsenceTable();
+                    updateStats();
+                    updateBlacklist();
+                    
+                    socket.emit('student_deleted', studentId);
+                    showNotification('Студент успешно удален', 'success');
+                    return true;
+                } else {
+                    const errorText = await response.text();
+                    showNotification('Ошибка удаления студента: ' + errorText, 'error');
+                    return false;
+                }
+            } catch (error) {
+                console.error('Error deleting student:', error);
+                showNotification('Ошибка соединения с сервером', 'error');
+                return false;
+            }
+        }
+
+        // ===== РЕНДЕРИНГ ИНТЕРФЕЙСА =====
+
+        function generateCalendar() {
+            const calendarGrid = document.getElementById('calendarGrid');
+            calendarGrid.innerHTML = '';
+            
+            const dayNames = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+            dayNames.forEach(day => {
+                const dayHeader = document.createElement('div');
+                dayHeader.className = 'calendar-day-header';
+                dayHeader.textContent = day;
+                calendarGrid.appendChild(dayHeader);
+            });
+            
+            const firstDay = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+            const lastDay = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+            
+            let firstDayOfWeek = firstDay.getDay();
+            if (firstDayOfWeek === 0) firstDayOfWeek = 7;
+            
+            for (let i = 1; i < firstDayOfWeek; i++) {
+                const emptyDay = document.createElement('div');
+                emptyDay.className = 'calendar-day readonly';
+                calendarGrid.appendChild(emptyDay);
+            }
+            
+            for (let day = 1; day <= lastDay.getDate(); day++) {
+                const dayElement = document.createElement('button');
+                dayElement.className = 'calendar-day';
+                
+                const dayNumber = document.createElement('div');
+                dayNumber.className = 'day-number';
+                dayNumber.textContent = day;
+                dayElement.appendChild(dayNumber);
+                
+                const dayOfWeek = new Date(currentDate.getFullYear(), currentDate.getMonth(), day).getDay();
+                if (dayOfWeek === 0 || dayOfWeek === 6) {
+                    dayElement.classList.add('weekend');
+                }
+                
+                const today = new Date();
+                if (day === today.getDate() && 
+                    currentDate.getMonth() === today.getMonth() && 
+                    currentDate.getFullYear() === today.getFullYear()) {
+                    dayElement.classList.add('today');
+                }
+                
+                if (day === selectedDate.getDate() && 
+                    currentDate.getMonth() === selectedDate.getMonth() && 
+                    currentDate.getFullYear() === selectedDate.getFullYear()) {
+                    dayElement.classList.add('selected');
+                }
+                
+                const dateStr = formatDate(new Date(currentDate.getFullYear(), currentDate.getMonth(), day));
+                if (attendance[dateStr]) {
+                    const presentCount = Object.values(attendance[dateStr]).filter(status => status === 'present').length;
+                    const absentCount = Object.values(attendance[dateStr]).filter(status => status === 'absent').length;
+                    
+                    if (presentCount > 0 || absentCount > 0) {
+                        const stats = document.createElement('div');
+                        stats.className = 'day-stats';
+                        stats.textContent = `${presentCount}✓ ${absentCount}✗`;
+                        dayElement.appendChild(stats);
+                        
+                        if (absentCount > 0) {
+                            dayElement.classList.add('absent-data');
+                        } else {
+                            dayElement.classList.add('has-data');
+                        }
+                    }
+                }
+                
+                dayElement.addEventListener('click', () => {
+                    selectDate(new Date(currentDate.getFullYear(), currentDate.getMonth(), day));
+                });
+                
+                calendarGrid.appendChild(dayElement);
+            }
+            
+            updateDateDisplay();
+        }
+
+        function renderStudentsGrid() {
+            const studentsGrid = document.getElementById('studentsGrid');
+            studentsGrid.innerHTML = '';
+            
+            if (students.length === 0) {
+                studentsGrid.innerHTML = '<div class="student-card"><div class="student-name">Нет студентов для отображения</div></div>';
+                return;
+            }
+            
+            const dateStr = formatDate(selectedDate);
+            const todayStr = formatDate(new Date());
+            const isToday = dateStr === todayStr;
+            
+            const professionFilter = document.getElementById('professionSelect').value;
+            
+            const filteredStudents = students.filter(student => {
+                if (professionFilter && student.group !== professionFilter) return false;
+                return true;
+            });
+            
+            if (filteredStudents.length === 0) {
+                studentsGrid.innerHTML = '<div class="student-card"><div class="student-name">Нет студентов по выбранным критериям</div></div>';
+                return;
+            }
+            
+            // Определяем, можно ли редактировать посещаемость
+            const canEdit = canUserEditAttendance(dateStr, professionFilter);
+            
+            filteredStudents.forEach(student => {
+                const studentCard = document.createElement('div');
+                studentCard.className = 'student-card';
+                
+                const hourlyData = hourlyAttendance[dateStr] && hourlyAttendance[dateStr][student.id] ? 
+                    hourlyAttendance[dateStr][student.id] : {};
+                
+                let presentHours = 0;
+                let absentHours = 0;
+                
+                for (let hour = 1; hour <= HOURS_PER_DAY; hour++) {
+                    if (hourlyData[hour] === 'present') {
+                        presentHours++;
+                    } else if (hourlyData[hour] === 'absent') {
+                        absentHours++;
+                    }
+                }
+                
+                let overallStatus = 'unknown';
+                if (presentHours > 0) {
+                    overallStatus = 'present';
+                } else if (absentHours > 0) {
+                    overallStatus = 'absent';
+                }
+                
+                const statusText = {
+                    'present': 'Присутствовал',
+                    'absent': 'Отсутствовал', 
+                    'unknown': 'Не отмечен'
+                };
+                
+                const statusClass = {
+                    'present': 'status-present',
+                    'absent': 'status-absent',
+                    'unknown': 'status-unknown'
+                };
+                
+                const professionName = professions.find(p => p.id === student.group)?.name || student.group;
+                
+                // Получаем информацию о причинах пропусков для этого студента
+                const dailyReasons = absenceReasons[dateStr] && absenceReasons[dateStr][student.id] ? 
+                    absenceReasons[dateStr][student.id] : {};
+                
+                // Определяем общую причину пропуска (если все пропуски имеют одинаковую причину)
+                let overallReason = 'none';
+                const reasonValues = Object.values(dailyReasons);
+                if (reasonValues.length > 0) {
+                    const allSameReason = reasonValues.every(val => val === reasonValues[0]);
+                    if (allSameReason) {
+                        overallReason = reasonValues[0];
+                    }
+                }
+                
+                const reasonText = {
+                    'valid': 'Уважительная причина',
+                    'invalid': 'Неуважительная причина',
+                    'none': 'Причина не указана'
+                };
+                
+                const reasonClass = {
+                    'valid': 'valid',
+                    'invalid': 'invalid',
+                    'none': 'none'
+                };
+                
+                studentCard.innerHTML = `
+                    <div class="student-header">
+                        <div>
+                            <div class="student-name">${student.name}</div>
+                            <div class="student-details">${professionName}</div>
+                        </div>
+                        <div class="attendance-status ${statusClass[overallStatus]}">
+                            ${statusText[overallStatus]}
+                        </div>
+                    </div>
+                    <div class="hourly-controls">
+                        ${generateHourlyControls(student.id, hourlyData, canEdit)}
+                    </div>
+                    <div class="absence-reason-controls">
+                        <button class="absence-reason-btn valid" 
+                                data-student="${student.id}"
+                                ${!canEdit || absentHours === 0 ? 'disabled' : ''}>
+                            Уважительная
+                        </button>
+                        <button class="absence-reason-btn invalid" 
+                                data-student="${student.id}"
+                                ${!canEdit || absentHours === 0 ? 'disabled' : ''}>
+                            Неуважительная
+                        </button>
+                    </div>
+                    <div class="absence-reason-indicator ${reasonClass[overallReason]}">
+                        ${reasonText[overallReason]}
+                    </div>
+                    <div class="quick-actions">
+                        <div class="quick-actions-title">Быстрая отметка:</div>
+                        <div class="quick-actions-buttons">
+                            <button class="btn-mark-all-present" 
+                                    data-student="${student.id}"
+                                    ${!canEdit ? 'disabled' : ''}>
+                                ✓ 5ч присутствовал
+                            </button>
+                            <button class="btn-mark-all-absent" 
+                                    data-student="${student.id}"
+                                    ${!canEdit ? 'disabled' : ''}>
+                                ✗ 5ч отсутствовал
+                            </button>
+                        </div>
+                    </div>
+                    <div class="hour-summary">
+                        <div class="hourly-stats">
+                            <span class="hours-present">Присутствовал ${presentHours}ч</span>
+                            <span class="hours-absent">Отсутствовал ${absentHours}ч</span>
+                        </div>
+                    </div>
+                `;
+                
+                studentsGrid.appendChild(studentCard);
+            });
+            
+            // Добавляем обработчики для кнопок часов
+            document.querySelectorAll('.hour-btn').forEach(button => {
+                button.addEventListener('click', async function() {
+                    if (this.disabled) return;
+                    
+                    const studentId = parseInt(this.getAttribute('data-student'));
+                    const hour = parseInt(this.getAttribute('data-hour'));
+                    const currentStatus = this.getAttribute('data-status');
+                    
+                    // Циклическое переключение: unknown -> present -> absent -> unknown
+                    let newStatus = 'unknown';
+                    if (currentStatus === 'unknown') newStatus = 'present';
+                    else if (currentStatus === 'present') newStatus = 'absent';
+                    
+                    await saveAttendance(studentId, formatDate(selectedDate), newStatus, hour);
+                    renderStudentsGrid();
+                    renderWeeklyTable();
+                    renderAbsenceTable();
+                    updateBlacklist();
+                });
+            });
+            
+            // Обработчики для кнопок причин пропусков
+            document.querySelectorAll('.absence-reason-btn.valid').forEach(button => {
+                button.addEventListener('click', async function() {
+                    if (this.disabled) return;
+                    
+                    const studentId = parseInt(this.getAttribute('data-student'));
+                    const dateStr = formatDate(selectedDate);
+                    
+                    // Устанавливаем уважительную причину для всех часов отсутствия
+                    const hourlyData = hourlyAttendance[dateStr] && hourlyAttendance[dateStr][studentId] ? 
+                        hourlyAttendance[dateStr][studentId] : {};
+                    
+                    for (let hour = 1; hour <= HOURS_PER_DAY; hour++) {
+                        if (hourlyData[hour] === 'absent') {
+                            await saveAbsenceReason(studentId, dateStr, hour, 'valid');
+                        }
+                    }
+                    
+                    renderStudentsGrid();
+                    renderAbsenceTable();
+                    showNotification('Установлена уважительная причина для всех пропусков', 'success');
+                });
+            });
+
+            document.querySelectorAll('.absence-reason-btn.invalid').forEach(button => {
+                button.addEventListener('click', async function() {
+                    if (this.disabled) return;
+                    
+                    const studentId = parseInt(this.getAttribute('data-student'));
+                    const dateStr = formatDate(selectedDate);
+                    
+                    // Устанавливаем неуважительную причину для всех часов отсутствия
+                    const hourlyData = hourlyAttendance[dateStr] && hourlyAttendance[dateStr][studentId] ? 
+                        hourlyAttendance[dateStr][studentId] : {};
+                    
+                    for (let hour = 1; hour <= HOURS_PER_DAY; hour++) {
+                        if (hourlyData[hour] === 'absent') {
+                            await saveAbsenceReason(studentId, dateStr, hour, 'invalid');
+                        }
+                    }
+                    
+                    renderStudentsGrid();
+                    renderAbsenceTable();
+                    showNotification('Установлена неуважительная причина для всех пропусков', 'success');
+                });
+            });
+            
+            // Обработчики для кнопок быстрой отметки
+            document.querySelectorAll('.btn-mark-all-present').forEach(button => {
+                button.addEventListener('click', async function() {
+                    if (this.disabled) return;
+                    
+                    const studentId = parseInt(this.getAttribute('data-student'));
+                    const dateStr = formatDate(selectedDate);
+                    
+                    // Отмечаем все 5 часов как присутствие
+                    for (let hour = 1; hour <= HOURS_PER_DAY; hour++) {
+                        await saveAttendance(studentId, dateStr, 'present', hour);
+                    }
+                    
+                    renderStudentsGrid();
+                    renderWeeklyTable();
+                    renderAbsenceTable();
+                    updateBlacklist();
+                    showNotification('Отмечено 5 часов присутствия', 'success');
+                });
+            });
+
+            document.querySelectorAll('.btn-mark-all-absent').forEach(button => {
+                button.addEventListener('click', async function() {
+                    if (this.disabled) return;
+                    
+                    const studentId = parseInt(this.getAttribute('data-student'));
+                    const dateStr = formatDate(selectedDate);
+                    
+                    // Отмечаем все 5 часов как отсутствие
+                    for (let hour = 1; hour <= HOURS_PER_DAY; hour++) {
+                        await saveAttendance(studentId, dateStr, 'absent', hour);
+                    }
+                    
+                    renderStudentsGrid();
+                    renderWeeklyTable();
+                    renderAbsenceTable();
+                    updateBlacklist();
+                    showNotification('Отмечено 5 часов отсутствия', 'success');
+                });
+            });
+            
+            updateDailyStats();
+            
+            // Обновляем отображение кнопки сохранения
+            updateSaveButtonVisibility(dateStr, professionFilter);
+        }
+
+        function canUserEditAttendance(dateStr, professionFilter) {
+            const todayStr = formatDate(new Date());
+            const isToday = dateStr === todayStr;
+            
+            // Админ и декан могут редактировать любую дату
+            if (currentUser.role === 'admin' || currentUser.role === 'dekan') {
+                return editMode;
+            }
+            
+            // Дежурный может редактировать только сегодня и только если данные еще не сохранены
+            if (currentUser.role === 'dezhur') {
+                if (!isToday) return false;
+                
+                // Проверяем, не сохранен ли уже этот день для этой профессии
+                const isSaved = savedDays[dateStr] && savedDays[dateStr][professionFilter];
+                return !isSaved;
+            }
+            
+            return false;
+        }
+
+        function updateSaveButtonVisibility(dateStr, professionFilter) {
+            const saveSection = document.getElementById('saveSection');
+            const todayStr = formatDate(new Date());
+            const isToday = dateStr === todayStr;
+            
+            if (currentUser.role === 'dezhur') {
+                if (isToday && professionFilter && !(savedDays[dateStr] && savedDays[dateStr][professionFilter])) {
+                    saveSection.style.display = 'block';
+                    document.getElementById('saveAttendanceBtn').textContent = '💾 Сохранить и заблокировать посещаемость';
+                    document.getElementById('saveAttendanceBtn').className = 'btn btn-success';
+                } else {
+                    saveSection.style.display = 'none';
+                }
+            } else if (currentUser.role === 'admin' || currentUser.role === 'dekan') {
+                saveSection.style.display = 'block';
+                document.getElementById('saveAttendanceBtn').textContent = '💾 Сохранить посещаемость';
+                document.getElementById('saveAttendanceBtn').className = 'btn btn-primary';
+            } else {
+                saveSection.style.display = 'none';
+            }
+        }
+
+        function generateHourlyControls(studentId, hourlyData, canEdit) {
+            let controlsHTML = '';
+            
+            for (let hour = 1; hour <= HOURS_PER_DAY; hour++) {
+                const currentStatus = hourlyData[hour] || 'unknown';
+                let buttonClass = 'hour-btn';
+                let buttonText = hour;
+                
+                if (currentStatus === 'present') {
+                    buttonClass += ' present';
+                    buttonText = '✓';
+                } else if (currentStatus === 'absent') {
+                    buttonClass += ' absent';
+                    buttonText = '✗';
+                }
+                
+                controlsHTML += `
+                    <div>
+                        <div class="hour-label">${hour}ч</div>
+                        <button class="${buttonClass}" 
+                                data-student="${studentId}" 
+                                data-hour="${hour}"
+                                data-status="${currentStatus}"
+                                ${!canEdit ? 'disabled' : ''}>
+                            ${buttonText}
+                        </button>
+                    </div>
+                `;
+            }
+            
+            return controlsHTML;
+        }
+
+        function getStudentHourStatus(studentId, dateStr, hour) {
+            return hourlyAttendance[dateStr]?.[studentId]?.[hour] || null;
+        }
+
+        function getStudentDayStats(studentId, dateStr) {
+            const stats = {
+                present: 0,
+                absent: 0,
+                unmarked: 0,
+                presentHours: [],
+                absentHours: []
+            };
+
+            for (let hour = 1; hour <= HOURS_PER_DAY; hour++) {
+                const status = getStudentHourStatus(studentId, dateStr, hour);
+                if (status === 'present') {
+                    stats.present++;
+                    stats.presentHours.push(hour);
+                } else if (status === 'absent') {
+                    stats.absent++;
+                    stats.absentHours.push(hour);
+                } else {
+                    stats.unmarked++;
+                }
+            }
+
+            return stats;
+        }
+
+        function getAttendanceCellInfo(status) {
+            if (status === 'present') {
+                return { text: 'Б', className: 'present-cell', title: 'Был' };
+            }
+            if (status === 'absent') {
+                return { text: 'НБ', className: 'absent-cell', title: 'Не был' };
+            }
+            return { text: '—', className: 'unknown-cell', title: 'Не отмечен' };
+        }
+
+        function renderWeeklyTable() {
+            const weeklyTableHead = document.getElementById('weeklyTableHead');
+            const weeklyTableBody = document.getElementById('weeklyTableBody');
+            weeklyTableHead.innerHTML = '';
+            weeklyTableBody.innerHTML = '';
+
+            const totalColumns = DAYS_IN_WEEK * HOURS_PER_DAY + DAYS_IN_WEEK + 2;
+            
+            if (students.length === 0) {
+                weeklyTableBody.innerHTML = '<tr><td colspan="' + totalColumns + '">Нет студентов для отображения</td></tr>';
+                return;
+            }
+            
+            const professionFilter = document.getElementById('weeklyProfessionSelect').value;
+            
+            const filteredStudents = students.filter(student => {
+                if (professionFilter && student.group !== professionFilter) return false;
+                return true;
+            });
+            
+            if (filteredStudents.length === 0) {
+                weeklyTableBody.innerHTML = '<tr><td colspan="' + totalColumns + '">Нет студентов по выбранным критериям</td></tr>';
+                return;
+            }
+            
+            let headerHTML = '<tr><th class="student-name-cell" rowspan="2">Студент</th>';
+            
+            for (let i = 0; i < DAYS_IN_WEEK; i++) {
+                const date = new Date(currentWeekStart);
+                date.setDate(currentWeekStart.getDate() + i);
+                
+                const dayName = date.toLocaleDateString('ru-RU', { weekday: 'long' });
+                const dateNumber = date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+                const isLastDay = i === DAYS_IN_WEEK - 1;
+                
+                headerHTML += `<th colspan="${HOURS_PER_DAY}" ${isLastDay ? '' : 'class="day-separator"'} style="text-align: center;">
+                    <div style="font-weight: bold; font-size: 14px; margin-bottom: 4px;">${dayName}</div>
+                    <div style="font-size: 12px; opacity: 0.8;">${dateNumber}</div>
+                </th>`;
+            }
+
+            for (let i = 0; i < DAYS_IN_WEEK; i++) {
+                const date = new Date(currentWeekStart);
+                date.setDate(currentWeekStart.getDate() + i);
+                const dayShort = date.toLocaleDateString('ru-RU', { weekday: 'short' });
+                headerHTML += `<th rowspan="2" class="day-nb-cell">НБ ${dayShort}</th>`;
+            }
+
+            headerHTML += '<th rowspan="2">Всего НБ (ч)</th></tr>';
+
+            headerHTML += '<tr>';
+            for (let i = 0; i < DAYS_IN_WEEK; i++) {
+                for (let hour = 1; hour <= HOURS_PER_DAY; hour++) {
+                    const isLastHour = hour === HOURS_PER_DAY;
+                    const isLastDay = i === DAYS_IN_WEEK - 1;
+                    headerHTML += `<th ${isLastHour && !isLastDay ? 'class="last-hour-of-day"' : ''}>${hour}ч</th>`;
+                }
+            }
+            headerHTML += '</tr>';
+            
+            weeklyTableHead.innerHTML = headerHTML;
+            
+            filteredStudents.forEach(student => {
+                const row = document.createElement('tr');
+                
+                const nameCell = document.createElement('td');
+                nameCell.className = 'student-name-cell';
+                nameCell.textContent = student.name;
+                row.appendChild(nameCell);
+                
+                let totalAbsentHours = 0;
+                const dayAbsentCounts = [];
+                
+                for (let i = 0; i < DAYS_IN_WEEK; i++) {
+                    const date = new Date(currentWeekStart);
+                    date.setDate(currentWeekStart.getDate() + i);
+                    const dateStr = formatDate(date);
+                    const dayStats = getStudentDayStats(student.id, dateStr);
+                    
+                    dayAbsentCounts.push(dayStats.absent);
+                    totalAbsentHours += dayStats.absent;
+                    
+                    for (let hour = 1; hour <= HOURS_PER_DAY; hour++) {
+                        const cell = document.createElement('td');
+                        const status = getStudentHourStatus(student.id, dateStr, hour);
+                        const cellInfo = getAttendanceCellInfo(status);
+                        
+                        const isLastHour = hour === HOURS_PER_DAY;
+                        const isLastDay = i === DAYS_IN_WEEK - 1;
+                        if (isLastHour && !isLastDay) {
+                            cell.classList.add('last-hour-of-day');
+                        }
+                        
+                        cell.className = cellInfo.className;
+                        cell.textContent = cellInfo.text;
+                        cell.title = cellInfo.title;
+                        
+                        row.appendChild(cell);
+                    }
+                }
+
+                dayAbsentCounts.forEach(count => {
+                    const dayCell = document.createElement('td');
+                    dayCell.className = count > 0 ? 'day-nb-cell' : 'day-nb-cell zero';
+                    dayCell.textContent = `${count}ч`;
+                    dayCell.title = count > 0 ? `Не был ${count} ч.` : 'Пропусков нет';
+                    row.appendChild(dayCell);
+                });
+                
+                const totalCell = document.createElement('td');
+                totalCell.className = 'total-cell';
+                totalCell.textContent = `${totalAbsentHours}ч`;
+                totalCell.title = `Всего не был ${totalAbsentHours} ч.`;
+                row.appendChild(totalCell);
+                
+                weeklyTableBody.appendChild(row);
+            });
+            
+            updateWeeklyStats();
+        }
+
+        function renderAbsenceTable() {
+            const absenceTableHead = document.getElementById('absenceTableHead');
+            const absenceTableBody = document.getElementById('absenceTableBody');
+            absenceTableHead.innerHTML = '';
+            absenceTableBody.innerHTML = '';
+            
+            if (students.length === 0) {
+                absenceTableBody.innerHTML = '<tr><td colspan="' + (DAYS_IN_WEEK * HOURS_PER_DAY + 3) + '">Нет студентов для отображения</td></tr>';
+                return;
+            }
+            
+            const professionFilter = document.getElementById('absenceProfessionSelect').value;
+            
+            const filteredStudents = students.filter(student => {
+                if (professionFilter && student.group !== professionFilter) return false;
+                return true;
+            });
+            
+            if (filteredStudents.length === 0) {
+                absenceTableBody.innerHTML = '<tr><td colspan="' + (DAYS_IN_WEEK * HOURS_PER_DAY + 3) + '">Нет студентов по выбранным критериям</td></tr>';
+                return;
+            }
+            
+            // Создаем заголовок таблицы
+            let headerHTML = '<tr><th class="student-name-cell" rowspan="2">Студент</th>';
+            
+            // Заголовки дней недели
+            for (let i = 0; i < DAYS_IN_WEEK; i++) {
+                const date = new Date(currentWeekStart);
+                date.setDate(currentWeekStart.getDate() + i);
+                
+                const dayName = date.toLocaleDateString('ru-RU', { weekday: 'long' });
+                const dateNumber = date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+                
+                const isLastDay = i === DAYS_IN_WEEK - 1;
+                headerHTML += `<th colspan="${HOURS_PER_DAY}" ${isLastDay ? '' : 'class="day-separator"'} style="text-align: center;">
+                    <div style="font-weight: bold; font-size: 14px; margin-bottom: 4px;">${dayName}</div>
+                    <div style="font-size: 12px; opacity: 0.8;">${dateNumber}</div>
+                </th>`;
+            }
+
+            headerHTML += '<th rowspan="2">Всего пропусков</th></tr>';
+
+            // Заголовки часов
+            headerHTML += '<tr>';
+            for (let i = 0; i < DAYS_IN_WEEK; i++) {
+                for (let hour = 1; hour <= HOURS_PER_DAY; hour++) {
+                    const isLastHour = hour === HOURS_PER_DAY;
+                    const isLastDay = i === DAYS_IN_WEEK - 1;
+                    headerHTML += `<th ${isLastHour && !isLastDay ? 'class="last-hour-of-day"' : ''}>${hour}ч</th>`;
+                }
+            }
+            headerHTML += '</tr>';
+            
+            absenceTableHead.innerHTML = headerHTML;
+            
+            // Данные студентов
+            filteredStudents.forEach(student => {
+                const row = document.createElement('tr');
+                
+                // Имя студента
+                const nameCell = document.createElement('td');
+                nameCell.className = 'student-name-cell';
+                nameCell.textContent = student.name;
+                row.appendChild(nameCell);
+                
+                let totalAbsentHours = 0;
+                
+                // Данные по дням и часам
+                for (let i = 0; i < DAYS_IN_WEEK; i++) {
+                    const date = new Date(currentWeekStart);
+                    date.setDate(currentWeekStart.getDate() + i);
+                    const dateStr = formatDate(date);
+                    
+                    const dailyHourlyData = hourlyAttendance[dateStr] && hourlyAttendance[dateStr][student.id] ? 
+                        hourlyAttendance[dateStr][student.id] : {};
+                    
+                    const dailyReasons = absenceReasons[dateStr] && absenceReasons[dateStr][student.id] ? 
+                        absenceReasons[dateStr][student.id] : {};
+                    
+                    for (let hour = 1; hour <= HOURS_PER_DAY; hour++) {
+                        const cell = document.createElement('td');
+                        const status = dailyHourlyData[hour];
+                        const reason = dailyReasons[hour];
+                        
+                        const isLastHour = hour === HOURS_PER_DAY;
+                        const isLastDay = i === DAYS_IN_WEEK - 1;
+                        if (isLastHour && !isLastDay) {
+                            cell.classList.add('last-hour-of-day');
+                        }
+                        
+                        if (status === 'absent') {
+                            totalAbsentHours++;
+                            
+                            if (reason === 'valid') {
+                                cell.className = 'reason-cell reason-valid';
+                                cell.textContent = 'У';
+                                cell.title = 'Уважительная причина';
+                            } else if (reason === 'invalid') {
+                                cell.className = 'reason-cell reason-invalid';
+                                cell.textContent = 'Н';
+                                cell.title = 'Неуважительная причина';
+                            } else {
+                                cell.className = 'reason-cell';
+                                cell.textContent = '?';
+                                cell.title = 'Причина не указана';
+                            }
+                            
+                            // Только администратор может изменять причины
+                            if (currentUser.role === 'admin') {
+                                cell.style.cursor = 'pointer';
+                                cell.addEventListener('click', () => {
+                                    showEditReasonModal(student, date, hour, reason);
+                                });
+                            }
+                        } else if (status === 'present') {
+                            cell.className = 'present-cell';
+                            cell.textContent = '✓';
+                        } else {
+                            cell.textContent = '';
+                        }
+                        
+                        row.appendChild(cell);
+                    }
+                }
+                
+                // Итоговое количество пропусков
+                const totalCell = document.createElement('td');
+                totalCell.className = 'total-cell';
+                totalCell.textContent = totalAbsentHours;
+                row.appendChild(totalCell);
+                
+                absenceTableBody.appendChild(row);
+            });
+        }
+
+        function renderStudentsTable() {
+            const studentsTableBody = document.getElementById('studentsTableBody');
+            studentsTableBody.innerHTML = '';
+            
+            if (students.length === 0) {
+                studentsTableBody.innerHTML = '<div class="student-card"><div class="student-name">Нет студентов для отображения</div></div>';
+                return;
+            }
+            
+            students.forEach(student => {
+                const studentCard = document.createElement('div');
+                studentCard.className = 'student-card';
+                
+                const professionName = professions.find(p => p.id === student.group)?.name || student.group;
+                
+                studentCard.innerHTML = `
+                    <div class="student-header">
+                        <div>
+                            <div class="student-name">${student.name}</div>
+                            <div class="student-details">${professionName}</div>
+                        </div>
+                    </div>
+                    <div class="card-attendance-controls">
+                        ${currentUser.role === 'admin' || currentUser.role === 'dekan' ? 
+                            `<button class="btn btn-danger" onclick="deleteStudent(${student.id})">Удалить</button>` : 
+                            `<button class="btn" disabled>Удалить</button>`
+                        }
+                    </div>
+                `;
+                
+                studentsTableBody.appendChild(studentCard);
+            });
+        }
+
+        function showEditReasonModal(student, date, hour, currentReason) {
+            if (currentUser.role !== 'admin') {
+                showNotification('Только администратор может изменять причины пропусков', 'error');
+                return;
+            }
+            
+            document.getElementById('reasonStudentName').value = student.name;
+            document.getElementById('reasonDate').value = date.toLocaleDateString('ru-RU');
+            document.getElementById('reasonHour').value = `${hour} час`;
+            document.getElementById('reasonStudentId').value = student.id;
+            document.getElementById('reasonDateStr').value = formatDate(date);
+            document.getElementById('reasonHourNum').value = hour;
+            
+            document.getElementById('editReasonModal').classList.add('show');
+        }
+
+        function hideEditReasonModal() {
+            document.getElementById('editReasonModal').classList.remove('show');
+        }
+
+        // ===== ОБРАБОТЧИКИ СОБЫТИЙ =====
+
+        function setupEventListeners() {
+            // Навигация по месяцам
+            document.getElementById('prevMonth').addEventListener('click', () => navigateMonths(-1));
+            document.getElementById('nextMonth').addEventListener('click', () => navigateMonths(1));
+            document.getElementById('todayBtn').addEventListener('click', goToToday);
+            
+            // Навигация по неделям
+            document.getElementById('prevWeek').addEventListener('click', () => navigateWeeks(-1));
+            document.getElementById('nextWeek').addEventListener('click', () => navigateWeeks(1));
+
+            // Навигация по неделям на вкладке пропусков
+            document.getElementById('absencePrevWeek').addEventListener('click', () => navigateAbsenceWeeks(-1));
+            document.getElementById('absenceNextWeek').addEventListener('click', () => navigateAbsenceWeeks(1));
+            
+            // Переключение вкладок
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.addEventListener('click', function() {
+                    const page = this.getAttribute('data-page');
+                    switchPage(page);
+                });
+            });
+            
+            // Режим редактирования (только для админа и декана)
+            document.getElementById('editModeBtn').addEventListener('click', toggleEditMode);
+            
+            // Выход из системы
+            document.getElementById('logoutBtn').addEventListener('click', logout);
+            
+            // Добавление студента
+            document.getElementById('addStudentBtn').addEventListener('click', showAddStudentModal);
+            document.getElementById('confirmAddStudent').addEventListener('click', addNewStudent);
+            document.getElementById('cancelAddStudent').addEventListener('click', hideAddStudentModal);
+            document.getElementById('closeAddStudentModal').addEventListener('click', hideAddStudentModal);
+            
+            // Добавление нескольких студентов
+            document.getElementById('addMultipleStudentsBtn').addEventListener('click', showAddMultipleStudentsModal);
+            document.getElementById('confirmMultipleStudents').addEventListener('click', addMultipleStudents);
+            document.getElementById('cancelMultipleStudents').addEventListener('click', hideAddMultipleStudentsModal);
+            document.getElementById('closeMultipleStudentsModal').addEventListener('click', hideAddMultipleStudentsModal);
+            
+            // Фильтры
+            document.getElementById('applyFilterBtn').addEventListener('click', applyFilters);
+            document.getElementById('weeklyApplyFilterBtn').addEventListener('click', applyWeeklyFilters);
+            document.getElementById('exportNBExcelBtn').addEventListener('click', exportNBToExcel);
+            document.getElementById('absenceApplyFilterBtn').addEventListener('click', applyAbsenceFilters);
+            document.getElementById('blacklistApplyFilterBtn').addEventListener('click', applyBlacklistFilters);
+            document.getElementById('blacklistPrevPeriod').addEventListener('click', () => navigateBlacklistPeriod(1));
+            document.getElementById('blacklistNextPeriod').addEventListener('click', () => navigateBlacklistPeriod(-1));
+            
+            // Сохранение посещаемости
+            document.getElementById('saveAttendanceBtn').addEventListener('click', saveAllAttendance);
+            
+            // Обработчик для текстового поля множественного добавления студентов
+            document.getElementById('multipleStudentsNames').addEventListener('input', updateMultipleStudentsPreview);
+            
+            // Обработчики для модального окна причин пропусков
+            document.getElementById('setValidReason').addEventListener('click', () => setAbsenceReason('valid'));
+            document.getElementById('setInvalidReason').addEventListener('click', () => setAbsenceReason('invalid'));
+            document.getElementById('cancelEditReason').addEventListener('click', hideEditReasonModal);
+            document.getElementById('closeEditReasonModal').addEventListener('click', hideEditReasonModal);
+        }
+
+        function setupSocketListeners() {
+            socket.on('connect', () => {
+                console.log('Connected to server via WebSocket');
+                document.getElementById('statusIndicator').className = 'status-indicator';
+                document.getElementById('statusText').textContent = 'Онлайн';
+            });
+            
+            socket.on('disconnect', () => {
+                console.log('Disconnected from server');
+                document.getElementById('statusIndicator').className = 'status-indicator offline';
+                document.getElementById('statusText').textContent = 'Офлайн';
+            });
+            
+            socket.on('attendance_updated', (data) => {
+                console.log('Attendance updated via WebSocket:', data);
+                
+                if (data.hour !== null && data.hour !== undefined) {
+                    if (!hourlyAttendance[data.date]) {
+                        hourlyAttendance[data.date] = {};
+                    }
+                    if (!hourlyAttendance[data.date][data.studentId]) {
+                        hourlyAttendance[data.date][data.studentId] = {};
+                    }
+                    
+                    if (data.status === 'unknown') {
+                        delete hourlyAttendance[data.date][data.studentId][data.hour];
+                    } else {
+                        hourlyAttendance[data.date][data.studentId][data.hour] = data.status;
+                    }
+                }
+                
+                if (formatDate(selectedDate) === data.date) {
+                    renderStudentsGrid();
+                }
+                
+                if (isDateInCurrentWeek(new Date(data.date))) {
+                    renderWeeklyTable();
+                    renderAbsenceTable();
+                }
+                
+                updateBlacklist();
+            });
+            
+            socket.on('student_added', (student) => {
+                console.log('Student added via WebSocket:', student);
+                
+                if (!students.find(s => s.id === student.id)) {
+                    students.push(student);
+                    renderStudentsGrid();
+                    renderWeeklyTable();
+                    renderStudentsTable();
+                    renderAbsenceTable();
+                    updateStats();
+                    updateBlacklist();
+                }
+            });
+            
+            socket.on('student_deleted', (studentId) => {
+                console.log('Student deleted via WebSocket:', studentId);
+                
+                students = students.filter(s => s.id !== studentId);
+                renderStudentsGrid();
+                renderWeeklyTable();
+                renderStudentsTable();
+                renderAbsenceTable();
+                updateStats();
+                updateBlacklist();
+            });
+            
+            socket.on('day_saved', (data) => {
+                console.log('Day saved via WebSocket:', data);
+                
+                savedDays[data.date] = savedDays[data.date] || {};
+                savedDays[data.date][data.profession] = true;
+                
+                if (formatDate(selectedDate) === data.date) {
+                    renderStudentsGrid();
+                }
+            });
+            
+            socket.on('absence_reason_updated', (data) => {
+                console.log('Absence reason updated via WebSocket:', data);
+                
+                if (!absenceReasons[data.date]) absenceReasons[data.date] = {};
+                if (!absenceReasons[data.date][data.studentId]) absenceReasons[data.date][data.studentId] = {};
+                
+                if (data.reason === null) {
+                    delete absenceReasons[data.date][data.studentId][data.hour];
+                } else {
+                    absenceReasons[data.date][data.studentId][data.hour] = data.reason;
+                }
+                
+                if (isDateInCurrentWeek(new Date(data.date))) {
+                    renderAbsenceTable();
+                }
+            });
+        }
+
+        // ===== ФУНКЦИОНАЛЬНОСТЬ ПРИЛОЖЕНИЯ =====
+
+        function navigateMonths(months) {
+            currentDate.setMonth(currentDate.getMonth() + months);
+            generateCalendar();
+        }
+
+        function goToToday() {
+            selectedDate = new Date();
+            currentDate = new Date();
+            updateDateDisplay();
+            generateCalendar();
+            renderStudentsGrid();
+        }
+
+        function navigateWeeks(weeks) {
+            currentWeekStart.setDate(currentWeekStart.getDate() + (weeks * 7));
+            updateWeekDisplay();
+            renderWeeklyTable();
+            renderAbsenceTable();
+        }
+
+        function switchPage(page) {
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            document.getElementById(page + 'Page').classList.add('active');
+            document.querySelector(`.tab[data-page="${page}"]`).classList.add('active');
+            
+            if (page === 'blacklist') {
+                updateBlacklist();
+            } else if (page === 'absence') {
+                updateAbsenceWeekDisplay();
+            }
+        }
+
+        function selectDate(date) {
+            selectedDate = date;
+            updateDateDisplay();
+            renderStudentsGrid();
+            generateCalendar();
+        }
+
+        function toggleEditMode() {
+            // Только для админа и декана
+            if (currentUser.role !== 'admin' && currentUser.role !== 'dekan') {
+                return;
+            }
+            
+            editMode = !editMode;
+            const editBtn = document.getElementById('editModeBtn');
+            const indicator = document.getElementById('editModeIndicator');
+            
+            if (editMode) {
+                editBtn.textContent = '✅ Режим редактирования';
+                editBtn.classList.remove('btn-warning');
+                editBtn.classList.add('btn-success');
+                indicator.style.display = 'inline-flex';
+                showNotification('Режим редактирования включен', 'success');
+            } else {
+                editBtn.textContent = '✏️ Режим редактирования';
+                editBtn.classList.remove('btn-success');
+                editBtn.classList.add('btn-warning');
+                indicator.style.display = 'none';
+                showNotification('Режим редактирования отключен', 'info');
+            }
+            
+            renderStudentsGrid();
+        }
+
+        function logout() {
+            localStorage.removeItem('currentUser');
+            window.location.href = 'index.html';
+        }
+
+        function applyFilters() {
+            renderStudentsGrid();
+        }
+
+        function applyWeeklyFilters() {
+            renderWeeklyTable();
+        }
+
+        function applyAbsenceFilters() {
+            renderAbsenceTable();
+        }
+
+        function getWeekDates() {
+            const weekDates = [];
+            for (let i = 0; i < DAYS_IN_WEEK; i++) {
+                const date = new Date(currentWeekStart);
+                date.setDate(currentWeekStart.getDate() + i);
+                weekDates.push(date);
+            }
+            return weekDates;
+        }
+
+        function exportNBToExcel() {
+            if (typeof XLSX === 'undefined') {
+                showNotification('Библиотека Excel не загружена. Обновите страницу', 'error');
+                return;
+            }
+
+            const professionFilter = document.getElementById('weeklyProfessionSelect').value;
+            const filteredStudents = students.filter(student => {
+                if (professionFilter && student.group !== professionFilter) return false;
+                return true;
+            });
+
+            if (filteredStudents.length === 0) {
+                showNotification('Нет студентов для экспорта', 'error');
+                return;
+            }
+
+            const weekDates = getWeekDates();
+            const weekStartStr = formatDate(weekDates[0]);
+            const weekEndStr = formatDate(weekDates[weekDates.length - 1]);
+            const groupName = professionFilter
+                ? (professions.find(p => p.id === professionFilter)?.name || professionFilter)
+                : 'Все группы';
+
+            const summaryHeaders = ['№', 'ФИО', 'Группа'];
+            weekDates.forEach(date => {
+                const dayName = date.toLocaleDateString('ru-RU', { weekday: 'long' });
+                const dateLabel = date.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                summaryHeaders.push(`НБ ${dayName} (${dateLabel})`);
+            });
+            summaryHeaders.push('Всего НБ (ч)', 'Всего Б (ч)', 'Не отмечено (ч)');
+
+            const summaryRows = [
+                [`Недельный отчёт посещаемости: ${weekStartStr} — ${weekEndStr}`],
+                [`Группа: ${groupName}`],
+                [`Б — был, НБ — не был, — — не отмечен`],
+                [],
+                summaryHeaders
+            ];
+
+            filteredStudents.forEach((student, index) => {
+                const professionName = professions.find(p => p.id === student.group)?.name || student.group;
+                const row = [index + 1, student.name, professionName];
+                let totalAbsent = 0;
+                let totalPresent = 0;
+                let totalUnmarked = 0;
+
+                weekDates.forEach(date => {
+                    const dateStr = formatDate(date);
+                    const dayStats = getStudentDayStats(student.id, dateStr);
+                    totalAbsent += dayStats.absent;
+                    totalPresent += dayStats.present;
+                    totalUnmarked += dayStats.unmarked;
+                    row.push(dayStats.absent > 0 ? `${dayStats.absent}ч` : '0ч');
+                });
+
+                row.push(`${totalAbsent}ч`, `${totalPresent}ч`, `${totalUnmarked}ч`);
+                summaryRows.push(row);
+            });
+
+            const gridHeaders = ['№', 'ФИО', 'Группа'];
+            weekDates.forEach(date => {
+                const dayName = date.toLocaleDateString('ru-RU', { weekday: 'short' });
+                const dateLabel = date.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
+                for (let hour = 1; hour <= HOURS_PER_DAY; hour++) {
+                    gridHeaders.push(`${dayName} ${dateLabel} ${hour}ч`);
+                }
+            });
+            gridHeaders.push('Всего НБ (ч)');
+
+            const gridRows = [gridHeaders];
+
+            filteredStudents.forEach((student, index) => {
+                const professionName = professions.find(p => p.id === student.group)?.name || student.group;
+                const row = [index + 1, student.name, professionName];
+                let totalAbsent = 0;
+
+                weekDates.forEach(date => {
+                    const dateStr = formatDate(date);
+                    for (let hour = 1; hour <= HOURS_PER_DAY; hour++) {
+                        const status = getStudentHourStatus(student.id, dateStr, hour);
+                        const cellInfo = getAttendanceCellInfo(status);
+                        if (status === 'absent') totalAbsent++;
+                        row.push(cellInfo.text);
+                    }
+                });
+
+                row.push(`${totalAbsent}ч`);
+                gridRows.push(row);
+            });
+
+            const detailHeaders = ['№', 'ФИО', 'Группа', 'Дата', 'День недели', 'Час', 'Статус'];
+            const detailRows = [detailHeaders];
+
+            filteredStudents.forEach((student, index) => {
+                const professionName = professions.find(p => p.id === student.group)?.name || student.group;
+
+                weekDates.forEach(date => {
+                    const dateStr = formatDate(date);
+                    const dayName = date.toLocaleDateString('ru-RU', { weekday: 'long' });
+                    const dateLabel = date.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+                    for (let hour = 1; hour <= HOURS_PER_DAY; hour++) {
+                        const status = getStudentHourStatus(student.id, dateStr, hour);
+                        const cellInfo = getAttendanceCellInfo(status);
+
+                        detailRows.push([
+                            index + 1,
+                            student.name,
+                            professionName,
+                            dateLabel,
+                            dayName,
+                            `${hour}ч`,
+                            cellInfo.title
+                        ]);
+                    }
+                });
+            });
+
+            const workbook = XLSX.utils.book_new();
+            const summarySheet = XLSX.utils.aoa_to_sheet(summaryRows);
+            const gridSheet = XLSX.utils.aoa_to_sheet(gridRows);
+            const detailSheet = XLSX.utils.aoa_to_sheet(detailRows);
+
+            summarySheet['!cols'] = [
+                { wch: 5 },
+                { wch: 30 },
+                { wch: 45 },
+                ...weekDates.map(() => ({ wch: 14 })),
+                { wch: 14 },
+                { wch: 12 },
+                { wch: 16 }
+            ];
+            gridSheet['!cols'] = [
+                { wch: 5 },
+                { wch: 30 },
+                { wch: 45 },
+                ...weekDates.flatMap(() => Array(HOURS_PER_DAY).fill({ wch: 10 })),
+                { wch: 14 }
+            ];
+            detailSheet['!cols'] = [
+                { wch: 5 },
+                { wch: 30 },
+                { wch: 45 },
+                { wch: 12 },
+                { wch: 14 },
+                { wch: 8 },
+                { wch: 14 }
+            ];
+
+            XLSX.utils.book_append_sheet(workbook, summarySheet, 'НБ по дням');
+            XLSX.utils.book_append_sheet(workbook, gridSheet, 'По часам');
+            XLSX.utils.book_append_sheet(workbook, detailSheet, 'Детализация');
+
+            const safeGroupName = groupName.replace(/[\\/:*?"<>|]/g, '_').substring(0, 40);
+            const fileName = `Недельный_отчёт_${weekStartStr}_${weekEndStr}_${safeGroupName}.xlsx`;
+
+            XLSX.writeFile(workbook, fileName);
+            showNotification('Excel файл успешно загружен', 'success');
+        }
+
+        function applyBlacklistFilters() {
+            updateBlacklist();
+        }
+
+        async function saveAllAttendance() {
+            if (currentUser.role === 'dezhur') {
+                // Для дежурного - сохраняем и блокируем
+                await saveAllAttendanceForDay();
+            } else {
+                // Для админа и декана - просто сохраняем
+                showNotification('Посещаемость сохраняется...', 'warning');
+                // Данные уже сохраняются при каждом клике через saveAttendance
+                setTimeout(() => {
+                    showNotification('Посещаемость успешно сохранена', 'success');
+                }, 500);
+            }
+        }
+
+        function showAddStudentModal() {
+            document.getElementById('addStudentModal').classList.add('show');
+        }
+
+        function hideAddStudentModal() {
+            document.getElementById('addStudentModal').classList.remove('show');
+            document.getElementById('studentName').value = '';
+            document.getElementById('studentProfession').value = '';
+        }
+
+        function showAddMultipleStudentsModal() {
+            const professionSelect = document.getElementById('batchProfessionSelect');
+            const selectedProfession = professionSelect.value;
+            
+            if (!selectedProfession) {
+                showNotification('Выберите профессию', 'error');
+                return;
+            }
+            
+            const professionName = professions.find(p => p.id === selectedProfession)?.name || selectedProfession;
+            
+            document.getElementById('selectedProfessionName').textContent = professionName;
+            document.getElementById('multipleStudentsProfession').value = selectedProfession;
+            document.getElementById('multipleStudentsNames').value = '';
+            
+            updateMultipleStudentsPreview();
+            
+            document.getElementById('addMultipleStudentsModal').classList.add('show');
+        }
+
+        function hideAddMultipleStudentsModal() {
+            document.getElementById('addMultipleStudentsModal').classList.remove('show');
+        }
+
+        function updateMultipleStudentsPreview() {
+            const namesText = document.getElementById('multipleStudentsNames').value;
+            const names = namesText.split('\n').filter(name => name.trim() !== '');
+            const preview = document.getElementById('multipleStudentsPreview');
+            
+            preview.innerHTML = '';
+            
+            if (names.length === 0) {
+                preview.innerHTML = '<div class="student-preview-item">Введите имена студентов</div>';
+                return;
+            }
+            
+            if (names.length > 33) {
+                preview.innerHTML = '<div class="student-preview-item" style="color: var(--danger);">Превышен лимит в 33 студента</div>';
+                return;
+            }
+            
+            names.forEach((name, index) => {
+                const item = document.createElement('div');
+                item.className = 'student-preview-item';
+                item.textContent = `${index + 1}. ${name.trim()}`;
+                preview.appendChild(item);
+            });
+        }
+
+        async function addNewStudent() {
+            const name = document.getElementById('studentName').value.trim();
+            const profession = document.getElementById('studentProfession').value;
+            
+            if (!name) {
+                showNotification('Введите ФИО студента', 'error');
+                return;
+            }
+            
+            if (!profession) {
+                showNotification('Выберите профессию студента', 'error');
+                return;
+            }
+            
+            const professionData = professions.find(p => p.id === profession);
+            
+            const studentData = {
+                name: name,
+                group: profession,
+                course: professionData.course
+            };
+            
+            const success = await addStudent(studentData);
+            if (success) {
+                hideAddStudentModal();
+            }
+        }
+
+        async function addMultipleStudents() {
+            const namesText = document.getElementById('multipleStudentsNames').value;
+            const profession = document.getElementById('multipleStudentsProfession').value;
+            
+            if (!namesText.trim()) {
+                showNotification('Введите имена студентов', 'error');
+                return;
+            }
+            
+            const names = namesText.split('\n')
+                .filter(name => name.trim() !== '')
+                .slice(0, 33);
+            
+            if (names.length === 0) {
+                showNotification('Введите имена студентов', 'error');
+                return;
+            }
+            
+            const professionData = professions.find(p => p.id === profession);
+            if (!professionData) {
+                showNotification('Ошибка: профессия не найдена', 'error');
+                return;
+            }
+            
+            const studentsList = names.map(name => ({
+                name: name.trim(),
+                group: profession,
+                course: professionData.course
+            }));
+            
+            console.log('Attempting to add students:', studentsList);
+            
+            const success = await addMultipleStudents(studentsList);
+            if (success) {
+                hideAddMultipleStudentsModal();
+            }
+        }
+
+        async function setAbsenceReason(reason) {
+            const studentId = parseInt(document.getElementById('reasonStudentId').value);
+            const dateStr = document.getElementById('reasonDateStr').value;
+            const hour = parseInt(document.getElementById('reasonHourNum').value);
+            
+            const success = await saveAbsenceReason(studentId, dateStr, hour, reason);
+            if (success) {
+                hideEditReasonModal();
+                renderAbsenceTable();
+                showNotification('Причина пропуска обновлена', 'success');
+            }
+        }
+
+        // ===== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ =====
+
+        function formatDate(date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        function isDateInCurrentWeek(date) {
+            const weekEnd = new Date(currentWeekStart);
+            weekEnd.setDate(currentWeekStart.getDate() + 6);
+            
+            return date >= currentWeekStart && date <= weekEnd;
+        }
+
+        function showNotification(message, type = 'info') {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.className = `notification ${type}`;
+            notification.classList.add('show');
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
+        }
+
+        function updateDateDisplay() {
+            const options = { year: 'numeric', month: 'long' };
+            document.getElementById('currentDate').textContent = currentDate.toLocaleDateString('ru-RU', options);
+            
+            const selectedOptions = { year: 'numeric', month: 'long', day: 'numeric' };
+            document.getElementById('selectedDateDisplay').textContent = selectedDate.toLocaleDateString('ru-RU', selectedOptions);
+        }
+
+        function updateWeekDisplay() {
+            const weekEnd = new Date(currentWeekStart);
+            weekEnd.setDate(currentWeekStart.getDate() + 5);
+            
+            const options = { day: 'numeric', month: 'long' };
+            const startStr = currentWeekStart.toLocaleDateString('ru-RU', options);
+            const endStr = weekEnd.toLocaleDateString('ru-RU', options);
+            
+            document.getElementById('currentWeekRange').textContent = `${startStr} - ${endStr}`;
+        }
+
+        function updateDailyStats() {
+            const dateStr = formatDate(selectedDate);
+            const hourlyData = hourlyAttendance[dateStr] || {};
+            
+            const professionFilter = document.getElementById('professionSelect').value;
+            
+            const filteredStudents = students.filter(student => {
+                if (professionFilter && student.group !== professionFilter) return false;
+                return true;
+            });
+            
+            let totalStudents = filteredStudents.length;
+            let presentCount = 0;
+            let absentCount = 0;
+            let totalHoursPresent = 0;
+            let totalHoursAbsent = 0;
+            
+            filteredStudents.forEach(student => {
+                const studentHourlyData = hourlyData[student.id] || {};
+                let studentPresentHours = 0;
+                let studentAbsentHours = 0;
+                
+                for (let hour = 1; hour <= HOURS_PER_DAY; hour++) {
+                    if (studentHourlyData[hour] === 'present') {
+                        studentPresentHours++;
+                    } else if (studentHourlyData[hour] === 'absent') {
+                        studentAbsentHours++;
+                    }
+                }
+                
+                totalHoursPresent += studentPresentHours;
+                totalHoursAbsent += studentAbsentHours;
+                
+                if (studentPresentHours > 0) {
+                    presentCount++;
+                }
+                
+                if (studentAbsentHours === HOURS_PER_DAY && studentPresentHours === 0) {
+                    absentCount++;
+                }
+            });
+            
+            const totalPossibleHours = totalStudents * HOURS_PER_DAY;
+            const attendanceRate = totalPossibleHours > 0 ? 
+                Math.round((totalHoursPresent / totalPossibleHours) * 100) : 0;
+            
+            document.getElementById('dailyTotalStudents').textContent = totalStudents;
+            document.getElementById('dailyPresent').textContent = presentCount;
+            document.getElementById('dailyAbsent').textContent = absentCount;
+            document.getElementById('dailyAttendance').textContent = `${attendanceRate}%`;
+        }
+
+        function updateWeeklyStats() {
+            const professionFilter = document.getElementById('weeklyProfessionSelect').value;
+            
+            const filteredStudents = students.filter(student => {
+                if (professionFilter && student.group !== professionFilter) return false;
+                return true;
+            });
+            
+            const weekDates = [];
+            for (let i = 0; i < DAYS_IN_WEEK; i++) {
+                const date = new Date(currentWeekStart);
+                date.setDate(currentWeekStart.getDate() + i);
+                weekDates.push(date);
+            }
+            
+            let totalHoursPresent = 0;
+            let totalHoursAbsent = 0;
+            
+            weekDates.forEach(date => {
+                const dateStr = formatDate(date);
+                const dailyHourlyData = hourlyAttendance[dateStr] || {};
+                
+                filteredStudents.forEach(student => {
+                    const studentHourlyData = dailyHourlyData[student.id] || {};
+                    
+                    for (let hour = 1; hour <= HOURS_PER_DAY; hour++) {
+                        if (studentHourlyData[hour] === 'present') {
+                            totalHoursPresent++;
+                        } else if (studentHourlyData[hour] === 'absent') {
+                            totalHoursAbsent++;
+                        }
+                    }
+                });
+            });
+            
+            const totalTrackedHours = totalHoursPresent + totalHoursAbsent;
+            const avgAttendance = totalTrackedHours > 0 ? 
+                Math.round((totalHoursPresent / totalTrackedHours) * 100) : 0;
+            
+            document.getElementById('weeklyTotalStudents').textContent = filteredStudents.length;
+            document.getElementById('weeklyAvgAttendance').textContent = `${avgAttendance}%`;
+            document.getElementById('weeklyTotalPresent').textContent = totalHoursPresent;
+            document.getElementById('weeklyTotalAbsent').textContent = totalHoursAbsent;
+        }
+
+        function updateStats() {
+            updateDailyStats();
+            updateWeeklyStats();
+        }
+
+        // Демо-данные для тестирования
+        function loadDemoStudents() {
+            console.log('Loading demo students data...');
+            students = [
+                { id: 1, name: 'Алишер Усманов', group: '1-260101-00-a', course: 1 },
+                { id: 2, name: 'Фарход Рахимов', group: '1-260101-00-a', course: 1 },
+                { id: 3, name: 'Шахзод Усупов', group: '1-260101-00-a', course: 1 },
+                { id: 4, name: 'Галина Толочко', group: '1-250107', course: 1 },
+                { id: 5, name: 'Мирослав Ульяненко', group: '1-250107', course: 1 }
+            ];
+            renderStudentsGrid();
+            renderWeeklyTable();
+            renderStudentsTable();
+            renderAbsenceTable();
+            updateStats();
+            updateBlacklist();
+        }
+    </script>
+</body>
+</html>
